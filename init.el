@@ -48,6 +48,7 @@
   (pixel-scroll-precision-use-momentum t)
   (ring-bell-function 'ignore)
   (tab-width 4)
+  (global-font-lock-mode t)
   (treesit-font-lock-level 4)
   (truncate-lines t)
   (use-dialog-box nil)
@@ -108,18 +109,6 @@
   :straight t
   :defer t)
 
-;; (defun ek/lsp-describe-and-jump ()
-;;     (interactive)
-;;     (lsp-describe-thing-at-point)
-;;     (let ((help-buffer "*lsp-help*"))
-;;       (when (get-buffer help-buffer)
-;;         (switch-to-buffer-other-window help-buffer))))
-
-;;   (evil-define-key 'normal 'global (kbd "K")
-;;     (if (>= emacs-major-version 31)
-;;         #'eldoc-box-help-at-point
-;;         #'ek/lsp-describe-and-jump))
-
 (use-package which-key
   :ensure t
   :config
@@ -146,25 +135,6 @@
   (doom-themes-treemacs-config)
   ;; Corrects (and improves) org-mode's native fontification.
   (doom-themes-org-config))
-
-;; (use-package catppuccin-theme
-;;   :ensure t
-;;   :straight t
-;;   :config
-;;   (custom-set-faces
-;;    ;; Set the color for changes in the diff highlighting to blue.
-;;    `(diff-hl-change ((t (:background unspecified :foreground ,(catppuccin-get-color 'blue))))))
-
-;;   (custom-set-faces
-;;    ;; Set the color for deletions in the diff highlighting to red.
-;;    `(diff-hl-delete ((t (:background unspecified :foreground ,(catppuccin-get-color 'red))))))
-
-;;   (custom-set-faces
-;;    ;; Set the color for insertions in the diff highlighting to green.
-;;    `(diff-hl-insert ((t (:background unspecified :foreground ,(catppuccin-get-color 'green))))))
-
-;;     ;; Load the Catppuccin theme without prompting for confirmation.
-;;   (load-theme 'catppuccin :no-confirm))
 
 (use-package nerd-icons
   :ensure t
@@ -228,51 +198,6 @@
   (moody-replace-mode-line-buffer-identification)
   (moody-replace-vc-mode))
 
-(use-package dirvish
-  :ensure t
-  :straight t
-  :defer t
-  :init
-  (dirvish-override-dired-mode)
-  :custom
-  (dirvish-quick-access-entries ; It's a custom option, `setq' won't work
-   '(("h" "~/"                          "Home")
-     ("d" "~/Downloads/"                "Downloads")
-     ("s" "~/src/")                     "Source"
-     ("e" "~/src/ep/"                   "EP")))
-  :config
-  ;; (dirvish-peek-mode)             ; Preview files in minibuffer
-  (dirvish-side-follow-mode)      ; similar to `treemacs-follow-mode'
-  (setq dirvish-mode-line-format
-        '(:left (sort symlink) :right (omit yank index)))
-  (setq dirvish-attributes           ; The order *MATTERS* for some attributes
-        '(vc-state subtree-state nerd-icons collapse git-msg file-time file-size)
-        dirvish-side-attributes
-        '(vc-state nerd-icons collapse file-size))
-  ;; open large directory (over 20000 files) asynchronously with `fd' command
-  (setq dirvish-large-directory-threshold 20000)
-  (setq dirvish-side-display-alist '((side . right) (slot . -1)))
-  :bind ; Bind `dirvish-fd|dirvish-side|dirvish-dwim' as you see fit
-  (("C-c f" . dirvish)
-   :map dirvish-mode-map               ; Dirvish inherits `dired-mode-map'
-   (";"   . dired-up-directory)        ; So you can adjust `dired' bindings here
-   ("?"   . dirvish-dispatch)          ; [?] a helpful cheatsheet
-   ("a"   . dirvish-setup-menu)        ; [a]ttributes settings:`t' toggles mtime, `f' toggles fullframe, etc.
-   ("f"   . dirvish-file-info-menu)    ; [f]ile info
-   ("o"   . dirvish-quick-access)      ; [o]pen `dirvish-quick-access-entries'
-   ("s"   . dirvish-quicksort)         ; [s]ort flie list
-   ("r"   . dirvish-history-jump)      ; [r]ecent visited
-   ("l"   . dirvish-ls-switches-menu)  ; [l]s command flags
-   ("v"   . dirvish-vc-menu)           ; [v]ersion control commands
-   ("*"   . dirvish-mark-menu)
-   ("y"   . dirvish-yank-menu)
-   ("N"   . dirvish-narrow)
-   ("^"   . dirvish-history-last)
-   ("TAB" . dirvish-subtree-toggle)
-   ("M-f" . dirvish-history-go-forward)
-   ("M-b" . dirvish-history-go-backward)
-   ("M-e" . dirvish-emerge-menu)))
-
 (use-package vertico
   :ensure t
   :straight t
@@ -297,6 +222,8 @@
   :ensure t
   :straight t
   :hook ((org-mode
+          nix-mode
+          lua-ts-mode
           typescript-ts-mode
           tsx-ts-mode
           csharp-ts-mode
@@ -449,112 +376,9 @@
                                        "?=" "?." "??" ";;" "/*" "/=" "/>" "//" "__" "~~" "(*" "*)"
                                        "\\\\" "://")))
 
-(use-package lsp-mode
-  :ensure t
-  :straight t
-  :hook ((csharp-ts-mode
-      json-ts-mode
-      typescript-ts-mode
-      tsx-ts-mode
-      nix-mode) . lsp-deferred)
-  :commands lsp lsp-deferred
-  :custom
-  (lsp-log-io nil)
-  (lsp-keep-workspace-alive nil)
-  (lsp-semantic-tokens-enable nil)
-  (lsp-session-file "~/.emacs.d/.lsp-session-v1")
 
-  (lsp-enable-xref t)
-  (lsp-enable-links t)
-  (lsp-enable-imenu nil)
-  (lsp-enable-indentation nil)
-  (lsp-eldoc-enable-hover nil)
-  (lsp-enable-file-watchers nil)
-  (lsp-enable-symbol-highlighting t)
-  (lsp-enable-on-type-formatting nil)
-  (lsp-enable-text-document-color nil)
-  (lsp-enable-suggest-server-download t)
-  (lsp-enable-text-document-color t)
-  (lsp-eldoc-render-all t)
-  (lsp-inlay-hint-enable nil)
 
-  (lsp-ui-doc-enable nil)
-  (lsp-ui-sideline-delay 0)
-  (lsp-ui-sideline-show-hover nil)
-  (lsp-ui-sideline-update-mode 'line)
-  (lsp-ui-sideline-diagnostic-max-lines 20)
 
-  (lsp-signature-auto-activate nil)
-  (lsp-signature-render-documentation nil)
-
-  (lsp-modeline-diagnostics-enable nil)
-  (lsp-modeline-code-actions-enable nil)
-  (lsp-modeline-workspace-status-enable nil)
-
-  (lsp-headerline-breadcrumb-enable t)
-  (lsp-headerline-breadcrumb-icons-enable t)
-  (lsp-headerline-breadcrumb-enable-diagnostics nil)
-  (lsp-headerline-breadcrumb-enable-symbol-numbers nil)
-
-  (lsp-completion-show-kind t)
-  (lsp-completion-provider :none)
-  (lsp-diagnostics-provider :flycheck)
-  :config
-  (add-to-list 'lsp-file-watch-ignored-directories "[/\\\\]\\.node_modules\\'")
-  (setq lsp-clients-typescript-tls-path "vtsls")
-  (setq lsp-clients-typescript-prefer-use-project-ts-server t)
-  (setq lsp-typescript-format-enable nil)
-  (setq lsp-typescript-implementations-code-lens-enabled t)
-  (setq lsp-typescript-references-code-lens-enabled t)
-  (setq lsp-enable-which-key-integration t)
-  (setq lsp-eslint-working-directories [(mode "location")])
-
-  :init
-  (setq lsp-use-plists t))
-
-(use-package lsp-ui
-  :ensure t
-  :straight t
-  :after lsp-mode
-  :config
-  (setq lsp-ui-peek-enable t)
-  (define-key lsp-ui-mode-map (kbd "M-.") #'lsp-ui-peek-find-definitions)
-  (define-key lsp-ui-mode-map (kbd "M-?") #'lsp-ui-peek-find-references))
-
-(defun lsp-booster--advice-json-parse (old-fn &rest args)
-  "Try to parse bytecode (OLD-FN ARGS) instead of JSON."
-  (or
-   (when (equal (following-char) ?#)
-     (let ((bytecode (read (current-buffer))))
-       (when (byte-code-function-p bytecode)
-         (funcall bytecode))))
-   (apply old-fn args)))
-
-(advice-add (if (progn (require 'json)
-                       (fboundp 'json-parse-buffer))
-                'json-parse-buffer
-              'json-read)
-            :around
-            #'lsp-booster--advice-json-parse)
-
-(defun lsp-booster--advice-final-command (old-fn cmd &optional test?)
-  "Prepend emacs-lsp-booster command (OLD-FN TEST?) to LSP CMD."
-  (let ((orig-result (funcall old-fn cmd test?)))
-    (if (and (not test?)
-             (not (file-remote-p default-directory))
-             lsp-use-plists
-             (not (functionp 'json-rpc-connection))
-             (executable-find "emacs-lsp-booster"))
-        (progn
-          (when-let ((command-from-exec-path (executable-find (car orig-result))))
-            (setcar orig-result command-from-exec-path))
-          (message "Using emacs-lsp-booster for %s!" orig-result)
-          (cons "emacs-lsp-booster" orig-result))
-      orig-result)))
-
-(advice-add 'lsp-resolve-final-command
-        :around
-        #'lsp-booster--advice-final-command)
 
 (use-package lsp-tailwindcss
   :ensure t
@@ -569,95 +393,91 @@
   :custom
   (lsp-tailwindcss-server-path (executable-find "tailwindcss-language-server")))
 
-(use-package lsp-eslint
-  :config
-  (setq lsp-eslint-server-command '("vscode-eslint-language-server" "--stdio"))
-  :after lsp-mode)
-
 (use-package nix-mode
   :ensure t
   :straight t
   :defer t
   :mode "\\.nix\\'")
 
-(use-package flycheck
-  :ensure t
-  :straight t
-  :defer t
-  :init (global-flycheck-mode)
-  :config
-
-  ;; Show indicators in the left margin
-  (setq flycheck-indication-mode 'left-margin)
-
-  ;; Adjust margins and fringe widths…
-  (defun my/set-flycheck-margins ()
-    (setq left-fringe-width 8 right-fringe-width 8
-          left-margin-width 1 right-margin-width 0)
-    (flycheck-refresh-fringes-and-margins))
-  ;; …every time Flycheck is activated in a new buffer
-  (add-hook 'flycheck-mode-hook #'my/set-flycheck-margins))
-
-;; (use-package flymake
+;; (use-package flycheck
+;;   :ensure t
+;;   :straight t
 ;;   :defer t
-;;   :ensure nil
-;;   :hook
-;;   (prog-mode . flymake-mode)
-;;   :custom
-;;   (flymake-show-diagnostics-at-end-of-line 'fancy)
-;;   (flymake-indicator-type 'margins)
-;;   (flymake-margin-indicators-string
-;;    `((error "󰅙  " compilation-error)
-;;      (warning "  " compilation-warning)
-;;      (note "󰋼  " compilation-info)))
+;;   :init (global-flycheck-mode)
 ;;   :config
-;;   (defun hy/toggle-flymake-inline-diagnostics ()
-;;     "Toggle `flymake-show-diagnostics-at-end-of-line` between 'short and nil, and refresh Flymake."
-;;     (interactive)
-;;     (setq flymake-show-diagnostics-at-end-of-line
-;;             (if (eq flymake-show-diagnostics-at-end-of-line 'short)
-;;                     nil
-;;               'short))
-;;     ;; Refresh Flymake to apply the new setting
-;;     (flymake-mode-off)
-;;     (flymake-mode)
-;;     (message "flymake-show-diagnostics-at-end-of-line is now %s"
-;;                flymake-show-diagnostics-at-end-of-line))
 
-;;   (defun hy/toggle-flymake-diagnostics ()
-;;     "Toggle Flymake mode on or off."
-;;     (interactive)
-;;     (if flymake-mode
-;;           (progn
-;;             (flymake-mode-off)
-;;             (message "Flymake mode is now OFF"))
-;;         (flymake-mode)
-;;         (message "Flymake mode is now ON")))
+  ;; ;; Show indicators in the left margin
+  ;; (setq flycheck-indication-mode 'left-margin)
+  ;; (setq flycheck-javascript-eslint-executable "eslint_d")
 
-;;   (bind-keys :map flymake-mode-map
-;;                ;; ("C-c ! l" . flymake-show-buffer-diagnostics)
-;;                ("C-c ! l" . consult-flymake)
-;;                ("C-c ! P" . flymake-show-project-diagnostics)
-;;                ("C-c ! n" . flymake-goto-next-error)
-;;                ("C-c ! p" . flymake-goto-prev-error)
-;;                ("C-c ! i" . hy/toggle-flymake-inline-diagnostics)
-;;                ("C-c ! d" . hy/toggle-flymake-diagnostics)
-;;                ("M-7" . flymake-goto-prev-error)
-;;                ("M-8" . flymake-goto-next-error)))
+  ;; ;; Adjust margins and fringe widths…
+  ;; (defun my/set-flycheck-margins ()
+  ;;   (setq left-fringe-width 8 right-fringe-width 8
+  ;;         left-margin-width 1 right-margin-width 0)
+  ;;   (flycheck-refresh-fringes-and-margins))
+  ;; ;; …every time Flycheck is activated in a new buffer
+  ;; (add-hook 'flycheck-mode-hook #'my/set-flycheck-margins))
 
-(use-package flyover
+(use-package flymake
   :defer t
-  :straight (flyover :type git :host github :repo "konrad1977/flyover")
-  :ensure t
-  :hook (flycheck-mode-hook . flyover-mode)
+  :ensure nil
+  :hook
+  (prog-mode . flymake-mode)
+  :custom
+  (flymake-show-diagnostics-at-end-of-line 'fancy)
+  (flymake-indicator-type 'margins)
+  (flymake-margin-indicators-string
+   `((error "󰅙  " compilation-error)
+     (warning "  " compilation-warning)
+     (note "󰋼  " compilation-info)))
   :config
-  (setq flyover-levels '(error warning info))
-  (setq flyover-use-theme-colors t)
-  (setq flyover-checkers '(flycheck flymake))
-  (setq flyover-background-lightness 30)
-  (setq flyover-wrap-messages t)
-  (setq flyover-max-line-length 80)
-  (setq flyover-hide-checker-name t))
+  (defun hy/toggle-flymake-inline-diagnostics ()
+    "Toggle `flymake-show-diagnostics-at-end-of-line` between 'short and nil, and refresh Flymake."
+    (interactive)
+    (setq flymake-show-diagnostics-at-end-of-line
+            (if (eq flymake-show-diagnostics-at-end-of-line 'short)
+                    nil
+              'short))
+    ;; Refresh Flymake to apply the new setting
+    (flymake-mode-off)
+    (flymake-mode)
+    (message "flymake-show-diagnostics-at-end-of-line is now %s"
+               flymake-show-diagnostics-at-end-of-line))
+
+  (defun hy/toggle-flymake-diagnostics ()
+    "Toggle Flymake mode on or off."
+    (interactive)
+    (if flymake-mode
+          (progn
+            (flymake-mode-off)
+            (message "Flymake mode is now OFF"))
+        (flymake-mode)
+        (message "Flymake mode is now ON")))
+
+  (bind-keys :map flymake-mode-map
+               ;; ("C-c ! l" . flymake-show-buffer-diagnostics)
+               ("C-c ! l" . consult-flymake)
+               ("C-c ! P" . flymake-show-project-diagnostics)
+               ("C-c ! n" . flymake-goto-next-error)
+               ("C-c ! p" . flymake-goto-prev-error)
+               ("C-c ! i" . hy/toggle-flymake-inline-diagnostics)
+               ("C-c ! d" . hy/toggle-flymake-diagnostics)
+               ("M-7" . flymake-goto-prev-error)
+               ("M-8" . flymake-goto-next-error)))
+
+;; (use-package flyover
+;;   :defer t
+;;   :straight (flyover :type git :host github :repo "konrad1977/flyover")
+;;   :ensure t
+;;   :hook (flycheck-mode-hook . flyover-mode)
+;;   :config
+;;   (setq flyover-levels '(error warning info))
+;;   (setq flyover-use-theme-colors t)
+;;   (setq flyover-checkers '(flycheck flymake))
+;;   (setq flyover-background-lightness 30)
+;;   (setq flyover-wrap-messages t)
+;;   (setq flyover-max-line-length 80)
+;;   (setq flyover-hide-checker-name t))
 
 
 (use-package diff-hl
@@ -683,11 +503,67 @@
   :config
   (setq org-startup-indented t
         org-hide-emphasis-markers t
+        org-auto-align-tags nil
+        org-tags-column 0
+        org-fold-catch-invisible-edits 'show-and-error
+        org-special-ctrl-a/e t
+        org-insert-heading-respect-content t
+        org-pretty-entities t
+        org-agenda-tags-column 0
+        org-ellipsis "…"
         org-agenda-files '("~/org/"))
 
-  (org-babel-do-load-languages
-   'org-babel-load-languages
-   '((js . t))))
+  (setq +org-capture-projects-file (expand-file-name "projects.org" (car org-agenda-files))
+        +org-capture-todo-file     (expand-file-name "todo.org"    (car org-agenda-files))
+        +org-capture-journal-file  (expand-file-name "schedule.org" (car org-agenda-files))
+        +org-capture-notes-file    (expand-file-name "notes.org"    (car org-agenda-files)))
+
+  (setq org-todo-keywords
+        '((sequence "TODO" "IN-PROGRESS" "WAITING" "DONE")))
+
+  (setq org-capture-templates '(("t" "Quick todo" entry
+                                 (file+headline +org-capture-todo-file "Todos")
+                                 "* TODO %?\n%i\n" :prepend t)
+                                ("e" "Event" entry
+                                 (file+olp +org-capture-journal-file "Events")
+                                 "* EVENT %?\n%i\n" :prepend nil)
+                                ("i" "Random idea" entry
+                                 (file+olp +org-capture-notes-file "Inbox")
+                                 "* IDEA %?\n%i\n" :prepend t)
+                                ("p" "Centralized templates for projects")
+                                ("pt" "Project todo" entry
+                                 #'+org-capture-central-project-todo-file
+                                 "* TODO %?\n %i\n %a" :heading "Tasks" :prepend t)
+                                ("pe""Project event" entry
+                                 #'+org-capture-central-project-todo-file
+                                 "* EVENT %?\n %i\n" :heading "Events" :prepend nil)
+                                ("pi" "Project idea" entry
+                                 #'+org-capture-central-project-todo-file
+                                 "* IDEA %?\n %i\n %a" :heading "Ideas" :prepend t))))
+
+;; (use-package org-super-agenda
+;;   :ensure t
+;;   :straight t
+;;   :defer t
+;;   :config
+;;   (let ((org-super-agenda-groups
+;;        '((:auto-group t))))
+;;     (org-agenda-list)))
+
+(use-package org-modern
+  :ensure t
+  :straight t
+  :defer t
+  :hook (org-mode . org-modern-mode))
+
+(with-eval-after-load 'eglot
+    (add-to-list 'eglot-server-programs
+               '((csharp-ts-mode csharp-mode) . ("csharp-language-server")))
+    (add-to-list 'eglot-server-programs
+               '((tsx-ts-mode typescript-ts-mode) . ("rass"
+                                                     "--" "typescript-language-server" "--stdio"
+                                                     "--" "vscode-eslint-language-server" "--stdio"
+                                                     "--" "tailwindcss-language-server" "--stdio"))))
 
 (use-package magit
   :ensure t
@@ -709,6 +585,169 @@
     '(add-hook 'typescriptreact-mode-hook #'add-node-modules-path))
   (eval-after-load 'js-mode
     '(add-hook 'js-mode-hook #'add-node-modules-path)))
+
+
+;; EVIL
+;; The `evil' package provides Vim emulation within Emacs, allowing
+;; users to edit text in a modal way, similar to how Vim
+;; operates. This setup configures `evil-mode' to enhance the editing
+;; experience.
+(use-package evil
+  :ensure t
+  :straight t
+  :defer t
+  :hook
+  (after-init . evil-mode)
+  :init
+  (setq evil-want-integration t)      ;; Integrate `evil' with other Emacs features (optional as it's true by default).
+  (setq evil-want-keybinding nil)     ;; Disable default keybinding to set custom ones.
+  (setq evil-want-C-u-scroll t)       ;; Makes C-u scroll
+  (setq evil-want-C-u-delete t)       ;; Makes C-u delete on insert mode
+  :config
+  (evil-set-undo-system 'undo-tree)   ;; Uses the undo-tree package as the default undo system
+
+  ;; Set the leader key to space for easier access to custom commands. (setq evil-want-leader t)
+  (setq evil-leader/in-all-states t)  ;; Make the leader key available in all states.
+  (setq evil-want-fine-undo t)        ;; Evil uses finer grain undoing steps
+
+  ;; Define the leader key as Space
+  (evil-set-leader 'normal (kbd "SPC"))
+  (evil-set-leader 'visual (kbd "SPC"))
+
+  ;; Keybindings for searching and finding files.
+  (evil-define-key 'normal 'global (kbd "<leader> s f") 'consult-find)
+  (evil-define-key 'normal 'global (kbd "<leader> s g") 'consult-grep)
+  (evil-define-key 'normal 'global (kbd "<leader> s G") 'consult-git-grep)
+  (evil-define-key 'normal 'global (kbd "<leader> s r") 'consult-ripgrep)
+  (evil-define-key 'normal 'global (kbd "<leader> s h") 'consult-info)
+  (evil-define-key 'normal 'global (kbd "<leader> /") 'consult-line)
+
+  ;; Flymake navigation
+  (evil-define-key 'normal 'global (kbd "<leader> x x") 'consult-flymake);; Gives you something like `trouble.nvim'
+  (evil-define-key 'normal 'global (kbd "] d") 'flymake-goto-next-error) ;; Go to next Flymake error
+  (evil-define-key 'normal 'global (kbd "[ d") 'flymake-goto-prev-error) ;; Go to previous Flymake error
+
+  ;; Dired commands for file management
+  (evil-define-key 'normal 'global (kbd "<leader> x d") 'dired)
+  (evil-define-key 'normal 'global (kbd "<leader> x j") 'dired-jump)
+  (evil-define-key 'normal 'global (kbd "<leader> x f") 'find-file)
+
+  ;; Diff-HL navigation for version control
+  (evil-define-key 'normal 'global (kbd "] c") 'diff-hl-next-hunk) ;; Next diff hunk
+  (evil-define-key 'normal 'global (kbd "[ c") 'diff-hl-previous-hunk) ;; Previous diff hunk
+
+  ;; NeoTree command for file exploration
+  (evil-define-key 'normal 'global (kbd "<leader> e e") 'neotree-toggle)
+  (evil-define-key 'normal 'global (kbd "<leader> e d") 'dired-jump)
+
+  ;; Magit keybindings for Git integration
+  (evil-define-key 'normal 'global (kbd "<leader> g g") 'magit-status)      ;; Open Magit status
+  (evil-define-key 'normal 'global (kbd "<leader> g l") 'magit-log-current) ;; Show current log
+  (evil-define-key 'normal 'global (kbd "<leader> g d") 'magit-diff-buffer-file) ;; Show diff for the current file
+  (evil-define-key 'normal 'global (kbd "<leader> g D") 'diff-hl-show-hunk) ;; Show diff for a hunk
+  (evil-define-key 'normal 'global (kbd "<leader> g b") 'vc-annotate)       ;; Annotate buffer with version control info
+
+  ;; Buffer management keybindings
+  (evil-define-key 'normal 'global (kbd "] b") 'switch-to-next-buffer) ;; Switch to next buffer
+  (evil-define-key 'normal 'global (kbd "[ b") 'switch-to-prev-buffer) ;; Switch to previous buffer
+  (evil-define-key 'normal 'global (kbd "<leader> b i") 'consult-buffer) ;; Open consult buffer list
+  (evil-define-key 'normal 'global (kbd "<leader> b b") 'ibuffer) ;; Open Ibuffer
+  (evil-define-key 'normal 'global (kbd "<leader> b d") 'kill-current-buffer) ;; Kill current buffer
+  (evil-define-key 'normal 'global (kbd "<leader> b k") 'kill-current-buffer) ;; Kill current buffer
+  (evil-define-key 'normal 'global (kbd "<leader> b x") 'kill-current-buffer) ;; Kill current buffer
+  (evil-define-key 'normal 'global (kbd "<leader> b s") 'save-buffer) ;; Save buffer
+  (evil-define-key 'normal 'global (kbd "<leader> b l") 'consult-buffer) ;; Consult buffer
+  (evil-define-key 'normal 'global (kbd "<leader>SPC") 'consult-buffer) ;; Consult buffer
+
+  ;; Project management keybindings
+  (evil-define-key 'normal 'global (kbd "<leader> p b") 'consult-project-buffer) ;; Consult project buffer
+  (evil-define-key 'normal 'global (kbd "<leader> p p") 'project-switch-project) ;; Switch project
+  (evil-define-key 'normal 'global (kbd "<leader> p f") 'project-find-file) ;; Find file in project
+  (evil-define-key 'normal 'global (kbd "<leader> p g") 'project-find-regexp) ;; Find regexp in project
+  (evil-define-key 'normal 'global (kbd "<leader> p k") 'project-kill-buffers) ;; Kill project buffers
+  (evil-define-key 'normal 'global (kbd "<leader> p D") 'project-dired) ;; Dired for project
+
+  ;; Orgmode keybindings
+  (evil-define-key 'normal 'global (kbd "<leader> o a") 'org-agenda) ;; Org agenda
+  (evil-define-key 'normal 'global (kbd "<leader> o p") 'org-capture) ;; Org capture
+
+  ;; Yank from kill ring
+  (evil-define-key 'normal 'global (kbd "P") 'consult-yank-from-kill-ring)
+  (evil-define-key 'normal 'global (kbd "<leader> P") 'consult-yank-from-kill-ring)
+
+  ;; Embark actions for contextual commands
+  (evil-define-key 'normal 'global (kbd "<leader> .") 'embark-act)
+
+  ;; Undo tree visualization
+  (evil-define-key 'normal 'global (kbd "<leader> u") 'undo-tree-visualize)
+
+  ;; Help keybindings
+  (evil-define-key 'normal 'global (kbd "<leader> h m") 'describe-mode) ;; Describe current mode
+  (evil-define-key 'normal 'global (kbd "<leader> h f") 'describe-function) ;; Describe function
+  (evil-define-key 'normal 'global (kbd "<leader> h v") 'describe-variable) ;; Describe variable
+  (evil-define-key 'normal 'global (kbd "<leader> h k") 'describe-key) ;; Describe key
+
+  ;; Tab navigation
+  (evil-define-key 'normal 'global (kbd "] t") 'tab-next) ;; Go to next tab
+  (evil-define-key 'normal 'global (kbd "[ t") 'tab-previous) ;; Go to previous tab
+
+  ;; LSP commands keybindings
+  (evil-define-key 'normal lsp-mode-map
+                   ;; (kbd "gd") 'lsp-find-definition                ;; evil-collection already provides gd
+                   (kbd "gr") 'lsp-find-references                   ;; Finds LSP references
+                   (kbd "<leader> c a") 'lsp-execute-code-action     ;; Execute code actions
+                   (kbd "<leader> r n") 'lsp-rename                  ;; Rename symbol
+                   (kbd "gI") 'lsp-find-implementation               ;; Find implementation
+                   (kbd "<leader> l f") 'lsp-format-buffer)          ;; Format buffer via lsp
+
+
+  (defun hy/lsp-describe-and-jump ()
+    "Show hover documentation and jump to *lsp-help* buffer."
+    (interactive)
+    (lsp-describe-thing-at-point)
+    (let ((help-buffer "*lsp-help*"))
+      (when (get-buffer help-buffer)
+        (switch-to-buffer-other-window help-buffer))))
+
+  ;; Emacs 31 finaly brings us support for 'floating windows' (a.k.a. "child frames")
+  ;; to terminal Emacs. If you're still using 30, docs will be shown in a buffer at the
+  ;; inferior part of your frame.
+  (evil-define-key 'normal 'global (kbd "K")
+    (if (>= emacs-major-version 31)
+        #'eldoc-box-help-at-point
+        #'hy/lsp-describe-and-jump))
+
+  ;; Commenting functionality for single and multiple lines
+  (evil-define-key 'normal 'global (kbd "gcc")
+                   (lambda ()
+                     (interactive)
+                     (if (not (use-region-p))
+                         (comment-or-uncomment-region (line-beginning-position) (line-end-position)))))
+
+  (evil-define-key 'visual 'global (kbd "gc")
+                   (lambda ()
+                     (interactive)
+                     (if (use-region-p)
+                         (comment-or-uncomment-region (region-beginning) (region-end)))))
+
+  ;; Enable evil mode
+  (evil-mode 1))
+
+
+;; EVIL COLLECTION
+;; The `evil-collection' package enhances the integration of
+;; `evil-mode' with various built-in and third-party packages. It
+;; provides a better modal experience by remapping keybindings and
+;; commands to fit the `evil' style.
+(use-package evil-collection
+  :defer t
+  :straight t
+  :ensure t
+  :custom
+  (evil-collection-want-find-usages-bindings t)
+  ;; Hook to initialize `evil-collection' when `evil-mode' is activated.
+  :hook
+  (evil-mode . evil-collection-init))
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
