@@ -36,6 +36,41 @@
   (when (memq window-system '(mac ns x))
     (exec-path-from-shell-initialize)))
 
+;; Mouse in terminal
+(unless (display-graphic-p)
+  (xterm-mouse-mode 1)
+  (global-set-key (kbd "<mouse-4>") 'scroll-down-line)
+  (global-set-key (kbd "<mouse-5>") 'scroll-up-line))
+
+;; UTF-8 everywhere
+(prefer-coding-system       'utf-8)
+(set-default-coding-systems 'utf-8)
+(set-terminal-coding-system 'utf-8)
+(set-keyboard-coding-system 'utf-8)
+(set-language-environment   'utf-8)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;; Themes and UI ;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Apply to all new frames (including the initial one if in early-init.el)
+(add-to-list 'default-frame-alist '(min-height          . 1))
+(add-to-list 'default-frame-alist '(height             . 45))   ; adjust to taste
+(add-to-list 'default-frame-alist '(min-width           . 1))
+(add-to-list 'default-frame-alist '(width               . 100))   ; adjust to taste
+(add-to-list 'default-frame-alist '(internal-border-width . 18)) ; ← main padding!
+(add-to-list 'default-frame-alist '(left-fringe         . 1))
+(add-to-list 'default-frame-alist '(right-fringe        . 1))
+
+;; Optional: fallback glyph for truncation/wrap (clean look)
+(require 'disp-table)
+(defface my-fallback-glyph
+  '((t :family "Maple Mono NF"  ; or Fira Code / whatever you use
+       :inherit font-lock-comment-face))   ; or any faded face
+  "Fallback face for truncation and wrap glyphs.")
+
+(set-display-table-slot standard-display-table 'truncation
+                        (make-glyph-code ?… 'my-fallback-glyph))
+(set-display-table-slot standard-display-table 'wrap
+                        (make-glyph-code ?↩ 'my-fallback-glyph))  ; or ? or ?…
+
 
 (use-package emacs
   :ensure nil
@@ -143,33 +178,25 @@
   (nerd-icons-font-family "Maple Mono NF"))
 
 (set-face-attribute 'default nil
-  :font "Maple Mono NF"
-  :height 140
-  :weight 'semibold)
+                    :font "Maple Mono NF"
+                    :height 140
+                    :weight 'semibold)
 (set-face-attribute 'variable-pitch nil
-  :font "Maple Mono NF"
-  :height 140
-  :weight 'semibold)
+                    :font "Maple Mono NF"
+                    :height 140
+                    :weight 'semibold)
 (set-face-attribute 'fixed-pitch nil
-  :font "Maple Mono NF"
-  :height 140
-  :weight 'semibold)
+                    :font "Maple Mono NF"
+                    :height 140
+                    :weight 'semibold)
 (set-face-attribute 'font-lock-comment-face nil
-  :slant 'italic)
+                    :slant 'italic)
 (set-face-attribute 'font-lock-keyword-face nil
-  :slant 'italic)
+                    :slant 'italic)
 
 (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
 (add-to-list 'default-frame-alist '(ns-appearance . dark))
 
-(modify-all-frames-parameters
- '((right-divider-width . 20)
-   (internal-border-width . 20)))
-(dolist (face '(window-divider
-                window-divider-first-pixel
-                window-divider-last-pixel))
-  (face-spec-reset-face face)
-  (set-face-foreground face (face-attribute 'default :background)))
 (set-face-background 'fringe (face-attribute 'default :background))
 
 (use-package treesit-auto
@@ -221,14 +248,7 @@
 (use-package corfu
   :ensure t
   :straight t
-  :hook ((org-mode
-          nix-mode
-          lua-ts-mode
-          typescript-ts-mode
-          tsx-ts-mode
-          csharp-ts-mode
-          json-ts-mode
-          emacs-lisp-mode) . corfu-mode)
+  :hook ((org-mode prog-mode) . corfu-mode)
   :custom
   (corfu-auto t)
   (corfu-info t)
@@ -244,31 +264,9 @@
   (corfu-completion-styles '(orderless))
   (text-mode-ispell-word-completion . nil)
   :config
-   (setq corfu--frame-parameters
-          '((no-accept-focus . t)
-            (no-focus-on-map . t)
-            (min-width . t)
-            (min-height . t)
-            (border-width . 0)
-            (outer-border-width . 0)
-            (internal-border-width . 1)
-            (child-frame-border-width . 2)
-            (left-fringe . 0)
-            (right-fringe . 0)
-            (vertical-scroll-bars)
-            (horizontal-scroll-bars)
-            (menu-bar-lines . 0)
-            (tool-bar-lines . 0)
-            (tab-bar-lines . 0)
-            (no-other-frame . t)
-            (unsplittable . t)
-            (undecorated . t)
-            (cursor-type)
-            (no-special-glyphs . t)
-            (desktop-dont-save . t)))
-  :init
-  ;; HACK: this avoids corfu to hang while waiting for completions from lsp
-  (advice-add #'lsp-completion-at-point :around #'cape-wrap-noninterruptible)
+  (global-corfu-mode)
+  (corfu-history-mode)
+  (corfu-popupinfo-mode)
   :bind
   (:map corfu-map
         ("TAB" . corfu-insert)
@@ -327,13 +325,25 @@
   (global-set-key (kbd "C-c C-d") #'helpful-at-point)
   (global-set-key (kbd "C-h F") #'helpful-function))
 
-
 (use-package smartparens
   :defer t
   :ensure t
   :straight t
   :hook
   (prog-mode . smartparens-mode))
+
+(use-package markdown-mode
+  :defer t
+  :ensure t
+  :straight t)
+
+(use-package markdown-mode
+  :defer t
+  :ensure t
+  :straight t
+  :init (setq markdown-command "multimarkdown")
+  :bind (:map markdown-mode-map
+              ("C-c C-e" . markdown-do)))
 
 (use-package neotree
   :ensure t
@@ -380,18 +390,18 @@
 
 
 
-(use-package lsp-tailwindcss
-  :ensure t
-  :straight t
-  :defer t
-  :init
-  (setq lsp-tailwindcss-add-on-mode t)
-  (setq lsp-tailwindcss-skip-config-check t)
-  (add-hook 'before-save-hook 'lsp-tailwindcss-rustywind-before-save)
-  :config
-  (customize-set-value 'lsp-tailwindcss-class-attributes ["class" "className" "cn"])
-  :custom
-  (lsp-tailwindcss-server-path (executable-find "tailwindcss-language-server")))
+;; (use-package lsp-tailwindcss
+;;   :ensure t
+;;   :straight t
+;;   :defer t
+;;   :init
+;;   (setq lsp-tailwindcss-add-on-mode t)
+;;   (setq lsp-tailwindcss-skip-config-check t)
+;;   (add-hook 'before-save-hook 'lsp-tailwindcss-rustywind-before-save)
+;;   :config
+;;   (customize-set-value 'lsp-tailwindcss-class-attributes ["class" "className" "cn"])
+;;   :custom
+;;   (lsp-tailwindcss-server-path (executable-find "tailwindcss-language-server")))
 
 (use-package nix-mode
   :ensure t
@@ -399,86 +409,17 @@
   :defer t
   :mode "\\.nix\\'")
 
-;; (use-package flycheck
-;;   :ensure t
-;;   :straight t
-;;   :defer t
-;;   :init (global-flycheck-mode)
-;;   :config
-
-  ;; ;; Show indicators in the left margin
-  ;; (setq flycheck-indication-mode 'left-margin)
-  ;; (setq flycheck-javascript-eslint-executable "eslint_d")
-
-  ;; ;; Adjust margins and fringe widths…
-  ;; (defun my/set-flycheck-margins ()
-  ;;   (setq left-fringe-width 8 right-fringe-width 8
-  ;;         left-margin-width 1 right-margin-width 0)
-  ;;   (flycheck-refresh-fringes-and-margins))
-  ;; ;; …every time Flycheck is activated in a new buffer
-  ;; (add-hook 'flycheck-mode-hook #'my/set-flycheck-margins))
-
 (use-package flymake
   :defer t
   :ensure nil
   :hook
   (prog-mode . flymake-mode)
   :custom
-  (flymake-show-diagnostics-at-end-of-line 'fancy)
-  (flymake-indicator-type 'margins)
+  (flymake-show-diagnostics-at-end-of-line t)
   (flymake-margin-indicators-string
-   `((error "󰅙  " compilation-error)
-     (warning "  " compilation-warning)
-     (note "󰋼  " compilation-info)))
-  :config
-  (defun hy/toggle-flymake-inline-diagnostics ()
-    "Toggle `flymake-show-diagnostics-at-end-of-line` between 'short and nil, and refresh Flymake."
-    (interactive)
-    (setq flymake-show-diagnostics-at-end-of-line
-            (if (eq flymake-show-diagnostics-at-end-of-line 'short)
-                    nil
-              'short))
-    ;; Refresh Flymake to apply the new setting
-    (flymake-mode-off)
-    (flymake-mode)
-    (message "flymake-show-diagnostics-at-end-of-line is now %s"
-               flymake-show-diagnostics-at-end-of-line))
-
-  (defun hy/toggle-flymake-diagnostics ()
-    "Toggle Flymake mode on or off."
-    (interactive)
-    (if flymake-mode
-          (progn
-            (flymake-mode-off)
-            (message "Flymake mode is now OFF"))
-        (flymake-mode)
-        (message "Flymake mode is now ON")))
-
-  (bind-keys :map flymake-mode-map
-               ;; ("C-c ! l" . flymake-show-buffer-diagnostics)
-               ("C-c ! l" . consult-flymake)
-               ("C-c ! P" . flymake-show-project-diagnostics)
-               ("C-c ! n" . flymake-goto-next-error)
-               ("C-c ! p" . flymake-goto-prev-error)
-               ("C-c ! i" . hy/toggle-flymake-inline-diagnostics)
-               ("C-c ! d" . hy/toggle-flymake-diagnostics)
-               ("M-7" . flymake-goto-prev-error)
-               ("M-8" . flymake-goto-next-error)))
-
-;; (use-package flyover
-;;   :defer t
-;;   :straight (flyover :type git :host github :repo "konrad1977/flyover")
-;;   :ensure t
-;;   :hook (flycheck-mode-hook . flyover-mode)
-;;   :config
-;;   (setq flyover-levels '(error warning info))
-;;   (setq flyover-use-theme-colors t)
-;;   (setq flyover-checkers '(flycheck flymake))
-;;   (setq flyover-background-lightness 30)
-;;   (setq flyover-wrap-messages t)
-;;   (setq flyover-max-line-length 80)
-;;   (setq flyover-hide-checker-name t))
-
+   `((error "󰅙 " compilation-error)
+     (warning " " compilation-warning)
+     (note "󰋼 " compilation-info))))
 
 (use-package diff-hl
   :defer t
@@ -496,12 +437,12 @@
                                   (change . "│")
                                   (unknown . "?")
                                   (ignored . "i"))))
-
 (use-package org
   :ensure t
   :defer t
   :config
   (setq org-startup-indented t
+        org-log-done 'time
         org-hide-emphasis-markers t
         org-auto-align-tags nil
         org-tags-column 0
@@ -521,34 +462,115 @@
   (setq org-todo-keywords
         '((sequence "TODO" "IN-PROGRESS" "WAITING" "DONE")))
 
-  (setq org-capture-templates '(("t" "Quick todo" entry
+  (setq org-capture-templates '(
+                                ("t" "Quick todo" entry
                                  (file+headline +org-capture-todo-file "Todos")
-                                 "* TODO %?\n%i\n" :prepend t)
-                                ("e" "Event" entry
+                                 "* TODO %?\n:Created: %T\n" :prepend t)
+                                ("c" "Code To-Do"
+                                 entry (file+headline "~/org/todos.org" "Code Related Tasks")
+                                 "* TODO [#B] %?\n:Created: %T\n%i\n%a\nProposed Solution: "
+                                 :empty-lines 0)
+                                ("e" "Event")
+                                ("er" "Recurring Event" entry
                                  (file+olp +org-capture-journal-file "Events")
-                                 "* EVENT %?\n%i\n" :prepend nil)
-                                ("i" "Random idea" entry
-                                 (file+olp +org-capture-notes-file "Inbox")
-                                 "* IDEA %?\n%i\n" :prepend t)
-                                ("p" "Centralized templates for projects")
-                                ("pt" "Project todo" entry
-                                 #'+org-capture-central-project-todo-file
-                                 "* TODO %?\n %i\n %a" :heading "Tasks" :prepend t)
-                                ("pe""Project event" entry
-                                 #'+org-capture-central-project-todo-file
-                                 "* EVENT %?\n %i\n" :heading "Events" :prepend nil)
-                                ("pi" "Project idea" entry
-                                 #'+org-capture-central-project-todo-file
-                                 "* IDEA %?\n %i\n %a" :heading "Ideas" :prepend t))))
+                                 "** EVENT %?\n%i\n" :heading "Recurring Events" :prepend nil)
+                                ("eo" "One-off Event" entry
+                                 (file+olp +org-capture-journal-file "Events")
+                                 "** EVENT %?\n%i\n" :heading "One-off Events" :prepend nil)
+                                ("w" "Work Log Entry" entry
+                                 (file+datetree "~/org/work-log.org")
+                                 "* %?" :empty-lines 0)
+                                ("n" "Note" entry
+                                 (file+headline "~/org/notes.org" "Random Notes")
+                                 "** %?" :empty-lines 0)))
 
-;; (use-package org-super-agenda
-;;   :ensure t
-;;   :straight t
-;;   :defer t
-;;   :config
-;;   (let ((org-super-agenda-groups
-;;        '((:auto-group t))))
-;;     (org-agenda-list)))
+  (setq org-todo-keyword-faces
+        '(
+          ("TODO" . (:foreground "GoldenRod" :weight bold))
+          ("PLANNING" . (:foreground "DeepPink" :weight bold))
+          ("IN-PROGRESS" . (:foreground "Cyan" :weight bold))
+          ("VERIFYING" . (:foreground "DarkOrange" :weight bold))
+          ("BLOCKED" . (:foreground "Red" :weight bold))
+          ("DONE" . (:foreground "LimeGreen" :weight bold))
+          ("OBE" . (:foreground "LimeGreen" :weight bold))
+          ("WONT-DO" . (:foreground "LimeGreen" :weight bold))
+          ))
+
+  (setq org-tag-faces
+        '(
+          ("work"      . (:foreground "mediumPurple1" :weight bold))
+          ("config"    . (:foreground "royalblue1"    :weight bold))
+          ("personal"  . (:foreground "forest green"  :weight bold))
+          ;; ("QA"        . (:foreground "sienna"        :weight bold))
+          ;; ("meeting"   . (:foreground "yellow1"       :weight bold))
+          ;; ("CRITICAL"  . (:foreground "red1"          :weight bold))
+          )
+        )
+
+  ;; Agenda View "d"
+  (defun air-org-skip-subtree-if-priority (priority)
+    "Skip an agenda subtree if it has a priority of PRIORITY.
+
+    PRIORITY may be one of the characters ?A, ?B, or ?C."
+    (let ((subtree-end (save-excursion (org-end-of-subtree t)))
+          (pri-value (* 1000 (- org-lowest-priority priority)))
+          (pri-current (org-get-priority (thing-at-point 'line t))))
+      (if (= pri-value pri-current)
+          subtree-end
+        nil)))
+
+  (setq org-agenda-skip-deadline-if-done t)
+
+  (setq org-agenda-custom-commands
+        '(
+          ;; ("s" "Standup"
+          ;;  (( agenda ""
+          ;;     ((org-agenda-span 'day)
+          ;;      (org-agenda-start-on-weekday nil)
+          ;;      (org-agenda-sorting-strategy '(priority-down)))
+          ;;     )
+
+          ;;   (tags "SCHEDULED=\"<today>\""
+          ;;         ((org-agenda-overriding-header "Tasks Scheduled Today")))
+
+          ;;   (todo "IN-PROGRESS"
+          ;;         ((org-agenda-overriding-header "Tasks in progress")))
+          ;;   (agenda ""
+          ;;           ((org-agenda-span '3)
+          ;;            (org-agenda-start-on-weekday nil)
+          ;;            (org-agenda-overriding-header "3 day history")
+          ;;            (org-agenda-skip-function '(org-agenda-skip-entry-if 'notdone 'scheduled))))))
+
+          ("d" "Daily agenda and all TODOs"
+
+           ;; Display items with priority A
+           ((tags "PRIORITY=\"A\""
+                  ((org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))
+                   (org-agenda-overriding-header "High-priority unfinished tasks:")))
+
+            ;; View 7 days in the calendar view
+            (agenda "" ((org-agenda-span 7)))
+
+            ;; Display items with priority B (really it is view all items minus A & C)
+            (alltodo ""
+                     ((org-agenda-skip-function '(or (air-org-skip-subtree-if-priority ?A)
+                                                     (air-org-skip-subtree-if-priority ?C)
+                                                     (org-agenda-skip-if nil '(scheduled deadline))))
+                      (org-agenda-overriding-header "ALL normal priority tasks:")))
+
+            ;; Display items with pirority C
+            (tags "PRIORITY=\"C\""
+                  ((org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))
+                   (org-agenda-overriding-header "Low-priority Unfinished tasks:")))
+
+
+            (todo "DONE" ((org-agenda-overriding-header "Done Tasks")))
+
+            )
+
+           ;; Don't compress things (change to suite your tastes)
+           ((org-agenda-compact-blocks nil)))
+          )))
 
 (use-package org-modern
   :ensure t
@@ -556,14 +578,38 @@
   :defer t
   :hook (org-mode . org-modern-mode))
 
+(use-package eglot
+  :ensure nil
+  :commands (eglot-ensure
+             eglot-rename
+             eglot-format-buffer)
+  :hook
+  (csharp-ts-mode . eglot-ensure)
+  (tsx-ts-mode . eglot-ensure)
+  (nix-mode . eglot-ensure)
+  ;; (before-save . (lambda ()
+  ;;             (when (eglot-managed-p)
+  ;;               (eglot-format-buffer))))
+  :config
+  (setq eglot-code-action-indications '(mode-line))
+  )
+
+
 (with-eval-after-load 'eglot
-    (add-to-list 'eglot-server-programs
-               '((csharp-ts-mode csharp-mode) . ("csharp-language-server")))
-    (add-to-list 'eglot-server-programs
-               '((tsx-ts-mode typescript-ts-mode) . ("rass"
-                                                     "--" "typescript-language-server" "--stdio"
-                                                     "--" "vscode-eslint-language-server" "--stdio"
-                                                     "--" "tailwindcss-language-server" "--stdio"))))
+  (setq eglot-workspace-configuration
+        '(:eslint (:validate "on"
+                             :workingDirectory (:mode "auto"))))
+
+  (add-to-list 'eglot-server-programs
+             '((csharp-ts-mode csharp-mode) . ("csharp-language-server")))
+  (add-to-list 'eglot-server-programs
+             '((tsx-ts-mode typescript-ts-mode) . ("rass" "tslint"))))
+
+(use-package apheleia
+  :ensure t
+  :straight t
+  :defer t
+  :hook (after-init . apheleia-global-mode))
 
 (use-package magit
   :ensure t
@@ -573,19 +619,8 @@
 (use-package add-node-modules-path
   :ensure t
   :straight t
-  :defer t
-  :custom
-  ;; Makes sure you are using the local bin for your
-  ;; node project. Local eslint, typescript server...
-  (eval-after-load 'typescript-ts-mode
-    '(add-hook 'typescript-ts-mode-hook #'add-node-modules-path))
-  (eval-after-load 'tsx-ts-mode
-    '(add-hook 'tsx-ts-mode-hook #'add-node-modules-path))
-  (eval-after-load 'typescriptreact-mode
-    '(add-hook 'typescriptreact-mode-hook #'add-node-modules-path))
-  (eval-after-load 'js-mode
-    '(add-hook 'js-mode-hook #'add-node-modules-path)))
-
+  :hook
+  ((tsx-ts-mode typescript-ts-mode js-mode) . add-node-modules-path))
 
 ;; EVIL
 ;; The `evil' package provides Vim emulation within Emacs, allowing
@@ -691,44 +726,27 @@
   (evil-define-key 'normal 'global (kbd "] t") 'tab-next) ;; Go to next tab
   (evil-define-key 'normal 'global (kbd "[ t") 'tab-previous) ;; Go to previous tab
 
-  ;; LSP commands keybindings
-  (evil-define-key 'normal lsp-mode-map
-                   ;; (kbd "gd") 'lsp-find-definition                ;; evil-collection already provides gd
-                   (kbd "gr") 'lsp-find-references                   ;; Finds LSP references
-                   (kbd "<leader> c a") 'lsp-execute-code-action     ;; Execute code actions
-                   (kbd "<leader> r n") 'lsp-rename                  ;; Rename symbol
-                   (kbd "gI") 'lsp-find-implementation               ;; Find implementation
-                   (kbd "<leader> l f") 'lsp-format-buffer)          ;; Format buffer via lsp
+  ;; Eglot commands keybindings
+  (evil-define-key 'normal eglot-mode-map
+    (kbd "<leader> c a") 'eglot-code-actions            ;; Execute code actions
+    (kbd "<leader> r n") 'eglot-rename                  ;; Rename symbol
+    (kbd "gI") 'eglot-find-implementation               ;; Find implementation
+    (kbd "<leader> c f") 'eglot-format-buffer)          ;; Format buffer via eglot
 
-
-  (defun hy/lsp-describe-and-jump ()
-    "Show hover documentation and jump to *lsp-help* buffer."
-    (interactive)
-    (lsp-describe-thing-at-point)
-    (let ((help-buffer "*lsp-help*"))
-      (when (get-buffer help-buffer)
-        (switch-to-buffer-other-window help-buffer))))
-
-  ;; Emacs 31 finaly brings us support for 'floating windows' (a.k.a. "child frames")
-  ;; to terminal Emacs. If you're still using 30, docs will be shown in a buffer at the
-  ;; inferior part of your frame.
-  (evil-define-key 'normal 'global (kbd "K")
-    (if (>= emacs-major-version 31)
-        #'eldoc-box-help-at-point
-        #'hy/lsp-describe-and-jump))
+  (evil-define-key 'normal 'global (kbd "K") 'eldoc-box-help-at-point)
 
   ;; Commenting functionality for single and multiple lines
   (evil-define-key 'normal 'global (kbd "gcc")
-                   (lambda ()
-                     (interactive)
-                     (if (not (use-region-p))
-                         (comment-or-uncomment-region (line-beginning-position) (line-end-position)))))
+    (lambda ()
+      (interactive)
+      (if (not (use-region-p))
+          (comment-or-uncomment-region (line-beginning-position) (line-end-position)))))
 
   (evil-define-key 'visual 'global (kbd "gc")
-                   (lambda ()
-                     (interactive)
-                     (if (use-region-p)
-                         (comment-or-uncomment-region (region-beginning) (region-end)))))
+    (lambda ()
+      (interactive)
+      (if (use-region-p)
+          (comment-or-uncomment-region (region-beginning) (region-end)))))
 
   ;; Enable evil mode
   (evil-mode 1))
@@ -755,7 +773,8 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(custom-safe-themes
-   '("4594d6b9753691142f02e67b8eb0fda7d12f6cc9f1299a49b819312d6addad1d"
+   '("87fa3605a6501f9b90d337ed4d832213155e3a2e36a512984f83e847102a42f4"
+     "4594d6b9753691142f02e67b8eb0fda7d12f6cc9f1299a49b819312d6addad1d"
      "7771c8496c10162220af0ca7b7e61459cb42d18c35ce272a63461c0fc1336015"
      "276228257774fa4811da55346b1e34130edb068898565ca07c2d83cfb67eb70a"
      default))
