@@ -1,14 +1,11 @@
 ;;; init.el --- Emacs configuration -*- lexical-binding: t; -*-
 ;;; Commentary:
+;; Main Emacs configuration using straight.el and use-package.
+;; Organized into sections: Package Management, Environment, UI, Completion,
+;; Navigation, Editing, Languages, Version Control, Org-mode, LSP, and Evil.
 ;;; Code:
-(require 'package)
-(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
-(add-to-list 'package-archives '("melpa-stable" . "https://stable.melpa.org/packages/") t)
-(package-initialize)
 
-(setq package-enable-at-startup nil) ;; Disables the default package manager.
-
-;; Bootstraps `straight.el'
+;;;; Package Management - straight.el bootstrap
 (setq straight-check-for-modifications nil)
 (defvar bootstrap-version)
 (let ((bootstrap-file
@@ -27,6 +24,8 @@
   (load bootstrap-file nil 'nomessage))
 (straight-use-package '(project :type built-in))
 (straight-use-package 'use-package)
+
+;;;; Environment - Shell and system integration
 
 (use-package exec-path-from-shell
   :ensure t
@@ -49,7 +48,7 @@
 (set-keyboard-coding-system 'utf-8)
 (set-language-environment   'utf-8)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;; Themes and UI ;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; UI and Themes
 ;; Apply to all new frames (including the initial one if in early-init.el)
 (add-to-list 'default-frame-alist '(min-height          . 1))
 (add-to-list 'default-frame-alist '(height             . 45))   ; adjust to taste
@@ -79,30 +78,28 @@
   (create-lockfiles nil)
   (display-line-numbers-type 'relative)
   (make-backup-files nil)
-  (pixel-scroll-precision-mode t)
   (pixel-scroll-precision-use-momentum t)
   (ring-bell-function 'ignore)
   (tab-width 4)
-  (global-font-lock-mode t)
   (treesit-font-lock-level 4)
   (truncate-lines t)
   (use-dialog-box nil)
   (use-short-answers t)
   (inhibit-startup-screen t)
-
   (tsx-ts-mode-indent-offset 4)
   (typescript-ts-mode-indent-offset 4)
-
-  (scroll-bar-mode nil)
-  (tool-bar-mode nil)
   (indent-tabs-mode nil)
-  (recentf-mode 1)
-  (savehist-mode 1)
-  (global-prettify-symbols-mode t)
   :hook
   (prog-mode . display-line-numbers-mode)
   :config
-  (set-display-table-slot standard-display-table 'vertical-border (make-glyph-code ?│)))
+  (set-display-table-slot standard-display-table 'vertical-border (make-glyph-code ?│))
+  (scroll-bar-mode -1)
+  (tool-bar-mode -1)
+  (recentf-mode 1)
+  (savehist-mode 1)
+  (global-prettify-symbols-mode 1)
+  (global-font-lock-mode 1)
+  (pixel-scroll-precision-mode 1))
 
 (use-package whitespace
   :ensure nil
@@ -112,7 +109,6 @@
 (use-package dired
   :ensure nil
   :custom
-  (dired-listing-switches "-lah --group-directories-first")
   (dired-dwim-target t)
   (dired-guess-shell-alist-user
    '(("\\.\\(png\\|jpe?g\\|tiff\\)" "feh" "xdg-open" "open")
@@ -126,8 +122,6 @@
         (setq insert-directory-program gls))))
   (setq dired-listing-switches
         "-l --almost-all --human-readable --group-directories-first --no-group")
-  ;; this command is useful when you want to close the window of `dirvish-side'
-  ;; automatically when opening a file
   (put 'dired-find-alternate-file 'disabled nil))
 
 (use-package eldoc
@@ -199,6 +193,8 @@
 
 (set-face-background 'fringe (face-attribute 'default :background))
 
+;;;; Tree-sitter - Modern syntax highlighting
+
 (use-package treesit-auto
   :ensure t
   :straight t
@@ -209,6 +205,8 @@
   (treesit-auto-add-to-auto-mode-alist 'all)
   (global-treesit-auto-mode t))
 
+
+;;;; Mode-line - minions and moody
 
 (use-package minions
   :ensure t
@@ -225,11 +223,12 @@
   (moody-replace-mode-line-buffer-identification)
   (moody-replace-vc-mode))
 
+;;;; Completion - Vertico, Orderless, Corfu, Consult
+
 (use-package vertico
   :ensure t
   :straight t
   :hook (after-init . vertico-mode)
-  :init (vertico-mode)
   :custom
   (vertico-count 12)
   (vertico-cycle t)
@@ -251,18 +250,16 @@
   :hook ((org-mode prog-mode) . corfu-mode)
   :custom
   (corfu-auto t)
-  (corfu-info t)
   (corfu-cycle t)
   (corfu-auto-prefix 2)
   (corfu-auto-delay 0.0)
   (corfu-max-width 50)
   (corfu-min-width 50)
   (corfu-quit-no-match t)
-  (corfu-popup-delay 0.5)
+  (corfu-popupinfo-delay 0.5)
   (corfu-preselect 'first)
   (corfu-preview-current 'insert)
-  (corfu-completion-styles '(orderless))
-  (text-mode-ispell-word-completion . nil)
+  (text-mode-ispell-word-completion nil)
   :config
   (global-corfu-mode)
   (corfu-history-mode)
@@ -302,6 +299,8 @@
   (setq xref-show-xrefs-function #'consult-xref
         xref-show-definitions-function #'consult-xref))
 
+;;;; Actions - Embark
+
 (use-package embark
   :ensure t
   :straight t
@@ -312,6 +311,8 @@
   :straight t
   :hook
   (embark-collect-mode . consult-preview-at-point-mode))
+
+;;;; Help - Enhanced help system
 
 (use-package helpful
   :ensure
@@ -325,6 +326,8 @@
   (global-set-key (kbd "C-c C-d") #'helpful-at-point)
   (global-set-key (kbd "C-h F") #'helpful-function))
 
+;;;; Editing - Smartparens and Markdown
+
 (use-package smartparens
   :defer t
   :ensure t
@@ -335,15 +338,12 @@
 (use-package markdown-mode
   :defer t
   :ensure t
-  :straight t)
-
-(use-package markdown-mode
-  :defer t
-  :ensure t
   :straight t
   :init (setq markdown-command "multimarkdown")
   :bind (:map markdown-mode-map
               ("C-c C-e" . markdown-do)))
+
+;;;; File Explorer - Neotree
 
 (use-package neotree
   :ensure t
@@ -363,6 +363,8 @@
                   (lambda ()
                     (interactive)
                     (neotree-dir (read-directory-name "Directory: ")))))
+
+;;;; Ligatures - Font ligature support
 
 (use-package ligature
   :defer t
@@ -387,27 +389,15 @@
                                        "\\\\" "://")))
 
 
-
-
-
-;; (use-package lsp-tailwindcss
-;;   :ensure t
-;;   :straight t
-;;   :defer t
-;;   :init
-;;   (setq lsp-tailwindcss-add-on-mode t)
-;;   (setq lsp-tailwindcss-skip-config-check t)
-;;   (add-hook 'before-save-hook 'lsp-tailwindcss-rustywind-before-save)
-;;   :config
-;;   (customize-set-value 'lsp-tailwindcss-class-attributes ["class" "className" "cn"])
-;;   :custom
-;;   (lsp-tailwindcss-server-path (executable-find "tailwindcss-language-server")))
+;;;; Languages - Nix
 
 (use-package nix-mode
   :ensure t
   :straight t
   :defer t
   :mode "\\.nix\\'")
+
+;;;; Diagnostics - Flymake
 
 (use-package flymake
   :defer t
@@ -420,6 +410,8 @@
    `((error "󰅙 " compilation-error)
      (warning " " compilation-warning)
      (note "󰋼 " compilation-info))))
+
+;;;; Version Control - diff-hl
 
 (use-package diff-hl
   :defer t
@@ -437,8 +429,11 @@
                                   (change . "│")
                                   (unknown . "?")
                                   (ignored . "i"))))
+
+;;;; Org-mode - Notes, agenda, and capture
+
 (use-package org
-  :ensure t
+  :ensure nil
   :defer t
   :config
   (setq org-startup-indented t
@@ -452,15 +447,15 @@
         org-pretty-entities t
         org-agenda-tags-column 0
         org-ellipsis "…"
-        org-agenda-files '("~/org/"))
+        org-agenda-files (directory-files-recursively "~/org" "\\.org$"))
 
-  (setq +org-capture-projects-file (expand-file-name "projects.org" (car org-agenda-files))
-        +org-capture-todo-file     (expand-file-name "todo.org"    (car org-agenda-files))
-        +org-capture-journal-file  (expand-file-name "schedule.org" (car org-agenda-files))
-        +org-capture-notes-file    (expand-file-name "notes.org"    (car org-agenda-files)))
+  (setq +org-capture-projects-file "~/org/projects.org"
+        +org-capture-todo-file     "~/org/todo.org"
+        +org-capture-journal-file  "~/org/schedule.org"
+        +org-capture-notes-file    "~/org/notes.org")
 
   (setq org-todo-keywords
-        '((sequence "TODO" "IN-PROGRESS" "WAITING" "DONE")))
+        '((sequence "TODO" "IN-PROGRESS" "WAITING" "|" "DONE" "WONT-DO")))
 
   (setq org-capture-templates '(
                                 ("t" "Quick todo" entry
@@ -523,23 +518,49 @@
 
   (setq org-agenda-custom-commands
         '(
-          ;; ("s" "Standup"
-          ;;  (( agenda ""
-          ;;     ((org-agenda-span 'day)
-          ;;      (org-agenda-start-on-weekday nil)
-          ;;      (org-agenda-sorting-strategy '(priority-down)))
-          ;;     )
+          ("c" "Current Work"
+           ((tags "PRIORITY=\"A\""
+                  ((org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))
+                   (org-agenda-overriding-header "High Priority:")))
+            (alltodo ""
+                     ((org-agenda-skip-function '(or (air-org-skip-subtree-if-priority ?A)
+                                                     (org-agenda-skip-if nil '(scheduled deadline))))
+                      (org-agenda-overriding-header "Other TODOs:")))
+            (agenda ""
+                    ((org-agenda-span 3)
+                     (org-agenda-start-day "-1d")
+                     (org-agenda-overriding-header "Previous Work:")))))
 
-          ;;   (tags "SCHEDULED=\"<today>\""
-          ;;         ((org-agenda-overriding-header "Tasks Scheduled Today")))
+          ("S" "Standup"
+           ((agenda ""
+                    ((org-agenda-span 1)
+                     (org-agenda-start-day "-1d")
+                     (org-agenda-overriding-header "Yesterday:")))
+            (todo "IN-PROGRESS"
+                  ((org-agenda-overriding-header "Currently Working On:")))
+            (todo "WAITING"
+                  ((org-agenda-overriding-header "Blocked Items:")))
+            (tags "PRIORITY=\"A\""
+                  ((org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))
+                   (org-agenda-overriding-header "High Priority TODOs:")))))
 
-          ;;   (todo "IN-PROGRESS"
-          ;;         ((org-agenda-overriding-header "Tasks in progress")))
-          ;;   (agenda ""
-          ;;           ((org-agenda-span '3)
-          ;;            (org-agenda-start-on-weekday nil)
-          ;;            (org-agenda-overriding-header "3 day history")
-          ;;            (org-agenda-skip-function '(org-agenda-skip-entry-if 'notdone 'scheduled))))))
+          ("w" "Week Overview"
+           ((agenda ""
+                    ((org-agenda-span 7)
+                     (org-agenda-start-on-weekday 1)
+                     (org-agenda-overriding-header "This Week:")))))
+
+          ("o" "Combined Overview"
+           ((tags "PRIORITY=\"A\""
+                  ((org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))
+                   (org-agenda-overriding-header "High Priority:")))
+            (agenda ""
+                    ((org-agenda-span 1)
+                     (org-agenda-overriding-header "Today:")))
+            (tags-todo "work"
+                       ((org-agenda-overriding-header "Work Tasks:")))
+            (tags-todo "personal"
+                       ((org-agenda-overriding-header "Personal Tasks:")))))
 
           ("d" "Daily agenda and all TODOs"
 
@@ -578,6 +599,8 @@
   :defer t
   :hook (org-mode . org-modern-mode))
 
+;;;; LSP - Eglot language server
+
 (use-package eglot
   :ensure nil
   :commands (eglot-ensure
@@ -587,23 +610,18 @@
   (csharp-ts-mode . eglot-ensure)
   (tsx-ts-mode . eglot-ensure)
   (nix-mode . eglot-ensure)
-  ;; (before-save . (lambda ()
-  ;;             (when (eglot-managed-p)
-  ;;               (eglot-format-buffer))))
   :config
   (setq eglot-code-action-indications '(mode-line))
-  )
-
-
-(with-eval-after-load 'eglot
   (setq eglot-workspace-configuration
         '(:eslint (:validate "on"
-                             :workingDirectory (:mode "auto"))))
+                             :workingDirectory (:mode "auto"))
+                  :tailwindCSS (:classAttributes ["class" "className" "cn"])))
+  (add-to-list 'eglot-server-programs
+               '((csharp-ts-mode csharp-mode) . ("csharp-language-server")))
+  (add-to-list 'eglot-server-programs
+               '((tsx-ts-mode typescript-ts-mode) . ("rass" "tslint"))))
 
-  (add-to-list 'eglot-server-programs
-             '((csharp-ts-mode csharp-mode) . ("csharp-language-server")))
-  (add-to-list 'eglot-server-programs
-             '((tsx-ts-mode typescript-ts-mode) . ("rass" "tslint"))))
+;;;; Formatting - Apheleia
 
 (use-package apheleia
   :ensure t
@@ -611,10 +629,14 @@
   :defer t
   :hook (after-init . apheleia-global-mode))
 
+;;;; Git - Magit
+
 (use-package magit
   :ensure t
   :straight t
   :defer t)
+
+;;;; JavaScript/TypeScript - Node modules path
 
 (use-package add-node-modules-path
   :ensure t
@@ -622,11 +644,25 @@
   :hook
   ((tsx-ts-mode typescript-ts-mode js-mode) . add-node-modules-path))
 
-;; EVIL
-;; The `evil' package provides Vim emulation within Emacs, allowing
-;; users to edit text in a modal way, similar to how Vim
-;; operates. This setup configures `evil-mode' to enhance the editing
-;; experience.
+;;;; Terminal - Eat and Vterm
+
+(straight-use-package
+ '(eat :type git
+       :host codeberg
+       :repo "akib/emacs-eat"
+       :files ("*.el" ("term" "term/*.el") "*.texi"
+               "*.ti" ("terminfo/e" "terminfo/e/*")
+               ("terminfo/65" "terminfo/65/*")
+               ("integration" "integration/*")
+               (:exclude ".dir-locals.el" "*-tests.el"))))
+
+(use-package vterm
+  :ensure t
+  :straight t
+  :defer t)
+
+;;;; Evil - Vim emulation
+
 (use-package evil
   :ensure t
   :straight t
@@ -685,14 +721,11 @@
   ;; Buffer management keybindings
   (evil-define-key 'normal 'global (kbd "] b") 'switch-to-next-buffer) ;; Switch to next buffer
   (evil-define-key 'normal 'global (kbd "[ b") 'switch-to-prev-buffer) ;; Switch to previous buffer
-  (evil-define-key 'normal 'global (kbd "<leader> b i") 'consult-buffer) ;; Open consult buffer list
-  (evil-define-key 'normal 'global (kbd "<leader> b b") 'ibuffer) ;; Open Ibuffer
-  (evil-define-key 'normal 'global (kbd "<leader> b d") 'kill-current-buffer) ;; Kill current buffer
-  (evil-define-key 'normal 'global (kbd "<leader> b k") 'kill-current-buffer) ;; Kill current buffer
-  (evil-define-key 'normal 'global (kbd "<leader> b x") 'kill-current-buffer) ;; Kill current buffer
+  (evil-define-key 'normal 'global (kbd "<leader> b b") 'consult-buffer) ;; Buffer list
+  (evil-define-key 'normal 'global (kbd "<leader> b i") 'ibuffer) ;; Ibuffer
+  (evil-define-key 'normal 'global (kbd "<leader> b d") 'kill-current-buffer) ;; Kill buffer
   (evil-define-key 'normal 'global (kbd "<leader> b s") 'save-buffer) ;; Save buffer
-  (evil-define-key 'normal 'global (kbd "<leader> b l") 'consult-buffer) ;; Consult buffer
-  (evil-define-key 'normal 'global (kbd "<leader>SPC") 'consult-buffer) ;; Consult buffer
+  (evil-define-key 'normal 'global (kbd "<leader>SPC") 'consult-buffer) ;; Quick buffer switch
 
   ;; Project management keybindings
   (evil-define-key 'normal 'global (kbd "<leader> p b") 'consult-project-buffer) ;; Consult project buffer
@@ -731,7 +764,7 @@
     (kbd "<leader> c a") 'eglot-code-actions            ;; Execute code actions
     (kbd "<leader> r n") 'eglot-rename                  ;; Rename symbol
     (kbd "gI") 'eglot-find-implementation               ;; Find implementation
-    (kbd "<leader> c f") 'eglot-format-buffer)          ;; Format buffer via eglot
+    (kbd "<leader> c f") 'apheleia-format-buffer)          ;; Format buffer via eglot
 
   (evil-define-key 'normal 'global (kbd "K") 'eldoc-box-help-at-point)
 
@@ -752,11 +785,6 @@
   (evil-mode 1))
 
 
-;; EVIL COLLECTION
-;; The `evil-collection' package enhances the integration of
-;; `evil-mode' with various built-in and third-party packages. It
-;; provides a better modal experience by remapping keybindings and
-;; commands to fit the `evil' style.
 (use-package evil-collection
   :defer t
   :straight t
@@ -766,6 +794,8 @@
   ;; Hook to initialize `evil-collection' when `evil-mode' is activated.
   :hook
   (evil-mode . evil-collection-init))
+
+;;;; Custom - Auto-generated by Emacs customize
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
