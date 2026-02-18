@@ -144,25 +144,29 @@
   (setq which-key-idle-delay 0.05)
   (which-key-mode))
 
+(use-package catppuccin-theme
+  :ensure t
+  :straight t
+  :config
+  (defun my/apply-catppuccin-flavor (appearance)
+    "Set catppuccin flavor based on system APPEARANCE (dark or light)."
+    (setq catppuccin-flavor (if (eq appearance 'dark) 'mocha 'latte))
+    (catppuccin-reload))
+  (add-hook 'ns-system-appearance-change-functions #'my/apply-catppuccin-flavor)
+  (my/apply-catppuccin-flavor ns-system-appearance))
+
 (use-package doom-themes
   :ensure t
   :straight t
   :custom
-  ;; Global settings (defaults)
-  (doom-themes-enable-bold t)   ; if nil, bold is universally disabled
-  (doom-themes-enable-italic t) ; if nil, italics is universally disabled
-  ;; for treemacs users
-  (doom-themes-treemacs-theme "doom-atom") ; use "doom-colors" for less minimal icon theme
+  (doom-themes-enable-bold t)
+  (doom-themes-enable-italic t)
+  (doom-themes-treemacs-theme "doom-atom")
   :config
-  (load-theme 'doom-tokyo-night t)
-
-  ;; Enable flashing mode-line on errors
+  (load-theme 'catppuccin t)
   (doom-themes-visual-bell-config)
-  ;; Enable custom neotree theme (nerd-icons must be installed!)
   (doom-themes-neotree-config)
-  ;; or for treemacs users
   (doom-themes-treemacs-config)
-  ;; Corrects (and improves) org-mode's native fontification.
   (doom-themes-org-config))
 
 (use-package nerd-icons
