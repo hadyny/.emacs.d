@@ -27,6 +27,8 @@
 
 ;;;; Environment - Shell and system integration
 
+(defconst *is-a-mac* (eq system-type 'darwin))
+
 (use-package exec-path-from-shell
   :ensure t
   :straight t
@@ -50,13 +52,13 @@
 
 ;;;; UI and Themes
 ;; Apply to all new frames (including the initial one if in early-init.el)
-(add-to-list 'default-frame-alist '(min-height          . 1))
-(add-to-list 'default-frame-alist '(height             . 45))   ; adjust to taste
-(add-to-list 'default-frame-alist '(min-width           . 1))
-(add-to-list 'default-frame-alist '(width               . 100))   ; adjust to taste
-(add-to-list 'default-frame-alist '(internal-border-width . 18)) ; ← main padding!
-(add-to-list 'default-frame-alist '(left-fringe         . 1))
-(add-to-list 'default-frame-alist '(right-fringe        . 1))
+(add-to-list 'default-frame-alist '(min-height             . 1))
+(add-to-list 'default-frame-alist '(height                 . 45))   ; adjust to taste
+(add-to-list 'default-frame-alist '(min-width              . 1))
+(add-to-list 'default-frame-alist '(width                  . 100))   ; adjust to taste
+(add-to-list 'default-frame-alist '(internal-border-width  . 18)) ; ← main padding!
+(add-to-list 'default-frame-alist '(left-fringe            . 1))
+(add-to-list 'default-frame-alist '(right-fringe           . 1))
 
 ;; Optional: fallback glyph for truncation/wrap (clean look)
 (require 'disp-table)
@@ -150,7 +152,7 @@
   :config
   (defun my/apply-catppuccin-flavor (appearance)
     "Set catppuccin flavor based on system APPEARANCE (dark or light)."
-    (setq catppuccin-flavor (if (eq appearance 'dark) 'mocha 'latte))
+    (setq catppuccin-flavor (if (eq appearance 'light) 'latte 'mocha))
     (catppuccin-reload))
   (add-hook 'ns-system-appearance-change-functions #'my/apply-catppuccin-flavor)
   (my/apply-catppuccin-flavor ns-system-appearance))
@@ -227,7 +229,7 @@
   (moody-replace-mode-line-buffer-identification)
   (moody-replace-vc-mode))
 
-;;;; Completion - Vertico, Orderless, Corfu, Consult
+;;;; Completion - Vertico, Orderless, Corfu, Consult, Marginalia
 
 (use-package vertico
   :ensure t
@@ -302,6 +304,15 @@
   ;; Use Consult for xref locations with a preview feature.
   (setq xref-show-xrefs-function #'consult-xref
         xref-show-definitions-function #'consult-xref))
+
+(use-package marginalia
+  :ensure t
+  :straight t
+  :defer t
+  :bind (:map minibuffer-local-map
+              ("M-A" . marginalia-cycle))
+  :init
+  (marginalia-mode))
 
 ;;;; Actions - Embark
 
@@ -648,17 +659,7 @@
   :hook
   ((tsx-ts-mode typescript-ts-mode js-mode) . add-node-modules-path))
 
-;;;; Terminal - Eat and Vterm
-
-(straight-use-package
- '(eat :type git
-       :host codeberg
-       :repo "akib/emacs-eat"
-       :files ("*.el" ("term" "term/*.el") "*.texi"
-               "*.ti" ("terminfo/e" "terminfo/e/*")
-               ("terminfo/65" "terminfo/65/*")
-               ("integration" "integration/*")
-               (:exclude ".dir-locals.el" "*-tests.el"))))
+;;;; Terminal - Vterm
 
 (use-package vterm
   :ensure t
@@ -741,7 +742,7 @@
 
   ;; Orgmode keybindings
   (evil-define-key 'normal 'global (kbd "<leader> o a") 'org-agenda) ;; Org agenda
-  (evil-define-key 'normal 'global (kbd "<leader> o p") 'org-capture) ;; Org capture
+  (evil-define-key 'normal 'global (kbd "<leader> o c") 'org-capture) ;; Org capture
 
   ;; Yank from kill ring
   (evil-define-key 'normal 'global (kbd "P") 'consult-yank-from-kill-ring)
