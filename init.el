@@ -59,6 +59,7 @@
 (add-to-list 'default-frame-alist '(internal-border-width  . 18)) ; ← main padding!
 (add-to-list 'default-frame-alist '(left-fringe            . 1))
 (add-to-list 'default-frame-alist '(right-fringe           . 1))
+(setq-default line-spacing 0.2)
 
 ;; Optional: fallback glyph for truncation/wrap (clean look)
 (require 'disp-table)
@@ -70,8 +71,7 @@
 (set-display-table-slot standard-display-table 'truncation
                         (make-glyph-code ?… 'my-fallback-glyph))
 (set-display-table-slot standard-display-table 'wrap
-                        (make-glyph-code ?↩ 'my-fallback-glyph))  ; or ? or ?…
-
+                        (make-glyph-code ?↩ 'my-fallback-glyph))
 
 (use-package emacs
   :ensure nil
@@ -153,7 +153,11 @@
   (defun my/apply-catppuccin-flavor (appearance)
     "Set catppuccin flavor based on system APPEARANCE (dark or light)."
     (setq catppuccin-flavor (if (eq appearance 'light) 'latte 'mocha))
-    (catppuccin-reload))
+    (catppuccin-reload)
+    ;; Update mode-line box color to match new theme
+    (let ((bg (face-attribute 'mode-line :background)))
+      (set-face-attribute 'mode-line nil :box `(:line-width 6 :color ,bg))
+      (set-face-attribute 'mode-line-inactive nil :box `(:line-width 6 :color ,bg))))
   (add-hook 'ns-system-appearance-change-functions #'my/apply-catppuccin-flavor)
   (my/apply-catppuccin-flavor ns-system-appearance))
 
@@ -163,7 +167,7 @@
   :custom
   (doom-themes-enable-bold t)
   (doom-themes-enable-italic t)
-  (doom-themes-treemacs-theme "doom-atom")
+  (doom-themes-neotree-enable-chevron-icons nil)
   :config
   (load-theme 'catppuccin t)
   (doom-themes-visual-bell-config)
@@ -212,22 +216,24 @@
   (global-treesit-auto-mode t))
 
 
-;;;; Mode-line - minions and moody
+;;;; Mode-line - mood-line
 
-(use-package minions
+(use-package mood-line
   :ensure t
   :straight t
+  :custom
+  (mood-line-glyph-alist mood-line-glyphs-fira-code)
   :config
-  (minions-mode t))
+  (mood-line-mode)
+  ;; Vertical padding via box line-width
+  (let ((bg (face-attribute 'mode-line :background)))
+    (set-face-attribute 'mode-line nil :box `(:line-width 8 :color ,bg))
+    (set-face-attribute 'mode-line-inactive nil :box `(:line-width 8 :color ,bg)))
+  ;; Horizontal padding - add spaces to the format
+  (setq mood-line-format
+        (cons (append '("  ") (car mood-line-format))
+              (append (cdr mood-line-format) '("  ")))))
 
-(use-package moody
-  :ensure t
-  :straight t
-  :config
-  (setq moody-mode-line-height 32)
-  (moody-replace-mode-line-front-space)
-  (moody-replace-mode-line-buffer-identification)
-  (moody-replace-vc-mode))
 
 ;;;; Completion - Vertico, Orderless, Corfu, Consult, Marginalia
 
@@ -364,10 +370,23 @@
   :ensure t
   :straight t
   :config
-  (setq neo-window-width 40)
+  (setq neo-window-width 50)
   (setq neo-smart-open t)
-  (setq neo-theme (if (display-graphic-p) 'nerd 'arrow))
+  (setq neo-theme 'icons)
   (setq neo-window-position 'right)
+
+  (defun neotree-project-root-toggle ()
+    "Toggle neotree at the project root."
+    (interactive)
+    (let* ((proj (project-current))
+           (project-dir (if proj (project-root proj) default-directory))
+           (file-name (buffer-file-name)))
+      (if (neo-global--window-exists-p)
+          (neotree-hide)
+        (progn
+          (neotree-dir project-dir)
+          (when file-name
+            (neotree-find file-name))))))
 
   (define-key neotree-mode-map (kbd "n") 'neotree-create-node)
   (define-key neotree-mode-map (kbd "d") 'neotree-delete-node)
@@ -625,12 +644,12 @@
   (csharp-ts-mode . eglot-ensure)
   (tsx-ts-mode . eglot-ensure)
   (nix-mode . eglot-ensure)
-  :config
-  (setq eglot-code-action-indications '(mode-line))
+  :init
   (setq eglot-workspace-configuration
         '(:eslint (:validate "on"
-                             :workingDirectory (:mode "auto"))
-                  :tailwindCSS (:classAttributes ["class" "className" "cn"])))
+                             :workingDirectory (:mode "auto"))))
+  :config
+  (setq eglot-code-action-indications '(mode-line))
   (add-to-list 'eglot-server-programs
                '((csharp-ts-mode csharp-mode) . ("csharp-language-server")))
   (add-to-list 'eglot-server-programs
@@ -713,7 +732,7 @@
   (evil-define-key 'normal 'global (kbd "[ c") 'diff-hl-previous-hunk) ;; Previous diff hunk
 
   ;; NeoTree command for file exploration
-  (evil-define-key 'normal 'global (kbd "<leader> e e") 'neotree-toggle)
+  (evil-define-key 'normal 'global (kbd "<leader> e e") 'neotree-project-root-toggle)
   (evil-define-key 'normal 'global (kbd "<leader> e d") 'dired-jump)
 
   ;; Magit keybindings for Git integration
