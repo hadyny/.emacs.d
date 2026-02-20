@@ -279,9 +279,7 @@
   :bind
   (:map corfu-map
         ("TAB" . corfu-insert)
-        ([tab] . corfu-insert)
-        ("ESC" . corfu-quit)
-        ([esc] . corfu-quit)))
+        ([tab] . corfu-insert)))
 
 (use-package nerd-icons-corfu
   :ensure t
@@ -298,6 +296,26 @@
   (add-hook 'completion-at-point-functions #'cape-dabbrev)
   (add-hook 'completion-at-point-functions #'cape-file)
   (add-hook 'completion-at-point-functions #'cape-elisp-block))
+
+(use-package prescient
+  :ensure t
+  :straight t
+  :config
+  (prescient-persist-mode 1))
+
+(use-package vertico-prescient
+  :ensure t
+  :straight t
+  :after (vertico prescient)
+  :config
+  (vertico-prescient-mode 1))
+
+(use-package corfu-prescient
+  :ensure t
+  :straight t
+  :after (corfu prescient)
+  :config
+  (corfu-prescient-mode 1))
 
 (use-package consult
   :ensure t
@@ -439,7 +457,7 @@
   :hook
   (prog-mode . flymake-mode)
   :custom
-  (flymake-show-diagnostics-at-end-of-line t)
+  (flymake-show-diagnostics-at-end-of-line 'fancy)
   (flymake-margin-indicators-string
    `((error "󰅙 " compilation-error)
      (warning " " compilation-warning)
@@ -642,18 +660,73 @@
              eglot-format-buffer)
   :hook
   (csharp-ts-mode . eglot-ensure)
-  (tsx-ts-mode . eglot-ensure)
   (nix-mode . eglot-ensure)
-  :init
-  (setq eglot-workspace-configuration
-        '(:eslint (:validate "on"
-                             :workingDirectory (:mode "auto"))))
   :config
   (setq eglot-code-action-indications '(mode-line))
   (add-to-list 'eglot-server-programs
-               '((csharp-ts-mode csharp-mode) . ("csharp-language-server")))
-  (add-to-list 'eglot-server-programs
-               '((tsx-ts-mode typescript-ts-mode) . ("rass" "tslint"))))
+               '((csharp-ts-mode csharp-mode) . ("csharp-language-server"))))
+
+;;;; LSP Mode - TypeScript/TSX language server
+
+(use-package lsp-mode
+  :ensure t
+  :straight t
+  :commands (lsp lsp-deferred)
+  :hook
+  ((tsx-ts-mode typescript-ts-mode) . lsp-deferred)
+  :custom
+  ;; Disable all optional features
+  (lsp-enable-symbol-highlighting nil)
+  (lsp-enable-text-document-color nil)
+  (lsp-lens-enable nil)
+  (lsp-headerline-breadcrumb-enable nil)
+  (lsp-modeline-code-actions-enable nil)
+  (lsp-modeline-diagnostics-enable nil)
+  (lsp-signature-auto-activate nil)
+  (lsp-signature-render-documentation nil)
+  (lsp-eldoc-enable-hover t)
+  (lsp-eldoc-render-all nil)
+  (lsp-completion-provider :none)  ; Use corfu instead
+  (lsp-enable-snippet nil)
+  (lsp-enable-folding nil)
+  (lsp-enable-imenu nil)
+  (lsp-enable-on-type-formatting nil)
+  (lsp-enable-indentation nil)
+  (lsp-enable-links nil)
+  ;; Use flymake for diagnostics
+  (lsp-diagnostics-provider :flymake)
+  ;; Performance
+  (lsp-idle-delay 0.5)
+  (lsp-log-io nil)
+  (lsp-keep-workspace-alive nil)
+  :config
+  ;; Ensure completion-at-point works with corfu
+  (setq lsp-completion-enable t))
+
+(use-package lsp-tailwindcss
+  :ensure t
+  :straight t
+  :after lsp-mode
+  :init
+  (setq lsp-tailwindcss-add-on-mode t))
+
+(use-package lsp-tailwindcss
+  :ensure t
+  :straight t
+  :defer t
+  :init
+  (setq lsp-tailwindcss-add-on-mode t)
+  (setq lsp-tailwindcss-skip-config-check t)
+  (add-hook 'before-save-hook 'lsp-tailwindcss-rustywind-before-save)
+  :config
+  (customize-set-value 'lsp-tailwindcss-class-attributes ["class" "className" "cn"])
+  :custom
+  (lsp-tailwindcss-server-path (executable-find "tailwindcss-language-server")))
+
+(use-package lsp-eslint
+  :config
+  (setq lsp-eslint-server-command '("vscode-eslint-language-server" "--stdio"))
+  :after lsp-mode)
 
 ;;;; Formatting - Apheleia
 
@@ -788,7 +861,14 @@
     (kbd "<leader> c a") 'eglot-code-actions            ;; Execute code actions
     (kbd "<leader> r n") 'eglot-rename                  ;; Rename symbol
     (kbd "gI") 'eglot-find-implementation               ;; Find implementation
-    (kbd "<leader> c f") 'apheleia-format-buffer)          ;; Format buffer via eglot
+    (kbd "<leader> c f") 'apheleia-format-buffer)
+
+  ;; LSP Mode commands keybindings (for TypeScript/TSX)
+  (evil-define-key 'normal lsp-mode-map
+    (kbd "<leader> c a") 'lsp-execute-code-action
+    (kbd "<leader> r n") 'lsp-rename
+    (kbd "gI") 'lsp-find-implementation
+    (kbd "<leader> c f") 'apheleia-format-buffer)
 
   (evil-define-key 'normal 'global (kbd "K") 'eldoc-box-help-at-point)
 
