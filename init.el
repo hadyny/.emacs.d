@@ -138,7 +138,7 @@
 (use-package eldoc-box
   :ensure t
   :straight t
-  :defer t)
+  :hook (eglot-managed-mode . eldoc-box-hover-mode))
 
 (use-package which-key
   :ensure t
@@ -663,8 +663,9 @@
   (nix-mode . eglot-ensure)
   :config
   (setq eglot-code-action-indications '(mode-line))
+  (setq eglot-confirm-server-initiated-edits t)
   (add-to-list 'eglot-server-programs
-               '((csharp-ts-mode csharp-mode) . ("csharp-language-server"))))
+               '((csharp-ts-mode csharp-mode) . ("Microsoft.CodeAnalysis.LanguageServer" "--logLevel" "Debug" "--extensionLogDirectory" "~/.dotnet/logs" "--stdio"))))
 
 ;;;; LSP Mode - TypeScript/TSX language server
 
