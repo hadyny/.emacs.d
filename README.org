@@ -1,0 +1,32 @@
+#+title: .emacs.d
+
+Personal Emacs configuration — literate, tangled from org-mode.
+
+The entire configuration lives in [[file:config.org][config.org]]. =init.el= is a thin loader that
+tangles and loads it via =org-babel-load-file=.
+
+* Layout
+
+- [[file:init.el][=init.el=]] — loader: redirects =custom-file=, tangles and loads =config.org=
+- [[file:config.org][=config.org=]] — the actual configuration (tangles to =config.el= on load)
+- [[file:early-init.el][=early-init.el=]] — frame/UI setup before package load
+
+* First run
+
+On a fresh checkout, =emacs= will:
+
+1. Bootstrap [[https://github.com/radian-software/straight.el][straight.el]]
+2. Tangle =config.org= → =config.el=
+3. Install packages declared via =use-package= + =straight=
+
+Expect the first start to take a few minutes. Subsequent starts reuse the
+tangled file and only re-tangle when =config.org= is newer.
+
+* Highlights
+
+- Evil-mode with =SPC= leader
+- Vertico / Orderless / Corfu / Consult / Embark / Marginalia completion stack
+- Catppuccin theme, auto-switches Latte/Mocha with macOS appearance
+- Eglot for C#, Nix, and Markdown (marksman); lsp-mode for TypeScript/TSX
+- Tree-sitter via =treesit-auto=
+- Magit, diff-hl, Apheleia formatting on save
