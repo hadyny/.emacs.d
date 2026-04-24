@@ -1,23 +1,49 @@
+# Byte-compiled / native-compiled
 *.elc
+*.eln
 eln-cache/
-straight/
-transient/
-eshell/
-crafted-emacs/
-projects
-elpa/
-bookmarks
-network-security.data
-quelpa/
-history
-recentf
-custom.el
+
+# Backup and auto-save files
 *~
+\#*\#
+.\#*
+auto-save-list/
 .autosaves/
-.cache/
-.dap-breakpoints
-.local/
-.lsp-session*
-places
+
+# Package managers
+elpa/
+straight/
+quelpa/
+transient/
+
+# Tree-sitter grammars
 tree-sitter/
 
+# LSP / DAP
+.lsp-session*
+.dap-breakpoints
+
+# Persistent state and history
+var/
+history
+recentf
+projects
+places
+bookmarks
+bookmarks.eld
+network-security.data
+tramp
+eshell/
+
+# Caches
+.cache/
+.local/
+
+# Customisations written by Emacs
+custom.el
+
+# Tangled from config.org
+config.el
+
+# Other
+crafted-emacs/
