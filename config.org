@@ -772,11 +772,16 @@ macOS system appearance.
   :hook
   (csharp-ts-mode . eglot-ensure)
   (nix-mode . eglot-ensure)
+  (markdown-mode . eglot-ensure)
+  (gfm-mode . eglot-ensure)
+  (markdown-ts-mode . eglot-ensure)
   :config
   (setq eglot-code-action-indications '(mode-line))
   (setq eglot-confirm-server-initiated-edits t)
   (add-to-list 'eglot-server-programs
-               '((csharp-ts-mode csharp-mode) . ("Microsoft.CodeAnalysis.LanguageServer" "--logLevel" "Debug" "--extensionLogDirectory" "~/.dotnet/logs" "--stdio"))))
+               '((csharp-ts-mode csharp-mode) . ("Microsoft.CodeAnalysis.LanguageServer" "--logLevel" "Debug" "--extensionLogDirectory" "~/.dotnet/logs" "--stdio")))
+  (add-to-list 'eglot-server-programs
+               '((markdown-mode gfm-mode markdown-ts-mode) . ("marksman"))))
 #+end_src
 
 ** lsp-mode (TypeScript/TSX)
