@@ -16,28 +16,10 @@ Ensures the tangled =config.el= starts with a =lexical-binding= cookie.
 
 * Package Management
 
-Bootstrap [[https://github.com/radian-software/straight.el][straight.el]] and =use-package=.
-
-#+begin_src emacs-lisp
-(setq straight-check-for-modifications nil)
-(defvar bootstrap-version)
-(let ((bootstrap-file
-       (expand-file-name
-        "straight/repos/straight.el/bootstrap.el"
-        (or (bound-and-true-p straight-base-dir)
-            user-emacs-directory)))
-      (bootstrap-version 7))
-  (unless (file-exists-p bootstrap-file)
-    (with-current-buffer
-        (url-retrieve-synchronously
-         "https://raw.githubusercontent.com/radian-software/straight.el/develop/install.el"
-         'silent 'inhibit-cookies)
-      (goto-char (point-max))
-      (eval-print-last-sexp)))
-  (load bootstrap-file nil 'nomessage))
-(straight-use-package '(project :type built-in))
-(straight-use-package 'use-package)
-#+end_src
+Package bootstrap happens in [[file:init.el][=init.el=]] *before* this file is loaded:
+[[https://github.com/radian-software/straight.el][straight.el]] is installed, and =project=, =use-package=, and =org= are pinned
+to straight-managed versions. Pinning =org= early avoids a built-in/straight
+version mismatch that =org-babel-load-file= would otherwise trigger.
 
 * Environment
 
@@ -76,6 +58,23 @@ Bootstrap [[https://github.com/radian-software/straight.el][straight.el]] and =u
 (set-terminal-coding-system 'utf-8)
 (set-keyboard-coding-system 'utf-8)
 (set-language-environment   'utf-8)
+#+end_src
+
+** Garbage collection
+
+=early-init.el= raises =gc-cons-threshold= to 1GB for fast startup but never
+lowers it again, so GC almost never runs and eventually fires as a long pause
+(often mid-completion). =gcmh= keeps the threshold tiny while typing and large
+while idle, moving collection out of interactive work.
+
+#+begin_src emacs-lisp
+(use-package gcmh
+  :ensure t
+  :straight t
+  :init
+  (gcmh-mode 1)
+  :custom
+  (gcmh-high-cons-threshold (* 128 1024 1024)))
 #+end_src
 
 * UI and Themes
@@ -188,7 +187,8 @@ Bootstrap [[https://github.com/radian-software/straight.el][straight.el]] and =u
 (use-package eldoc-box
   :ensure t
   :straight t
-  :hook (eglot-managed-mode . eldoc-box-hover-mode))
+  :hook ((eglot-managed-mode . eldoc-box-hover-mode)
+         (lsp-mode . eldoc-box-hover-mode)))
 #+end_src
 
 ** which-key
@@ -627,22 +627,28 @@ macOS system appearance.
         org-pretty-entities t
         org-agenda-tags-column 0
         org-ellipsis "…"
-        org-agenda-files (directory-files-recursively "~/org" "\\.org$"))
+        ;; Top-level files plus the inbox only (non-recursive). The notes
+        ;; subdirectories (1-notes, 2-maps, 3-sources) hold no agenda items,
+        ;; so scanning them recursively just slowed the agenda down.
+        org-agenda-files '("~/org/" "~/org/0-inbox/"))
 
   (setq +org-capture-projects-file "~/org/projects.org"
         +org-capture-todo-file     "~/org/todo.org"
         +org-capture-journal-file  "~/org/schedule.org"
         +org-capture-notes-file    "~/org/notes.org")
 
+  ;; The (x) suffixes are fast-access keys, so C-c C-t pops up a single-keypress
+  ;; selection menu instead of cycling. STARTED replaces IN-PROGRESS to match the
+  ;; neovim config, whose agenda match parser can't filter hyphenated keywords.
   (setq org-todo-keywords
-        '((sequence "TODO" "IN-PROGRESS" "WAITING" "|" "DONE" "WONT-DO")))
+        '((sequence "TODO(t)" "STARTED(s)" "WAITING(w)" "|" "DONE(d)" "WONT-DO(x)")))
 
   (setq org-capture-templates '(
                                 ("t" "Quick todo" entry
                                  (file+headline +org-capture-todo-file "Todos")
                                  "* TODO %?\n:Created: %T\n" :prepend t)
                                 ("c" "Code To-Do"
-                                 entry (file+headline "~/org/todos.org" "Code Related Tasks")
+                                 entry (file+headline "~/org/todo.org" "Code Related Tasks")
                                  "* TODO [#B] %?\n:Created: %T\n%i\n%a\nProposed Solution: "
                                  :empty-lines 0)
                                 ("e" "Event")
@@ -662,7 +668,8 @@ macOS system appearance.
   (setq org-todo-keyword-faces
         '(("TODO" . (:foreground "GoldenRod" :weight bold))
           ("PLANNING" . (:foreground "DeepPink" :weight bold))
-          ("IN-PROGRESS" . (:foreground "Cyan" :weight bold))
+          ("STARTED" . (:foreground "Cyan" :weight bold))
+          ("WAITING" . (:foreground "Red" :weight bold))
           ("VERIFYING" . (:foreground "DarkOrange" :weight bold))
           ("BLOCKED" . (:foreground "Red" :weight bold))
           ("DONE" . (:foreground "LimeGreen" :weight bold))
@@ -699,26 +706,29 @@ macOS system appearance.
             (agenda ""
                     ((org-agenda-span 3)
                      (org-agenda-start-day "-1d")
-                     (org-agenda-overriding-header "Previous Work:")))))
+                     (org-agenda-overriding-header "Previous Work:"))))
+           ((org-agenda-tag-filter-preset '("+work"))))
 
           ("S" "Standup"
            ((agenda ""
                     ((org-agenda-span 1)
                      (org-agenda-start-day "-1d")
                      (org-agenda-overriding-header "Yesterday:")))
-            (todo "IN-PROGRESS"
+            (todo "STARTED"
                   ((org-agenda-overriding-header "Currently Working On:")))
             (todo "WAITING"
                   ((org-agenda-overriding-header "Blocked Items:")))
             (tags "PRIORITY=\"A\""
                   ((org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))
-                   (org-agenda-overriding-header "High Priority TODOs:")))))
+                   (org-agenda-overriding-header "High Priority TODOs:"))))
+           ((org-agenda-tag-filter-preset '("+work"))))
 
           ("w" "Week Overview"
            ((agenda ""
                     ((org-agenda-span 7)
                      (org-agenda-start-on-weekday 1)
-                     (org-agenda-overriding-header "This Week:")))))
+                     (org-agenda-overriding-header "This Week:"))))
+           ((org-agenda-tag-filter-preset '("+work"))))
 
           ("o" "Combined Overview"
            ((tags "PRIORITY=\"A\""
@@ -784,6 +794,33 @@ macOS system appearance.
                '((markdown-mode gfm-mode markdown-ts-mode) . ("marksman"))))
 #+end_src
 
+The Roslyn server (=Microsoft.CodeAnalysis.LanguageServer=) does not auto-load a
+workspace; it needs a =solution/open= (or =project/open=) notification after
+init, which Eglot does not send. Without it Roslyn runs in miscellaneous-files
+mode and flags every =using= directive as unused. Send it on connect, pointing
+at the nearest =.sln= (top-level only) or falling back to every =.csproj=.
+
+#+begin_src emacs-lisp
+(defun my/eglot-roslyn-load-solution (server)
+  "Point the Roslyn server at the nearest .sln (or all .csproj files).
+Microsoft.CodeAnalysis.LanguageServer does not auto-load a workspace; it needs a
+`solution/open' (or `project/open') notification after init, which Eglot does
+not send.  Without it Roslyn runs in miscellaneous-files mode and flags every
+using directive as unused."
+  (when (memq 'csharp-ts-mode (eglot--major-modes server))
+    (let* ((root (project-root (eglot--project server)))
+           (sln  (car (directory-files root t "\\.sln\\'"))))
+      (if sln
+          (jsonrpc-notify server :solution/open
+                          (list :solution (eglot-path-to-uri sln)))
+        (when-let* ((projects (directory-files-recursively root "\\.csproj\\'")))
+          (jsonrpc-notify server :project/open
+                          (list :projects
+                                (vconcat (mapcar #'eglot-path-to-uri projects)))))))))
+
+(add-hook 'eglot-connect-hook #'my/eglot-roslyn-load-solution)
+#+end_src
+
 ** lsp-mode (TypeScript/TSX)
 
 #+begin_src emacs-lisp
@@ -816,7 +853,19 @@ macOS system appearance.
   (lsp-log-io nil)
   (lsp-keep-workspace-alive nil)
   :config
-  (setq lsp-completion-enable t))
+  (setq lsp-completion-enable t)
+  ;; lsp-ts-query's defcustom errors at load time on this Emacs build
+  ;; (cl-remove-if called with a nil predicate), which aborts the whole
+  ;; lsp--require-packages loop and prevents *any* server from starting.
+  ;; We don't use the tree-sitter-query server, so drop it from the load list.
+  (setq lsp-client-packages (delq 'lsp-ts-query lsp-client-packages))
+  ;; macOS has KQUEUE file-notify, so lsp watches the whole project tree by
+  ;; default. Skip the heavy build/dependency directories and raise the warning
+  ;; threshold so large TS/TSX repos don't stall on workspace init.
+  (setq lsp-file-watch-threshold 5000)
+  (dolist (dir '("[/\\\\]node_modules\\'" "[/\\\\]dist\\'"
+                 "[/\\\\]\\.next\\'" "[/\\\\]build\\'" "[/\\\\]coverage\\'"))
+    (add-to-list 'lsp-file-watch-ignored-directories dir)))
 #+end_src
 
 ** Tailwind CSS
@@ -827,16 +876,8 @@ macOS system appearance.
   :straight t
   :after lsp-mode
   :init
-  (setq lsp-tailwindcss-add-on-mode t))
-
-(use-package lsp-tailwindcss
-  :ensure t
-  :straight t
-  :defer t
-  :init
   (setq lsp-tailwindcss-add-on-mode t)
   (setq lsp-tailwindcss-skip-config-check t)
-  (add-hook 'before-save-hook 'lsp-tailwindcss-rustywind-before-save)
   :config
   (customize-set-value 'lsp-tailwindcss-class-attributes ["class" "className" "cn"])
   :custom
@@ -873,12 +914,27 @@ macOS system appearance.
 
 * JavaScript/TypeScript
 
+The =add-node-modules-path= package defaults to running =npm bin= to locate the
+directory, but that command was removed in npm v9, so it silently does nothing
+on a modern toolchain. Instead, locate the nearest =node_modules/.bin= with
+=locate-dominating-file= and prepend it to a buffer-local =exec-path= / =PATH=.
+This is package-manager agnostic (npm/pnpm/yarn) and spawns no subprocess, and
+runs before =lsp-deferred= so the server resolves project-local binaries.
+
 #+begin_src emacs-lisp
-(use-package add-node-modules-path
-  :ensure t
-  :straight t
-  :hook
-  ((tsx-ts-mode typescript-ts-mode js-mode) . add-node-modules-path))
+(defun my/add-node-modules-path ()
+  "Prepend the nearest node_modules/.bin to a buffer-local `exec-path'.
+Replaces `add-node-modules-path', whose `npm bin' default was removed in npm 9."
+  (when-let* ((root (locate-dominating-file default-directory "node_modules"))
+              (bin  (expand-file-name "node_modules/.bin" root)))
+    (when (file-directory-p bin)
+      (setq-local exec-path (cons bin exec-path))
+      (setq-local process-environment
+                  (cons (concat "PATH=" bin path-separator (getenv "PATH"))
+                        process-environment)))))
+
+(dolist (hook '(tsx-ts-mode-hook typescript-ts-mode-hook js-mode-hook))
+  (add-hook hook #'my/add-node-modules-path))
 #+end_src
 
 * Terminal (Vterm)
