@@ -2,7 +2,7 @@
 #
 # Consumed from a flake like:
 #
-#   inputs.dotemacs.url = "github:hadyny/dotemacs.d";
+#   inputs.dotemacs.url = "github:hadyny/.emacs.d";
 #   ...
 #   # Optional: apply the overlay so `pkgs.emacs` is the cross-platform build
 #   # (emacs-plus system-appearance patch on Darwin), then set `package` below.

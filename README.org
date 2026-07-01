@@ -56,7 +56,7 @@ flake's Emacs to have nix provide it on both platforms.
 
 #+begin_src nix
 # flake inputs
-dotemacs.url = "github:hadyny/dotemacs.d";
+dotemacs.url = "github:hadyny/.emacs.d";
 dotemacs.inputs.nixpkgs.follows = "nixpkgs";
 
 # apply the overlay so `pkgs.emacs` is the patched, cross-platform build
