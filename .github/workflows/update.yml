@@ -1,0 +1,34 @@
+name: update flake inputs
+
+on:
+  schedule:
+    - cron: "0 21 * * 0" # Weekly, Monday 09:00 NZST
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v14
+      - uses: DeterminateSystems/magic-nix-cache-action@v2
+
+      - name: Update flake inputs
+        run: nix flake update
+
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "chore: update flake inputs"
+          title: "chore: update flake inputs"
+          body: |
+            Automated `nix flake update` (nixpkgs, flake-utils).
+
+            Note: `lsp-tailwindcss` is pinned by `rev`/`hash` in `flake.nix`, not
+            in `flake.lock`, so it is **not** bumped here — update it manually if
+            a newer revision is needed.
+          branch: flake-update
+          delete-branch: true

@@ -14,10 +14,19 @@ jobs:
       - uses: DeterminateSystems/magic-nix-cache-action@v2
       - uses: DeterminateSystems/flake-checker-action@v5
 
-      # Runs checks.<system>.smoke: check-parens in init.el, tangle config.org,
-      # byte-compile the result. Defined in flake.nix.
+      # Runs every checks.<system> (defined in flake.nix):
+      #   smoke            - check-parens, tangle config.org, byte-compile
+      #   appearance       - theme switch stays cross-platform (auto-dark)
+      #   packages-loadable- builds the Nix Emacs, asserts package activation
+      #                      + lsp-tailwindcss/vterm load (straight->nix guard)
       - name: Check flake
         run: nix flake check --print-build-logs
 
       - name: Check formatting
         run: nix fmt -- --ci
+
+      - name: Lint with statix
+        run: nix run nixpkgs#statix -- check .
+
+      - name: Check for dead code
+        run: nix run nixpkgs#deadnix -- --fail .

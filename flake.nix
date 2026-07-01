@@ -7,7 +7,7 @@
   };
 
   outputs =
-    inputs@{
+    {
       self,
       nixpkgs,
       flake-utils,
