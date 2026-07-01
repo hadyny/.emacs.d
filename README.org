@@ -10,19 +10,19 @@ tangles and loads it via =org-babel-load-file=.
 - [[file:init.el][=init.el=]] — loader: redirects =custom-file=, tangles and loads =config.org=
 - [[file:config.org][=config.org=]] — the actual configuration (tangles to =config.el= on load)
 - [[file:early-init.el][=early-init.el=]] — frame/UI setup before package load
-- [[file:flake.nix][=flake.nix=]] — packages the external tool closure + a home-manager module
+- [[file:flake.nix][=flake.nix=]] — builds Emacs + ELisp packages + the tool closure; exposes a home-manager module
 - [[file:nix/hm-module.nix][=nix/hm-module.nix=]] — home-manager module (see [[*Nix / home-manager][Nix / home-manager]])
 
 * First run
 
-On a fresh checkout, =emacs= will:
+Emacs packages are provided by Nix (not [[https://github.com/radian-software/straight.el][straight.el]]) — the flake builds Emacs
+with every =use-package= dependency on =load-path=. On startup =emacs= only:
 
-1. Bootstrap [[https://github.com/radian-software/straight.el][straight.el]]
-2. Tangle =config.org= → =config.el=
-3. Install packages declared via =use-package= + =straight=
+1. Tangles =config.org= → =config.el=
+2. Loads it; =use-package= forms =require= packages already provided by Nix
+   (they carry no =:ensure=/=:straight= and install nothing)
 
-Expect the first start to take a few minutes. Subsequent starts reuse the
-tangled file and only re-tangle when =config.org= is newer.
+To add a package, add it to the =withPackages= list in [[file:flake.nix][=flake.nix=]] and rebuild.
 
 * Highlights
 
@@ -35,22 +35,29 @@ tangled file and only re-tangle when =config.org= is newer.
 
 * Nix / home-manager
 
-ELisp packages are managed by [[https://github.com/radian-software/straight.el][straight.el]], not nix. The flake owns the
-*external tool closure* (language servers), the placement of this config, and a
-*cross-platform Emacs* — all exposed as a home-manager module.
+The flake owns Emacs, the ELisp packages, the *external tool closure* (language
+servers), and the placement of this config — all exposed as a home-manager
+module.
 
-** Emacs
+** Emacs and packages
 
-=packages.<system>.emacs= (and =overlays.default=) is one Emacs for Linux and
-Darwin. On Darwin the NS build already provides =ns-appearance= /
-=ns-transparent-titlebar=; the overlay adds the emacs-plus =system-appearance=
-patch on top so =ns-system-appearance= exists too, giving =auto-dark= an
-event-driven light/dark source. The patch touches Cocoa, so it is applied on
-Darwin only — Linux builds a normal PGTK Emacs from the same derivation.
+=packages.<system>.emacs= (and =overlays.default='s =emacs-dotemacs=) is one
+Emacs for Linux and Darwin, built with every =use-package= dependency on
+=load-path= (see the =withPackages= list in [[file:flake.nix][=flake.nix=]]). There is no straight.el:
+=use-package= forms carry no =:ensure=/=:straight= and install nothing. Adding a
+package means adding it to that list and rebuilding. =lsp-tailwindcss= (not in
+nixpkgs) is built from source via =fetchFromGitHub=; =vterm='s native module is
+compiled by Nix rather than at runtime.
 
-Using it is opt-in. Leave =programs.dotemacs.package = null= (default) to keep an
-externally-managed Emacs (e.g. Homebrew =emacs-plus= on macOS); set it to the
-flake's Emacs to have nix provide it on both platforms.
+On Darwin the NS build already provides =ns-appearance= / =ns-transparent-titlebar=;
+the overlay adds the emacs-plus =system-appearance= patch on top so
+=ns-system-appearance= exists too, giving =auto-dark= an event-driven light/dark
+source. The patch touches Cocoa, so it is applied on Darwin only — Linux builds a
+normal PGTK Emacs from the same derivation.
+
+Using the Nix Emacs is opt-in per host: leave =programs.dotemacs.package = null=
+(default) to keep an externally-managed Emacs, or set it to =pkgs.emacs-dotemacs=
+(with =overlays.default= applied) to have Nix provide Emacs and all packages.
 
 ** Wiring into home-manager
 
@@ -59,7 +66,7 @@ flake's Emacs to have nix provide it on both platforms.
 dotemacs.url = "github:hadyny/.emacs.d";
 dotemacs.inputs.nixpkgs.follows = "nixpkgs";
 
-# apply the overlay so `pkgs.emacs` is the patched, cross-platform build
+# apply the overlay so `pkgs.emacs-dotemacs` (Emacs + all packages) is available
 nixpkgs.overlays = [ inputs.dotemacs.overlays.default ];
 
 # home-manager modules
@@ -67,14 +74,14 @@ imports = [ inputs.dotemacs.homeManagerModules.default ];
 
 programs.dotemacs = {
   enable = true;
-  # Absolute path to this checkout. Uses an out-of-store (writable) symlink for
-  # ~/.emacs.d so straight.el can write to ~/.emacs.d/straight and edits to
-  # config.org take effect without a rebuild.
+  # Absolute path to this checkout, linked as ~/.emacs.d via an out-of-store
+  # (writable) symlink so config.org edits take effect without a rebuild and
+  # the tangled config.el can be written next to it.
   configPath = "/Users/you/src/dotemacs.d";
   # Set to [ ] when a shared package list already installs the language servers.
   # tools = [ ];
-  # Opt into the nix-provided Emacs (else keep Homebrew emacs-plus):
-  # package = pkgs.emacs;
+  # Nix-provided Emacs + all packages (else leave null for an external Emacs):
+  package = pkgs.emacs-dotemacs;
 };
 #+end_src
 
@@ -85,18 +92,20 @@ Module options (=programs.dotemacs.*=):
   roslyn-ls, tailwindcss-language-server, vscode-langservers-extracted,
   coreutils-prefixed). Set to =[ ]= to defer to another package list.
 - =configPath= — absolute path to a live checkout; =null= links the flake's
-  read-only source instead (incompatible with straight.el — see the option doc)
-- =package= — Emacs package to install via nix; =null= (default) keeps the
-  externally-managed (Homebrew) Emacs. Set to =pkgs.emacs= (with the overlay) for
-  the cross-platform build.
+  read-only source instead (which can't be tangled into — see the option doc)
+- =package= — Emacs package to install via nix; =null= (default) keeps an
+  externally-managed Emacs. Set to =pkgs.emacs-dotemacs= (with the overlay) for
+  the cross-platform build with all packages.
 
 Other flake outputs:
 
-- =nix flake check= — runs =checks.smoke= (tangle + byte-compile) and
-  =checks.appearance= (theme switch stays cross-platform: uses =auto-dark=, no
-  bare =ns-system-appearance= reference)
+- =nix flake check= — runs =checks.smoke= (tangle + byte-compile),
+  =checks.appearance= (theme switch stays cross-platform), and
+  =checks.packages-loadable= (the Nix Emacs has every config package, incl.
+  lsp-tailwindcss and vterm, on =load-path=)
 - =nix develop= — dev shell with headless Emacs + the language servers
 - =nix fmt= — format the Nix files (=nixfmt=)
-- =packages.<system>.emacs= — the cross-platform Emacs (emacs-plus patch on Darwin)
+- =packages.<system>.emacs= — the cross-platform Emacs with all packages
+- =packages.<system>.emacs-bare= — Emacs with only the Darwin appearance patch
 - =packages.<system>.emacs-tools= — the tool closure as one joined derivation
 - =overlays.default= — overrides =pkgs.emacs= with the patched build

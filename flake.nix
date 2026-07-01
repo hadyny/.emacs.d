@@ -27,21 +27,89 @@
       # (and its change hook) exist, giving auto-dark an event-driven source.
       # The patch touches Cocoa (`nsterm.m`), so it is applied on Darwin only —
       # Linux builds a normal PGTK Emacs from the same derivation.
-      emacs-appearance-overlay = final: prev: {
-        emacs = prev.emacs.overrideAttrs (old: {
-          patches =
-            (old.patches or [ ])
-            ++ prev.lib.optionals prev.stdenv.hostPlatform.isDarwin [
-              (prev.fetchurl {
-                # Pinned by content hash: if upstream rewrites the patch the
-                # build fails loudly (mismatch) rather than changing silently.
-                # For stricter reproducibility, pin the URL to a commit sha.
-                url = "https://raw.githubusercontent.com/d12frosted/homebrew-emacs-plus/master/patches/emacs-30/system-appearance.patch";
-                sha256 = "sha256-nrPOgGQAJb/5brrrWJNDARY2jWNJ9OsMtO+LPVhHfbY=";
-              })
-            ];
-        });
-      };
+      emacs-appearance-overlay =
+        final: prev:
+        let
+          patchedEmacs = prev.emacs.overrideAttrs (old: {
+            patches =
+              (old.patches or [ ])
+              ++ prev.lib.optionals prev.stdenv.hostPlatform.isDarwin [
+                (prev.fetchurl {
+                  # Pinned by content hash: if upstream rewrites the patch the
+                  # build fails loudly (mismatch) rather than changing silently.
+                  # For stricter reproducibility, pin the URL to a commit sha.
+                  url = "https://raw.githubusercontent.com/d12frosted/homebrew-emacs-plus/master/patches/emacs-30/system-appearance.patch";
+                  sha256 = "sha256-nrPOgGQAJb/5brrrWJNDARY2jWNJ9OsMtO+LPVhHfbY=";
+                })
+              ];
+          });
+
+          epkgs = final.emacsPackagesFor patchedEmacs;
+
+          # lsp-tailwindcss is not in nixpkgs; build it from source.
+          lsp-tailwindcss = epkgs.trivialBuild {
+            pname = "lsp-tailwindcss";
+            version = "0-unstable-2024";
+            src = final.fetchFromGitHub {
+              owner = "merrickluo";
+              repo = "lsp-tailwindcss";
+              rev = "c90c3fece5eaf8725fa957ada8aafae9c461ad2b";
+              hash = "sha256-i7pzEjv8NJLM1STSRU7luzlZjXCn8VzcTIit1N0Oca8=";
+            };
+            packageRequires = [ epkgs.lsp-mode ];
+          };
+        in
+        {
+          # Raw Emacs with only the Darwin appearance patch (no ELisp packages).
+          emacs = patchedEmacs;
+
+          # The Emacs actually used: patched + every package config.org needs on
+          # load-path (managed by Nix, not straight.el). Keep this list in sync
+          # with the (use-package ...) forms in config.org; built-ins and
+          # lsp-eslint (ships with lsp-mode) are intentionally absent.
+          emacs-dotemacs = epkgs.withPackages (
+            e:
+            (with e; [
+              apheleia
+              auto-dark
+              cape
+              catppuccin-theme
+              consult
+              corfu
+              corfu-prescient
+              diff-hl
+              doom-themes
+              eldoc-box
+              embark
+              embark-consult
+              evil
+              evil-collection
+              exec-path-from-shell
+              gcmh
+              helpful
+              ligature
+              lsp-mode
+              magit
+              marginalia
+              markdown-mode
+              mood-line
+              neotree
+              nerd-icons
+              nerd-icons-corfu
+              nix-mode
+              orderless
+              org-modern
+              prescient
+              smartparens
+              treesit-auto
+              vertico
+              vertico-prescient
+              vterm
+              which-key
+            ])
+            ++ [ lsp-tailwindcss ]
+          );
+        };
     in
     flake-utils.lib.eachSystem supportedSystems (
       system:
@@ -69,10 +137,13 @@
       in
       {
         packages = {
-          # The cross-platform Emacs (emacs-plus system-appearance patch on
-          # Darwin). Wire into home-manager via `programs.dotemacs.package` or
-          # `programs.emacs.package`.
-          emacs = pkgs.emacs;
+          # The cross-platform Emacs with all config.org packages on load-path
+          # (emacs-plus system-appearance patch on Darwin). Wire into
+          # home-manager via `programs.dotemacs.package`.
+          emacs = pkgs.emacs-dotemacs;
+
+          # Raw Emacs (appearance patch only, no ELisp packages).
+          emacs-bare = pkgs.emacs;
 
           # A single joined derivation of the tool closure, handy for `nix run`,
           # ad-hoc profiles, or reuse from another flake.
@@ -138,6 +209,20 @@
             fi
             touch $out
           '';
+
+          # The Nix-provided Emacs must have the config's packages on load-path
+          # — including the custom lsp-tailwindcss and the natively-compiled
+          # vterm module (the win over straight.el's runtime compile). Proves the
+          # straight -> nix package migration actually resolves.
+          packages-loadable = pkgs.runCommand "dotemacs-packages-loadable" { } ''
+            ${pkgs.emacs-dotemacs}/bin/emacs --batch \
+              --eval "(mapc #'require '(evil evil-collection vertico corfu consult \
+                                        embark lsp-mode lsp-tailwindcss auto-dark \
+                                        catppuccin-theme magit vterm treesit-auto \
+                                        apheleia which-key))" \
+              --eval '(message "all config packages loaded")'
+            touch $out
+          '';
         };
 
         formatter = pkgs.nixfmt-tree;
@@ -148,8 +233,9 @@
       # `programs.dotemacs.enable = true;` (see nix/hm-module.nix for options).
       homeManagerModules.default = import ./nix/hm-module.nix { inherit self; };
 
-      # Adds the patched, cross-platform `emacs`. Apply it in a home-manager /
-      # nix-darwin config's `nixpkgs.overlays`, then reference `pkgs.emacs`.
+      # Adds `emacs` (patched, no packages) and `emacs-dotemacs` (patched +
+      # every config.org package + lsp-tailwindcss). Apply it in a home-manager /
+      # nix-darwin config's `nixpkgs.overlays`, then reference `pkgs.emacs-dotemacs`.
       overlays.default = emacs-appearance-overlay;
     };
 }

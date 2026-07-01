@@ -16,10 +16,11 @@ Ensures the tangled =config.el= starts with a =lexical-binding= cookie.
 
 * Package Management
 
-Package bootstrap happens in [[file:init.el][=init.el=]] *before* this file is loaded:
-[[https://github.com/radian-software/straight.el][straight.el]] is installed, and =project=, =use-package=, and =org= are pinned
-to straight-managed versions. Pinning =org= early avoids a built-in/straight
-version mismatch that =org-babel-load-file= would otherwise trigger.
+Emacs packages are provided by Nix (see [[file:flake.nix][=flake.nix=]] and [[file:nix/hm-module.nix][=nix/hm-module.nix=]]):
+the flake builds Emacs with every package below on =load-path=, so =use-package=
+forms carry no =:ensure=/=:straight= and install nothing at runtime. Built-in
+features (=emacs=, =eglot=, =org=, =dired=, …) use =:ensure nil=. To add a
+package, add it to the =withPackages= list in =flake.nix= and rebuild.
 
 * Environment
 
@@ -33,8 +34,6 @@ version mismatch that =org-babel-load-file= would otherwise trigger.
 
 #+begin_src emacs-lisp
 (use-package exec-path-from-shell
-  :ensure t
-  :straight t
   :config (setq exec-path-from-shell-variables '("PATH"))
   :init
   (when (memq window-system '(mac ns x))
@@ -69,8 +68,6 @@ while idle, moving collection out of interactive work.
 
 #+begin_src emacs-lisp
 (use-package gcmh
-  :ensure t
-  :straight t
   :init
   (gcmh-mode 1)
   :custom
@@ -185,8 +182,6 @@ while idle, moving collection out of interactive work.
   (global-eldoc-mode))
 
 (use-package eldoc-box
-  :ensure t
-  :straight t
   :hook ((eglot-managed-mode . eldoc-box-hover-mode)
          (lsp-mode . eldoc-box-hover-mode)))
 #+end_src
@@ -195,7 +190,6 @@ while idle, moving collection out of interactive work.
 
 #+begin_src emacs-lisp
 (use-package which-key
-  :ensure t
   :config
   (setq which-key-idle-delay 0.05)
   (which-key-mode))
@@ -210,8 +204,6 @@ Linux and Darwin.
 
 #+begin_src emacs-lisp
 (use-package catppuccin-theme
-  :ensure t
-  :straight t
   :config
   (defun my/catppuccin-flavor-for (appearance)
     "Return the catppuccin flavor symbol for system APPEARANCE.
@@ -227,8 +219,6 @@ unit-tested without loading a theme."
       (set-face-attribute 'mode-line-inactive nil :box `(:line-width 6 :color ,bg)))))
 
 (use-package doom-themes
-  :ensure t
-  :straight t
   :custom
   (doom-themes-enable-bold t)
   (doom-themes-enable-italic t)
@@ -254,8 +244,6 @@ unit-tested without loading a theme."
 ;; (hence the nil theme vars). Loaded after doom-themes so catppuccin is active
 ;; when `auto-dark-mode' applies the initial flavor.
 (use-package auto-dark
-  :ensure t
-  :straight t
   :after catppuccin-theme
   :custom
   (auto-dark-dark-theme nil)
@@ -272,8 +260,6 @@ unit-tested without loading a theme."
 
 #+begin_src emacs-lisp
 (use-package nerd-icons
-  :ensure t
-  :straight t
   :custom
   (nerd-icons-font-family "Maple Mono NF"))
 
@@ -304,8 +290,6 @@ unit-tested without loading a theme."
 
 #+begin_src emacs-lisp
 (use-package treesit-auto
-  :ensure t
-  :straight t
   :after emacs
   :custom
   (treesit-auto-install 'prompt)
@@ -318,8 +302,6 @@ unit-tested without loading a theme."
 
 #+begin_src emacs-lisp
 (use-package mood-line
-  :ensure t
-  :straight t
   :custom
   (mood-line-glyph-alist mood-line-glyphs-fira-code)
   :config
@@ -338,8 +320,6 @@ unit-tested without loading a theme."
 
 #+begin_src emacs-lisp
 (use-package vertico
-  :ensure t
-  :straight t
   :hook (after-init . vertico-mode)
   :custom
   (vertico-count 12)
@@ -352,8 +332,6 @@ unit-tested without loading a theme."
 
 #+begin_src emacs-lisp
 (use-package orderless
-  :ensure t
-  :straight t
   :after vertico
   :custom
   (completion-category-defaults nil)
@@ -365,8 +343,6 @@ unit-tested without loading a theme."
 
 #+begin_src emacs-lisp
 (use-package corfu
-  :ensure t
-  :straight t
   :hook ((org-mode prog-mode) . corfu-mode)
   :custom
   (corfu-auto t)
@@ -390,8 +366,6 @@ unit-tested without loading a theme."
         ([tab] . corfu-insert)))
 
 (use-package nerd-icons-corfu
-  :ensure t
-  :straight t
   :after corfu
   :config
   (add-to-list 'corfu-margin-formatters #'nerd-icons-corfu-formatter))
@@ -401,8 +375,6 @@ unit-tested without loading a theme."
 
 #+begin_src emacs-lisp
 (use-package cape
-  :ensure t
-  :straight t
   :after corfu
   :init
   (add-hook 'completion-at-point-functions #'cape-dabbrev)
@@ -414,21 +386,15 @@ unit-tested without loading a theme."
 
 #+begin_src emacs-lisp
 (use-package prescient
-  :ensure t
-  :straight t
   :config
   (prescient-persist-mode 1))
 
 (use-package vertico-prescient
-  :ensure t
-  :straight t
   :after (vertico prescient)
   :config
   (vertico-prescient-mode 1))
 
 (use-package corfu-prescient
-  :ensure t
-  :straight t
   :after (corfu prescient)
   :config
   (corfu-prescient-mode 1))
@@ -438,8 +404,6 @@ unit-tested without loading a theme."
 
 #+begin_src emacs-lisp
 (use-package consult
-  :ensure t
-  :straight t
   :defer t
   :init
   (advice-add #'register-preview :override #'consult-register-window)
@@ -451,8 +415,6 @@ unit-tested without loading a theme."
 
 #+begin_src emacs-lisp
 (use-package marginalia
-  :ensure t
-  :straight t
   :defer t
   :bind (:map minibuffer-local-map
               ("M-A" . marginalia-cycle))
@@ -464,13 +426,9 @@ unit-tested without loading a theme."
 
 #+begin_src emacs-lisp
 (use-package embark
-  :ensure t
-  :straight t
   :defer t)
 
 (use-package embark-consult
-  :ensure t
-  :straight t
   :hook
   (embark-collect-mode . consult-preview-at-point-mode))
 #+end_src
@@ -479,8 +437,6 @@ unit-tested without loading a theme."
 
 #+begin_src emacs-lisp
 (use-package helpful
-  :ensure
-  :straight t
   :defer t
   :config
   (global-set-key (kbd "C-h f") #'helpful-callable)
@@ -498,8 +454,6 @@ unit-tested without loading a theme."
 #+begin_src emacs-lisp
 (use-package smartparens
   :defer t
-  :ensure t
-  :straight t
   :hook
   (prog-mode . smartparens-mode))
 #+end_src
@@ -509,8 +463,6 @@ unit-tested without loading a theme."
 #+begin_src emacs-lisp
 (use-package markdown-mode
   :defer t
-  :ensure t
-  :straight t
   :init (setq markdown-command "multimarkdown")
   :bind (:map markdown-mode-map
               ("C-c C-e" . markdown-do)))
@@ -520,8 +472,6 @@ unit-tested without loading a theme."
 
 #+begin_src emacs-lisp
 (use-package neotree
-  :ensure t
-  :straight t
   :config
   (setq neo-window-width 50)
   (setq neo-smart-open t)
@@ -557,8 +507,6 @@ unit-tested without loading a theme."
 #+begin_src emacs-lisp
 (use-package ligature
   :defer t
-  :ensure t
-  :straight t
   :hook (after-init . global-ligature-mode)
   :config
   (ligature-set-ligatures 't '("www"))
@@ -584,8 +532,6 @@ unit-tested without loading a theme."
 
 #+begin_src emacs-lisp
 (use-package nix-mode
-  :ensure t
-  :straight t
   :defer t
   :mode "\\.nix\\'")
 #+end_src
@@ -611,8 +557,6 @@ unit-tested without loading a theme."
 #+begin_src emacs-lisp
 (use-package diff-hl
   :defer t
-  :straight t
-  :ensure t
   :hook
   (find-file . (lambda ()
                  (global-diff-hl-mode)
@@ -788,8 +732,6 @@ unit-tested without loading a theme."
 
 #+begin_src emacs-lisp
 (use-package org-modern
-  :ensure t
-  :straight t
   :defer t
   :hook (org-mode . org-modern-mode))
 #+end_src
@@ -845,8 +787,6 @@ using directive as unused."
 
 #+begin_src emacs-lisp
 (use-package lsp-mode
-  :ensure t
-  :straight t
   :commands (lsp lsp-deferred)
   :custom
   (lsp-enable-symbol-highlighting nil)
@@ -890,8 +830,6 @@ using directive as unused."
 
 #+begin_src emacs-lisp
 (use-package lsp-tailwindcss
-  :ensure t
-  :straight t
   :after lsp-mode
   :init
   (setq lsp-tailwindcss-add-on-mode t)
@@ -915,8 +853,6 @@ using directive as unused."
 
 #+begin_src emacs-lisp
 (use-package apheleia
-  :ensure t
-  :straight t
   :defer t
   :hook (after-init . apheleia-global-mode))
 #+end_src
@@ -925,8 +861,6 @@ using directive as unused."
 
 #+begin_src emacs-lisp
 (use-package magit
-  :ensure t
-  :straight t
   :defer t)
 #+end_src
 
@@ -959,8 +893,6 @@ Replaces `add-node-modules-path', whose `npm bin' default was removed in npm 9."
 
 #+begin_src emacs-lisp
 (use-package vterm
-  :ensure t
-  :straight t
   :defer t)
 #+end_src
 
@@ -968,8 +900,6 @@ Replaces `add-node-modules-path', whose `npm bin' default was removed in npm 9."
 
 #+begin_src emacs-lisp
 (use-package evil
-  :ensure t
-  :straight t
   :defer t
   :hook
   (after-init . evil-mode)
@@ -1095,8 +1025,6 @@ Replaces `add-node-modules-path', whose `npm bin' default was removed in npm 9."
 
 (use-package evil-collection
   :defer t
-  :straight t
-  :ensure t
   :custom
   (evil-collection-want-find-usages-bindings t)
   :hook
