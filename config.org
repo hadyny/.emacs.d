@@ -203,23 +203,28 @@ while idle, moving collection out of interactive work.
 
 ** Themes
 
-Auto-switches Catppuccin between Latte (light) and Mocha (dark) based on the
-macOS system appearance.
+Auto-switches Catppuccin between Latte (light) and Mocha (dark) following the
+system appearance. [[https://github.com/LionyxML/auto-dark-emacs][=auto-dark=]] provides the detection cross-platform (D-Bus on
+Linux, =ns-system-appearance=/AppleScript on macOS), so this works the same on
+Linux and Darwin.
 
 #+begin_src emacs-lisp
 (use-package catppuccin-theme
   :ensure t
   :straight t
   :config
+  (defun my/catppuccin-flavor-for (appearance)
+    "Return the catppuccin flavor symbol for system APPEARANCE.
+APPEARANCE is `light' or `dark'.  Pure: no side effects, so it can be
+unit-tested without loading a theme."
+    (if (eq appearance 'light) 'latte 'mocha))
   (defun my/apply-catppuccin-flavor (appearance)
-    "Set catppuccin flavor based on system APPEARANCE (dark or light)."
-    (setq catppuccin-flavor (if (eq appearance 'light) 'latte 'mocha))
+    "Set and reload the catppuccin flavor for system APPEARANCE (`light'/`dark')."
+    (setq catppuccin-flavor (my/catppuccin-flavor-for appearance))
     (catppuccin-reload)
     (let ((bg (face-attribute 'mode-line :background)))
       (set-face-attribute 'mode-line nil :box `(:line-width 6 :color ,bg))
-      (set-face-attribute 'mode-line-inactive nil :box `(:line-width 6 :color ,bg))))
-  (add-hook 'ns-system-appearance-change-functions #'my/apply-catppuccin-flavor)
-  (my/apply-catppuccin-flavor ns-system-appearance))
+      (set-face-attribute 'mode-line-inactive nil :box `(:line-width 6 :color ,bg)))))
 
 (use-package doom-themes
   :ensure t
@@ -241,6 +246,26 @@ macOS system appearance.
         "7771c8496c10162220af0ca7b7e61459cb42d18c35ce272a63461c0fc1336015"
         "276228257774fa4811da55346b1e34130edb068898565ca07c2d83cfb67eb70a"
         default))
+
+;; Drive the flavor switch off the system appearance, cross-platform. auto-dark
+;; detects light/dark (D-Bus on Linux, ns-system-appearance/AppleScript on
+;; macOS) and runs the mode hooks; we keep catppuccin as the single loaded theme
+;; and only swap its flavor, so auto-dark must not load themes of its own
+;; (hence the nil theme vars). Loaded after doom-themes so catppuccin is active
+;; when `auto-dark-mode' applies the initial flavor.
+(use-package auto-dark
+  :ensure t
+  :straight t
+  :after catppuccin-theme
+  :custom
+  (auto-dark-dark-theme nil)
+  (auto-dark-light-theme nil)
+  :config
+  (add-hook 'auto-dark-dark-mode-hook
+            (lambda () (my/apply-catppuccin-flavor 'dark)))
+  (add-hook 'auto-dark-light-mode-hook
+            (lambda () (my/apply-catppuccin-flavor 'light)))
+  (auto-dark-mode))
 #+end_src
 
 ** Icons and fonts

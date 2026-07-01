@@ -10,6 +10,8 @@ tangles and loads it via =org-babel-load-file=.
 - [[file:init.el][=init.el=]] — loader: redirects =custom-file=, tangles and loads =config.org=
 - [[file:config.org][=config.org=]] — the actual configuration (tangles to =config.el= on load)
 - [[file:early-init.el][=early-init.el=]] — frame/UI setup before package load
+- [[file:flake.nix][=flake.nix=]] — packages the external tool closure + a home-manager module
+- [[file:nix/hm-module.nix][=nix/hm-module.nix=]] — home-manager module (see [[*Nix / home-manager][Nix / home-manager]])
 
 * First run
 
@@ -26,7 +28,75 @@ tangled file and only re-tangle when =config.org= is newer.
 
 - Evil-mode with =SPC= leader
 - Vertico / Orderless / Corfu / Consult / Embark / Marginalia completion stack
-- Catppuccin theme, auto-switches Latte/Mocha with macOS appearance
+- Catppuccin theme, auto-switches Latte/Mocha with system appearance (via =auto-dark=, cross-platform)
 - Eglot for C#, Nix, and Markdown (marksman); lsp-mode for TypeScript/TSX (started manually via =M-x eglot= / =M-x lsp=, no auto-start)
 - Tree-sitter via =treesit-auto=
 - Magit, diff-hl, Apheleia formatting on save
+
+* Nix / home-manager
+
+ELisp packages are managed by [[https://github.com/radian-software/straight.el][straight.el]], not nix. The flake owns the
+*external tool closure* (language servers), the placement of this config, and a
+*cross-platform Emacs* — all exposed as a home-manager module.
+
+** Emacs
+
+=packages.<system>.emacs= (and =overlays.default=) is one Emacs for Linux and
+Darwin. On Darwin the NS build already provides =ns-appearance= /
+=ns-transparent-titlebar=; the overlay adds the emacs-plus =system-appearance=
+patch on top so =ns-system-appearance= exists too, giving =auto-dark= an
+event-driven light/dark source. The patch touches Cocoa, so it is applied on
+Darwin only — Linux builds a normal PGTK Emacs from the same derivation.
+
+Using it is opt-in. Leave =programs.dotemacs.package = null= (default) to keep an
+externally-managed Emacs (e.g. Homebrew =emacs-plus= on macOS); set it to the
+flake's Emacs to have nix provide it on both platforms.
+
+** Wiring into home-manager
+
+#+begin_src nix
+# flake inputs
+dotemacs.url = "github:hadyny/dotemacs.d";
+dotemacs.inputs.nixpkgs.follows = "nixpkgs";
+
+# apply the overlay so `pkgs.emacs` is the patched, cross-platform build
+nixpkgs.overlays = [ inputs.dotemacs.overlays.default ];
+
+# home-manager modules
+imports = [ inputs.dotemacs.homeManagerModules.default ];
+
+programs.dotemacs = {
+  enable = true;
+  # Absolute path to this checkout. Uses an out-of-store (writable) symlink for
+  # ~/.emacs.d so straight.el can write to ~/.emacs.d/straight and edits to
+  # config.org take effect without a rebuild.
+  configPath = "/Users/you/src/dotemacs.d";
+  # Set to [ ] when a shared package list already installs the language servers.
+  # tools = [ ];
+  # Opt into the nix-provided Emacs (else keep Homebrew emacs-plus):
+  # package = pkgs.emacs;
+};
+#+end_src
+
+Module options (=programs.dotemacs.*=):
+
+- =enable= — install the tool closure and manage =~/.emacs.d=
+- =tools= — external tools / language servers on =PATH= (default: marksman,
+  roslyn-ls, tailwindcss-language-server, vscode-langservers-extracted,
+  coreutils-prefixed). Set to =[ ]= to defer to another package list.
+- =configPath= — absolute path to a live checkout; =null= links the flake's
+  read-only source instead (incompatible with straight.el — see the option doc)
+- =package= — Emacs package to install via nix; =null= (default) keeps the
+  externally-managed (Homebrew) Emacs. Set to =pkgs.emacs= (with the overlay) for
+  the cross-platform build.
+
+Other flake outputs:
+
+- =nix flake check= — runs =checks.smoke= (tangle + byte-compile) and
+  =checks.appearance= (theme switch stays cross-platform: uses =auto-dark=, no
+  bare =ns-system-appearance= reference)
+- =nix develop= — dev shell with headless Emacs + the language servers
+- =nix fmt= — format the Nix files (=nixfmt=)
+- =packages.<system>.emacs= — the cross-platform Emacs (emacs-plus patch on Darwin)
+- =packages.<system>.emacs-tools= — the tool closure as one joined derivation
+- =overlays.default= — overrides =pkgs.emacs= with the patched build

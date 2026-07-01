@@ -45,5 +45,10 @@ custom.el
 # Tangled from config.org
 config.el
 
+# Nix / direnv
+.direnv/
+result
+result-*
+
 # Other
 crafted-emacs/
