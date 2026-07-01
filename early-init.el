@@ -1,11 +1,14 @@
 ;;; early-init.el --- Early initialization -*- lexical-binding: t; -*-
 ;;; Commentary:
 ;; This file is loaded before init.el, before package and UI initialization.
-;; Used for performance optimizations and disabling package.el.
+;; Used for performance optimizations.
 ;;; Code:
 
-;; Disable package.el in favor of straight.el
-(setq package-enable-at-startup nil)
+;; Keep package.el enabled: Nix installs Emacs packages into an `elpa'
+;; directory on `package-directory-list', and `package-activate-all' (run at
+;; startup only when this is non-nil) is what loads their autoloads. Disabling
+;; it leaves every package function void (e.g. gcmh-mode, marginalia-mode).
+(setq package-enable-at-startup t)
 
 ;; LSP performance: use plists instead of hash tables (for lsp-mode)
 (setenv "LSP_USE_PLISTS" "true")

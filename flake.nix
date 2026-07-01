@@ -210,17 +210,25 @@
             touch $out
           '';
 
-          # The Nix-provided Emacs must have the config's packages on load-path
-          # — including the custom lsp-tailwindcss and the natively-compiled
-          # vterm module (the win over straight.el's runtime compile). Proves the
-          # straight -> nix package migration actually resolves.
+          # Regression guard for the straight -> nix migration. Mimics real
+          # startup: `package-activate-all` must make the packages' entry points
+          # autoloadable WITHOUT an explicit require (this is what broke when
+          # early-init.el disabled package.el — every :init/:config call hit a
+          # void function). Also loads the custom lsp-tailwindcss and the
+          # natively-compiled vterm module (the win over straight's runtime build).
           packages-loadable = pkgs.runCommand "dotemacs-packages-loadable" { } ''
             ${pkgs.emacs-dotemacs}/bin/emacs --batch \
-              --eval "(mapc #'require '(evil evil-collection vertico corfu consult \
-                                        embark lsp-mode lsp-tailwindcss auto-dark \
-                                        catppuccin-theme magit vterm treesit-auto \
-                                        apheleia which-key))" \
-              --eval '(message "all config packages loaded")'
+              --eval "(progn \
+                        (package-activate-all) \
+                        (dolist (fn '(gcmh-mode marginalia-mode exec-path-from-shell-initialize \
+                                      corfu-mode corfu-history-mode vertico-mode evil-mode \
+                                      doom-themes-visual-bell-config which-key-mode \
+                                      apheleia-global-mode)) \
+                          (unless (fboundp fn) \
+                            (error \"not autoloaded (package activation broken?): %s\" fn))) \
+                        (require 'lsp-tailwindcss) \
+                        (require 'vterm) \
+                        (message \"package activation + custom packages OK\"))"
             touch $out
           '';
         };
