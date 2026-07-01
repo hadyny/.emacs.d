@@ -27,6 +27,6 @@ tangled file and only re-tangle when =config.org= is newer.
 - Evil-mode with =SPC= leader
 - Vertico / Orderless / Corfu / Consult / Embark / Marginalia completion stack
 - Catppuccin theme, auto-switches Latte/Mocha with macOS appearance
-- Eglot for C#, Nix, and Markdown (marksman); lsp-mode for TypeScript/TSX
+- Eglot for C#, Nix, and Markdown (marksman); lsp-mode for TypeScript/TSX (started manually via =M-x eglot= / =M-x lsp=, no auto-start)
 - Tree-sitter via =treesit-auto=
 - Magit, diff-hl, Apheleia formatting on save

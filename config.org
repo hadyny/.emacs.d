@@ -776,15 +776,10 @@ macOS system appearance.
 #+begin_src emacs-lisp
 (use-package eglot
   :ensure nil
-  :commands (eglot-ensure
+  :commands (eglot
+             eglot-ensure
              eglot-rename
              eglot-format-buffer)
-  :hook
-  (csharp-ts-mode . eglot-ensure)
-  (nix-mode . eglot-ensure)
-  (markdown-mode . eglot-ensure)
-  (gfm-mode . eglot-ensure)
-  (markdown-ts-mode . eglot-ensure)
   :config
   (setq eglot-code-action-indications '(mode-line))
   (setq eglot-confirm-server-initiated-edits t)
@@ -828,8 +823,6 @@ using directive as unused."
   :ensure t
   :straight t
   :commands (lsp lsp-deferred)
-  :hook
-  ((tsx-ts-mode typescript-ts-mode) . lsp-deferred)
   :custom
   (lsp-enable-symbol-highlighting nil)
   (lsp-enable-text-document-color nil)
