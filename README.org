@@ -70,7 +70,7 @@ dotemacs.inputs.nixpkgs.follows = "nixpkgs";
 nixpkgs.overlays = [ inputs.dotemacs.overlays.default ];
 
 # home-manager modules
-imports = [ inputs.dotemacs.homeManagerModules.default ];
+imports = [ inputs.dotemacs.homeModules.default ];
 
 programs.dotemacs = {
   enable = true;

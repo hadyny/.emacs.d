@@ -210,6 +210,51 @@
             touch $out
           '';
 
+          # ERT tests for the hand-written helpers in config.org, run on the
+          # lightweight emacs-nox. Each tests/*-test.el extracts a single defun
+          # from the tangled config.el and exercises it in isolation (see
+          # tests/config-test-helper.el), so the whole configuration need not
+          # load. Covers the auto-dark detection guard, the catppuccin flavour
+          # map, the node_modules/.bin resolver, the Roslyn workspace-open plan,
+          # and duplicate-keybinding detection. Tests that need the real package
+          # set (command existence, evil undo system) self-skip here and run in
+          # `integration-tests' below.
+          unit-tests = pkgs.runCommand "dotemacs-unit-tests" { nativeBuildInputs = [ pkgs.emacs-nox ]; } ''
+            cp -r ${self}/. work
+            chmod -R u+w work
+            cd work
+            emacs --batch -Q \
+              --eval "(require 'org)" \
+              --eval '(org-babel-tangle-file "config.org" "config.el")'
+            emacs --batch -Q -L tests \
+              --eval '(dolist (f (directory-files "tests" t "-test[.]el$")) (load f nil t))' \
+              -f ert-run-tests-batch-and-exit
+            touch $out
+          '';
+
+          # The full test suite run against the *real* environment: the Nix
+          # Emacs with the whole package set and the fully-loaded config. This
+          # is what lets the otherwise-skipped tests run -- Evil keybindings
+          # resolving to defined commands, and the configured undo system
+          # resolving to defined undo/redo functions.
+          integration-tests = pkgs.runCommand "dotemacs-integration-tests" { } ''
+            cp -r ${self}/. work
+            chmod -R u+w work
+            cd work
+            ${pkgs.emacs-dotemacs}/bin/emacs --batch \
+              --eval "(require 'org)" \
+              --eval '(org-babel-tangle-file "config.org" "config.el")'
+            ${pkgs.emacs-dotemacs}/bin/emacs --batch -L tests \
+              --eval "(progn \
+                        (package-activate-all) \
+                        (require 'use-package) \
+                        (setq use-package-always-ensure nil) \
+                        (load (expand-file-name \"config.el\") nil t))" \
+              --eval '(dolist (f (directory-files "tests" t "-test[.]el$")) (load f nil t))' \
+              -f ert-run-tests-batch-and-exit
+            touch $out
+          '';
+
           # Regression guard for the straight -> nix migration. Mimics real
           # startup: `package-activate-all` must make the packages' entry points
           # autoloadable WITHOUT an explicit require (this is what broke when
@@ -239,7 +284,7 @@
     // {
       # System-independent home-manager module. Import it and set
       # `programs.dotemacs.enable = true;` (see nix/hm-module.nix for options).
-      homeManagerModules.default = import ./nix/hm-module.nix { inherit self; };
+      homeModules.default = import ./nix/hm-module.nix { inherit self; };
 
       # Adds `emacs` (patched, no packages) and `emacs-dotemacs` (patched +
       # every config.org package + lsp-tailwindcss). Apply it in a home-manager /

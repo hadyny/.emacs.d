@@ -16,6 +16,8 @@ jobs:
       # Runs every checks.<system> (defined in flake.nix):
       #   smoke            - check-parens, tangle config.org, byte-compile
       #   appearance       - theme switch stays cross-platform (auto-dark)
+      #   unit-tests       - ERT tests for config.org helpers (emacs-nox)
+      #   integration-tests- full suite vs the real package set + loaded config
       #   packages-loadable- builds the Nix Emacs, asserts package activation
       #                      + lsp-tailwindcss/vterm load (straight->nix guard)
       - name: Check flake

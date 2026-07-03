@@ -8,7 +8,7 @@
 #   # (emacs-plus system-appearance patch on Darwin), then set `package` below.
 #   nixpkgs.overlays = [ inputs.dotemacs.overlays.default ];
 #
-#   home-manager modules = [ inputs.dotemacs.homeManagerModules.default ];
+#   home-manager modules = [ inputs.dotemacs.homeModules.default ];
 #   programs.dotemacs = {
 #     enable = true;
 #     configPath = "/Users/hadyn/src/dotemacs.d";  # live, writable checkout

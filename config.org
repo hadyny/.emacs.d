@@ -199,8 +199,10 @@ while idle, moving collection out of interactive work.
 
 Auto-switches Catppuccin between Latte (light) and Mocha (dark) following the
 system appearance. [[https://github.com/LionyxML/auto-dark-emacs][=auto-dark=]] provides the detection cross-platform (D-Bus on
-Linux, =ns-system-appearance=/AppleScript on macOS), so this works the same on
-Linux and Darwin.
+Linux, =ns-system-appearance=/AppleScript/=osascript= on macOS), so this works
+the same on Linux and Darwin, in GUI and terminal frames. When no detection
+mechanism exists (e.g. a Linux TTY with no D-Bus session bus) it falls back to a
+fixed dark flavor rather than warning at startup.
 
 #+begin_src emacs-lisp
 (use-package catppuccin-theme
@@ -243,17 +245,49 @@ unit-tested without loading a theme."
 ;; and only swap its flavor, so auto-dark must not load themes of its own
 ;; (hence the nil theme vars). Loaded after doom-themes so catppuccin is active
 ;; when `auto-dark-mode' applies the initial flavor.
+;;
+;; `auto-dark-allow-osascript' lets macOS detect appearance via the `osascript'
+;; binary, which works in a terminal frame too (the AppleScript branch requires
+;; a GUI `window-system', so `emacs -nw' would otherwise fall through).
+;;
+;; Some hosts have no detection mechanism at all (a Linux TTY/SSH session with
+;; no D-Bus session bus). There `auto-dark-mode' would log "Could not determine
+;; a viable theme detection mechanism!" at startup. `my/auto-dark-detectable-p'
+;; mirrors auto-dark's own detection conditions without that warning side effect,
+;; so we only enable the mode when it can work; otherwise we apply a fixed dark
+;; flavor and stay quiet.
 (use-package auto-dark
   :after catppuccin-theme
   :custom
   (auto-dark-dark-theme nil)
   (auto-dark-light-theme nil)
+  (auto-dark-allow-osascript t)
   :config
+  (defun my/auto-dark-detectable-p ()
+    "Non-nil when a system-appearance detection method is available.
+Mirrors `auto-dark--determine-detection-method' without its warning
+side effect, so we can decide whether to enable `auto-dark-mode'."
+    (cond
+     ((eq system-type 'darwin)
+      (or (memq window-system '(ns mac))              ; GUI -> applescript
+          (and (bound-and-true-p auto-dark-allow-osascript)
+               (executable-find "osascript"))))       ; terminal -> osascript
+     ((eq system-type 'gnu/linux)
+      (and (featurep 'dbus)
+           (ignore-errors                             ; no session bus -> error
+             (member "org.freedesktop.portal.Desktop"
+                     (dbus-list-activatable-names :session)))))
+     ((eq system-type 'windows-nt) t)
+     (t nil)))
   (add-hook 'auto-dark-dark-mode-hook
             (lambda () (my/apply-catppuccin-flavor 'dark)))
   (add-hook 'auto-dark-light-mode-hook
             (lambda () (my/apply-catppuccin-flavor 'light)))
-  (auto-dark-mode))
+  (if (my/auto-dark-detectable-p)
+      (auto-dark-mode)
+    ;; No detectable mechanism (e.g. Linux TTY/SSH). Skip the mode and its
+    ;; startup warning; apply a fixed dark flavor instead.
+    (my/apply-catppuccin-flavor 'dark)))
 #+end_src
 
 ** Icons and fonts
@@ -763,6 +797,21 @@ mode and flags every =using= directive as unused. Send it on connect, pointing
 at the nearest =.sln= (top-level only) or falling back to every =.csproj=.
 
 #+begin_src emacs-lisp
+(defun my/eglot-roslyn-workspace-plan (root)
+  "Return the Roslyn workspace-open plan for project ROOT, or nil.
+Pure: inspects the filesystem only and returns a plist describing the
+notification to send, leaving the eglot/jsonrpc call to the caller.  A
+top-level .sln yields (:method :solution/open :path SLN); otherwise any
+.csproj found recursively yields (:method :project/open :paths (CSPROJ...));
+an empty project yields nil."
+  (let ((sln (car (directory-files root t "\\.sln\\'"))))
+    (cond
+     (sln (list :method :solution/open :path sln))
+     ((directory-files-recursively root "\\.csproj\\'")
+      (list :method :project/open
+            :paths (directory-files-recursively root "\\.csproj\\'")))
+     (t nil))))
+
 (defun my/eglot-roslyn-load-solution (server)
   "Point the Roslyn server at the nearest .sln (or all .csproj files).
 Microsoft.CodeAnalysis.LanguageServer does not auto-load a workspace; it needs a
@@ -770,15 +819,18 @@ Microsoft.CodeAnalysis.LanguageServer does not auto-load a workspace; it needs a
 not send.  Without it Roslyn runs in miscellaneous-files mode and flags every
 using directive as unused."
   (when (memq 'csharp-ts-mode (eglot--major-modes server))
-    (let* ((root (project-root (eglot--project server)))
-           (sln  (car (directory-files root t "\\.sln\\'"))))
-      (if sln
-          (jsonrpc-notify server :solution/open
-                          (list :solution (eglot-path-to-uri sln)))
-        (when-let* ((projects (directory-files-recursively root "\\.csproj\\'")))
-          (jsonrpc-notify server :project/open
-                          (list :projects
-                                (vconcat (mapcar #'eglot-path-to-uri projects)))))))))
+    (let ((plan (my/eglot-roslyn-workspace-plan
+                 (project-root (eglot--project server)))))
+      (pcase (plist-get plan :method)
+        (:solution/open
+         (jsonrpc-notify server :solution/open
+                         (list :solution
+                               (eglot-path-to-uri (plist-get plan :path)))))
+        (:project/open
+         (jsonrpc-notify server :project/open
+                         (list :projects
+                               (vconcat (mapcar #'eglot-path-to-uri
+                                                (plist-get plan :paths))))))))))
 
 (add-hook 'eglot-connect-hook #'my/eglot-roslyn-load-solution)
 #+end_src
@@ -909,7 +961,7 @@ Replaces `add-node-modules-path', whose `npm bin' default was removed in npm 9."
   (setq evil-want-C-u-scroll t)
   (setq evil-want-C-u-delete t)
   :config
-  (evil-set-undo-system 'undo-tree)
+  (evil-set-undo-system 'undo-redo)
 
   (setq evil-leader/in-all-states t)
   (setq evil-want-fine-undo t)
@@ -978,9 +1030,6 @@ Replaces `add-node-modules-path', whose `npm bin' default was removed in npm 9."
 
   ;; Embark
   (evil-define-key 'normal 'global (kbd "<leader> .") 'embark-act)
-
-  ;; Undo tree
-  (evil-define-key 'normal 'global (kbd "<leader> u") 'undo-tree-visualize)
 
   ;; Help
   (evil-define-key 'normal 'global (kbd "<leader> h m") 'describe-mode)
