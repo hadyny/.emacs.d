@@ -73,7 +73,7 @@ Each entry is (:state S :map M :key KEY-STRING :cmd SYMBOL-or-nil)."
 ;; are already autoloaded (consult, magit, embark, ...) are omitted -- notably
 ;; `magit', whose load shells out to `git', absent in the Nix build sandbox.
 (defconst kb-test--command-features
-  '(flymake diff-hl eglot lsp-mode)
+  '(flymake diff-hl eglot)
   "Features to `require' before the command-existence check.")
 
 (ert-deftest keybindings/all-commands-fbound ()

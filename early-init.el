@@ -10,9 +10,6 @@
 ;; it leaves every package function void (e.g. gcmh-mode, marginalia-mode).
 (setq package-enable-at-startup t)
 
-;; LSP performance: use plists instead of hash tables (for lsp-mode)
-(setenv "LSP_USE_PLISTS" "true")
-
 ;; Increase garbage collection threshold for faster startup
 ;; Reset to lower value after init in init.el if needed
 (setq gc-cons-threshold #x40000000  ; 1GB

@@ -41,8 +41,6 @@ in
         coreutils-prefixed
         marksman
         roslyn-ls
-        tailwindcss-language-server
-        vscode-langservers-extracted
       ];
       description = ''
         External tools / language servers config.org expects on PATH. Set to

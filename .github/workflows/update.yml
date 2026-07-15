@@ -25,9 +25,5 @@ jobs:
           title: "chore: update flake inputs"
           body: |
             Automated `nix flake update` (nixpkgs, flake-utils).
-
-            Note: `lsp-tailwindcss` is pinned by `rev`/`hash` in `flake.nix`, not
-            in `flake.lock`, so it is **not** bumped here — update it manually if
-            a newer revision is needed.
           branch: flake-update
           delete-branch: true

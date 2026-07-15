@@ -19,7 +19,7 @@ jobs:
       #   unit-tests       - ERT tests for config.org helpers (emacs-nox)
       #   integration-tests- full suite vs the real package set + loaded config
       #   packages-loadable- builds the Nix Emacs, asserts package activation
-      #                      + lsp-tailwindcss/vterm load (straight->nix guard)
+      #                      + vterm load (straight->nix guard)
       - name: Check flake
         run: nix flake check --print-build-logs
 

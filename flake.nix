@@ -45,19 +45,6 @@
           });
 
           epkgs = final.emacsPackagesFor patchedEmacs;
-
-          # lsp-tailwindcss is not in nixpkgs; build it from source.
-          lsp-tailwindcss = epkgs.trivialBuild {
-            pname = "lsp-tailwindcss";
-            version = "0-unstable-2024";
-            src = final.fetchFromGitHub {
-              owner = "merrickluo";
-              repo = "lsp-tailwindcss";
-              rev = "c90c3fece5eaf8725fa957ada8aafae9c461ad2b";
-              hash = "sha256-i7pzEjv8NJLM1STSRU7luzlZjXCn8VzcTIit1N0Oca8=";
-            };
-            packageRequires = [ epkgs.lsp-mode ];
-          };
         in
         {
           # Raw Emacs with only the Darwin appearance patch (no ELisp packages).
@@ -65,11 +52,11 @@
 
           # The Emacs actually used: patched + every package config.org needs on
           # load-path (managed by Nix, not straight.el). Keep this list in sync
-          # with the (use-package ...) forms in config.org; built-ins and
-          # lsp-eslint (ships with lsp-mode) are intentionally absent.
+          # with the (use-package ...) forms in config.org; built-ins are
+          # intentionally absent.
           emacs-dotemacs = epkgs.withPackages (
             e:
-            (with e; [
+            with e; [
               apheleia
               auto-dark
               cape
@@ -85,10 +72,10 @@
               evil
               evil-collection
               exec-path-from-shell
+              flymake-eslint
               gcmh
               helpful
               ligature
-              lsp-mode
               magit
               marginalia
               markdown-mode
@@ -106,8 +93,7 @@
               vertico-prescient
               vterm
               which-key
-            ])
-            ++ [ lsp-tailwindcss ]
+            ]
           );
         };
     in
@@ -120,19 +106,18 @@
         };
 
         # External tools config.org shells out to. Keep in sync with the
-        # eglot-server-programs / lsp-mode / executable-find references in
-        # config.org (line numbers are a hint, not load-bearing):
+        # eglot-server-programs / executable-find references in config.org
+        # (line numbers are a hint, not load-bearing):
         #   coreutils-prefixed            -> gls                                (config.org: dired setup)
         #   marksman                      -> Markdown LSP                        (eglot-server-programs)
         #   roslyn-ls                     -> Microsoft.CodeAnalysis.LanguageServer (eglot-server-programs)
-        #   tailwindcss-language-server   -> lsp-tailwindcss
-        #   vscode-langservers-extracted  -> vscode-eslint-language-server       (lsp-eslint)
+        # TypeScript/TSX uses eglot with the project-local typescript-language-server
+        # (resolved via my/add-node-modules-path), and ESLint runs through
+        # flymake-eslint against the project-local eslint -- neither is a Nix tool.
         emacs-tools = with pkgs; [
           coreutils-prefixed
           marksman
           roslyn-ls
-          tailwindcss-language-server
-          vscode-langservers-extracted
         ];
       in
       {
@@ -259,8 +244,8 @@
           # startup: `package-activate-all` must make the packages' entry points
           # autoloadable WITHOUT an explicit require (this is what broke when
           # early-init.el disabled package.el — every :init/:config call hit a
-          # void function). Also loads the custom lsp-tailwindcss and the
-          # natively-compiled vterm module (the win over straight's runtime build).
+          # void function). Also loads the natively-compiled vterm module (the
+          # win over straight's runtime build).
           packages-loadable = pkgs.runCommand "dotemacs-packages-loadable" { } ''
             ${pkgs.emacs-dotemacs}/bin/emacs --batch \
               --eval "(progn \
@@ -271,7 +256,6 @@
                                       apheleia-global-mode)) \
                           (unless (fboundp fn) \
                             (error \"not autoloaded (package activation broken?): %s\" fn))) \
-                        (require 'lsp-tailwindcss) \
                         (require 'vterm) \
                         (message \"package activation + custom packages OK\"))"
             touch $out
@@ -287,8 +271,8 @@
       homeModules.default = import ./nix/hm-module.nix { inherit self; };
 
       # Adds `emacs` (patched, no packages) and `emacs-dotemacs` (patched +
-      # every config.org package + lsp-tailwindcss). Apply it in a home-manager /
-      # nix-darwin config's `nixpkgs.overlays`, then reference `pkgs.emacs-dotemacs`.
+      # every config.org package). Apply it in a home-manager / nix-darwin
+      # config's `nixpkgs.overlays`, then reference `pkgs.emacs-dotemacs`.
       overlays.default = emacs-appearance-overlay;
     };
 }

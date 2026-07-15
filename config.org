@@ -182,8 +182,7 @@ while idle, moving collection out of interactive work.
   (global-eldoc-mode))
 
 (use-package eldoc-box
-  :hook ((eglot-managed-mode . eldoc-box-hover-mode)
-         (lsp-mode . eldoc-box-hover-mode)))
+  :hook (eglot-managed-mode . eldoc-box-hover-mode))
 #+end_src
 
 ** which-key
@@ -781,6 +780,10 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
              eglot-ensure
              eglot-rename
              eglot-format-buffer)
+  ;; eglot is started manually with `M-x eglot' (not auto-started on the TS/TSX
+  ;; hooks). Eglot already maps these modes to `typescript-language-server
+  ;; --stdio' out of the box, and `my/add-node-modules-path' has put the
+  ;; project-local server on `exec-path' by the time you connect.
   :config
   (setq eglot-code-action-indications '(mode-line))
   (setq eglot-confirm-server-initiated-edits t)
@@ -835,70 +838,18 @@ using directive as unused."
 (add-hook 'eglot-connect-hook #'my/eglot-roslyn-load-solution)
 #+end_src
 
-** lsp-mode (TypeScript/TSX)
-
-#+begin_src emacs-lisp
-(use-package lsp-mode
-  :commands (lsp lsp-deferred)
-  :custom
-  (lsp-enable-symbol-highlighting nil)
-  (lsp-enable-text-document-color nil)
-  (lsp-lens-enable nil)
-  (lsp-headerline-breadcrumb-enable nil)
-  (lsp-modeline-code-actions-enable nil)
-  (lsp-modeline-diagnostics-enable nil)
-  (lsp-signature-auto-activate nil)
-  (lsp-signature-render-documentation nil)
-  (lsp-eldoc-enable-hover t)
-  (lsp-eldoc-render-all nil)
-  (lsp-completion-provider :none)
-  (lsp-enable-snippet nil)
-  (lsp-enable-folding nil)
-  (lsp-enable-imenu nil)
-  (lsp-enable-on-type-formatting nil)
-  (lsp-enable-indentation nil)
-  (lsp-enable-links nil)
-  (lsp-diagnostics-provider :flymake)
-  (lsp-idle-delay 0.5)
-  (lsp-log-io nil)
-  (lsp-keep-workspace-alive nil)
-  :config
-  (setq lsp-completion-enable t)
-  ;; lsp-ts-query's defcustom errors at load time on this Emacs build
-  ;; (cl-remove-if called with a nil predicate), which aborts the whole
-  ;; lsp--require-packages loop and prevents *any* server from starting.
-  ;; We don't use the tree-sitter-query server, so drop it from the load list.
-  (setq lsp-client-packages (delq 'lsp-ts-query lsp-client-packages))
-  ;; macOS has KQUEUE file-notify, so lsp watches the whole project tree by
-  ;; default. Skip the heavy build/dependency directories and raise the warning
-  ;; threshold so large TS/TSX repos don't stall on workspace init.
-  (setq lsp-file-watch-threshold 5000)
-  (dolist (dir '("[/\\\\]node_modules\\'" "[/\\\\]dist\\'"
-                 "[/\\\\]\\.next\\'" "[/\\\\]build\\'" "[/\\\\]coverage\\'"))
-    (add-to-list 'lsp-file-watch-ignored-directories dir)))
-#+end_src
-
-** Tailwind CSS
-
-#+begin_src emacs-lisp
-(use-package lsp-tailwindcss
-  :after lsp-mode
-  :init
-  (setq lsp-tailwindcss-add-on-mode t)
-  (setq lsp-tailwindcss-skip-config-check t)
-  :config
-  (customize-set-value 'lsp-tailwindcss-class-attributes ["class" "className" "cn"])
-  :custom
-  (lsp-tailwindcss-server-path (executable-find "tailwindcss-language-server")))
-#+end_src
-
 ** ESLint
 
+TypeScript/TSX diagnostics come from Eglot (=typescript-language-server=) plus
+ESLint. Rather than run a second LSP server for ESLint, =flymake-eslint= adds
+ESLint as an extra Flymake backend, so its findings appear alongside Eglot's in
+the same Flymake list. It runs the project-local =eslint= binary, resolved from
+=node_modules/.bin= by [[*JavaScript/TypeScript][=my/add-node-modules-path=]]; a project without ESLint
+installed simply produces no ESLint diagnostics.
+
 #+begin_src emacs-lisp
-(use-package lsp-eslint
-  :config
-  (setq lsp-eslint-server-command '("vscode-eslint-language-server" "--stdio"))
-  :after lsp-mode)
+(use-package flymake-eslint
+  :hook ((tsx-ts-mode typescript-ts-mode js-ts-mode) . flymake-eslint-enable))
 #+end_src
 
 * Formatting (Apheleia)
@@ -923,7 +874,9 @@ directory, but that command was removed in npm v9, so it silently does nothing
 on a modern toolchain. Instead, locate the nearest =node_modules/.bin= with
 =locate-dominating-file= and prepend it to a buffer-local =exec-path= / =PATH=.
 This is package-manager agnostic (npm/pnpm/yarn) and spawns no subprocess, and
-runs before =lsp-deferred= so the server resolves project-local binaries.
+runs on the mode hook so the project-local =typescript-language-server= (for a
+manually-started =M-x eglot=) and =eslint= (for =flymake-eslint=) are already on
+=exec-path=.
 
 #+begin_src emacs-lisp
 (defun my/add-node-modules-path ()
@@ -1046,13 +999,6 @@ Replaces `add-node-modules-path', whose `npm bin' default was removed in npm 9."
     (kbd "<leader> c a") 'eglot-code-actions
     (kbd "<leader> r n") 'eglot-rename
     (kbd "gI") 'eglot-find-implementation
-    (kbd "<leader> c f") 'apheleia-format-buffer)
-
-  ;; lsp-mode
-  (evil-define-key 'normal lsp-mode-map
-    (kbd "<leader> c a") 'lsp-execute-code-action
-    (kbd "<leader> r n") 'lsp-rename
-    (kbd "gI") 'lsp-find-implementation
     (kbd "<leader> c f") 'apheleia-format-buffer)
 
   (evil-define-key 'normal 'global (kbd "K") 'eldoc-box-help-at-point)

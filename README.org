@@ -29,7 +29,7 @@ To add a package, add it to the =withPackages= list in [[file:flake.nix][=flake.
 - Evil-mode with =SPC= leader
 - Vertico / Orderless / Corfu / Consult / Embark / Marginalia completion stack
 - Catppuccin theme, auto-switches Latte/Mocha with system appearance (via =auto-dark=, cross-platform)
-- Eglot for C#, Nix, and Markdown (marksman); lsp-mode for TypeScript/TSX (started manually via =M-x eglot= / =M-x lsp=, no auto-start)
+- Eglot for C#, Markdown (marksman), and TypeScript/TSX (typescript-language-server, started manually via =M-x eglot=); ESLint via =flymake-eslint=
 - Tree-sitter via =treesit-auto=
 - Magit, diff-hl, Apheleia formatting on save
 
@@ -45,8 +45,7 @@ module.
 Emacs for Linux and Darwin, built with every =use-package= dependency on
 =load-path= (see the =withPackages= list in [[file:flake.nix][=flake.nix=]]). There is no straight.el:
 =use-package= forms carry no =:ensure=/=:straight= and install nothing. Adding a
-package means adding it to that list and rebuilding. =lsp-tailwindcss= (not in
-nixpkgs) is built from source via =fetchFromGitHub=; =vterm='s native module is
+package means adding it to that list and rebuilding. =vterm='s native module is
 compiled by Nix rather than at runtime.
 
 On Darwin the NS build already provides =ns-appearance= / =ns-transparent-titlebar=;
@@ -89,8 +88,9 @@ Module options (=programs.dotemacs.*=):
 
 - =enable= — install the tool closure and manage =~/.emacs.d=
 - =tools= — external tools / language servers on =PATH= (default: marksman,
-  roslyn-ls, tailwindcss-language-server, vscode-langservers-extracted,
-  coreutils-prefixed). Set to =[ ]= to defer to another package list.
+  roslyn-ls, coreutils-prefixed). Set to =[ ]= to defer to another package
+  list. TypeScript's =typescript-language-server= and =eslint= come from the
+  project's =node_modules=, not this closure.
 - =configPath= — absolute path to a live checkout; =null= links the flake's
   read-only source instead (which can't be tangled into — see the option doc)
 - =package= — Emacs package to install via nix; =null= (default) keeps an
@@ -102,7 +102,8 @@ Other flake outputs:
 - =nix flake check= — runs =checks.smoke= (tangle + byte-compile),
   =checks.appearance= (theme switch stays cross-platform), and
   =checks.packages-loadable= (the Nix Emacs has every config package, incl.
-  lsp-tailwindcss and vterm, on =load-path=)
+  vterm, on =load-path=), plus =checks.unit-tests= / =checks.integration-tests=
+  (ERT tests for the config's helpers)
 - =nix develop= — dev shell with headless Emacs + the language servers
 - =nix fmt= — format the Nix files (=nixfmt=)
 - =packages.<system>.emacs= — the cross-platform Emacs with all packages
