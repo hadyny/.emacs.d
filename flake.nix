@@ -71,9 +71,11 @@
               embark-consult
               evil
               evil-collection
+              evil-ghostel
               exec-path-from-shell
               flymake-eslint
               gcmh
+              ghostel
               helpful
               ligature
               magit
@@ -244,8 +246,9 @@
           # startup: `package-activate-all` must make the packages' entry points
           # autoloadable WITHOUT an explicit require (this is what broke when
           # early-init.el disabled package.el — every :init/:config call hit a
-          # void function). Also loads the natively-compiled vterm module (the
-          # win over straight's runtime build).
+          # void function). Also loads the packages that ship native modules --
+          # vterm, and ghostel (its prebuilt libghostty module is bundled by
+          # Nix, so no runtime download is attempted).
           packages-loadable = pkgs.runCommand "dotemacs-packages-loadable" { } ''
             ${pkgs.emacs-dotemacs}/bin/emacs --batch \
               --eval "(progn \
@@ -253,10 +256,11 @@
                         (dolist (fn '(gcmh-mode marginalia-mode exec-path-from-shell-initialize \
                                       corfu-mode corfu-history-mode vertico-mode evil-mode \
                                       doom-themes-visual-bell-config which-key-mode \
-                                      apheleia-global-mode)) \
+                                      apheleia-global-mode ghostel)) \
                           (unless (fboundp fn) \
                             (error \"not autoloaded (package activation broken?): %s\" fn))) \
                         (require 'vterm) \
+                        (require 'ghostel) \
                         (message \"package activation + custom packages OK\"))"
             touch $out
           '';
