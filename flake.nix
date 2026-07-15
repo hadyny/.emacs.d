@@ -55,8 +55,7 @@
           # with the (use-package ...) forms in config.org; built-ins are
           # intentionally absent.
           emacs-dotemacs = epkgs.withPackages (
-            e:
-            with e; [
+            e: with e; [
               apheleia
               auto-dark
               cape
