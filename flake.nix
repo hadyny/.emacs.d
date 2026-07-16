@@ -47,17 +47,20 @@
           });
 
           epkgs = final.emacsPackagesFor patchedEmacs;
-        in
-        {
-          # Raw Emacs with only the Darwin appearance patch (no ELisp packages).
-          emacs = patchedEmacs;
 
-          # The Emacs actually used: patched + every package config.org needs on
-          # load-path (managed by Nix, not straight.el). Keep this list in sync
-          # with the (use-package ...) forms in config.org; built-ins are
-          # intentionally absent.
-          emacs-dotemacs = epkgs.withPackages (
-            e: with e; [
+          # The package list config.org needs on load-path (managed by Nix,
+          # not straight.el). Keep this in sync with the (use-package ...) forms
+          # in config.org; built-ins are intentionally absent.
+          #
+          # ghostel + its Evil integration evil-ghostel (which depends on
+          # ghostel) build a from-source ghostty/Zig terminal whose fixed-output
+          # dependency fetch is network-flaky in CI. They are gated behind
+          # `withGhostel` so the CI check builds below can exclude them; the real
+          # emacs-dotemacs (what home-manager installs) keeps them.
+          dotemacsPackageList =
+            withGhostel: e:
+            with e;
+            [
               apheleia
               auto-dark
               cape
@@ -72,11 +75,9 @@
               embark-consult
               evil
               evil-collection
-              evil-ghostel
               exec-path-from-shell
               flymake-eslint
               gcmh
-              ghostel
               helpful
               ligature
               magit
@@ -97,7 +98,24 @@
               vterm
               which-key
             ]
-          );
+            ++ final.lib.optionals withGhostel [
+              ghostel
+              evil-ghostel
+            ];
+        in
+        {
+          # Raw Emacs with only the Darwin appearance patch (no ELisp packages).
+          emacs = patchedEmacs;
+
+          # The Emacs actually used: patched + every config.org package
+          # (ghostel included). Wire into home-manager via
+          # `programs.dotemacs.package`.
+          emacs-dotemacs = epkgs.withPackages (dotemacsPackageList true);
+
+          # CI-only variant without ghostel/evil-ghostel, so `nix flake check`
+          # never triggers the network-flaky ghostty/Zig build. Used by the
+          # integration-tests and packages-loadable checks below.
+          emacs-dotemacs-ci = epkgs.withPackages (dotemacsPackageList false);
         };
     in
     flake-utils.lib.eachSystem supportedSystems (
@@ -222,15 +240,18 @@
           # Emacs with the whole package set and the fully-loaded config. This
           # is what lets the otherwise-skipped tests run -- Evil keybindings
           # resolving to defined commands, and the configured undo system
-          # resolving to defined undo/redo functions.
+          # resolving to defined undo/redo functions. Uses emacs-dotemacs-ci
+          # (no ghostel) so this check does not trigger the network-flaky
+          # ghostty/Zig build; the ghostel behavioural test self-skips here and
+          # the structural ghostel/configured test still runs.
           integration-tests = pkgs.runCommand "dotemacs-integration-tests" { } ''
             cp -r ${self}/. work
             chmod -R u+w work
             cd work
-            ${pkgs.emacs-dotemacs}/bin/emacs --batch \
+            ${pkgs.emacs-dotemacs-ci}/bin/emacs --batch \
               --eval "(require 'org)" \
               --eval '(org-babel-tangle-file "config.org" "config.el")'
-            ${pkgs.emacs-dotemacs}/bin/emacs --batch -L tests \
+            ${pkgs.emacs-dotemacs-ci}/bin/emacs --batch -L tests \
               --eval "(progn \
                         (package-activate-all) \
                         (require 'use-package) \
@@ -245,21 +266,21 @@
           # startup: `package-activate-all` must make the packages' entry points
           # autoloadable WITHOUT an explicit require (this is what broke when
           # early-init.el disabled package.el — every :init/:config call hit a
-          # void function). Also loads the packages that ship native modules --
-          # vterm, and ghostel (its prebuilt libghostty module is bundled by
-          # Nix, so no runtime download is attempted).
+          # void function). Also loads vterm, which ships a native module.
+          # Runs on emacs-dotemacs-ci (no ghostel), so the ghostel native
+          # module is deliberately not built or required here -- that would
+          # trigger the network-flaky ghostty/Zig build.
           packages-loadable = pkgs.runCommand "dotemacs-packages-loadable" { } ''
-            ${pkgs.emacs-dotemacs}/bin/emacs --batch \
+            ${pkgs.emacs-dotemacs-ci}/bin/emacs --batch \
               --eval "(progn \
                         (package-activate-all) \
                         (dolist (fn '(gcmh-mode marginalia-mode exec-path-from-shell-initialize \
                                       corfu-mode corfu-history-mode vertico-mode evil-mode \
                                       doom-themes-visual-bell-config which-key-mode \
-                                      apheleia-global-mode ghostel)) \
+                                      apheleia-global-mode)) \
                           (unless (fboundp fn) \
                             (error \"not autoloaded (package activation broken?): %s\" fn))) \
                         (require 'vterm) \
-                        (require 'ghostel) \
                         (message \"package activation + custom packages OK\"))"
             touch $out
           '';
