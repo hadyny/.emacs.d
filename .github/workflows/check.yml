@@ -20,8 +20,11 @@ jobs:
       #   integration-tests- full suite vs the real package set + loaded config
       #   packages-loadable- builds the Nix Emacs, asserts package activation
       #                      + vterm load (straight->nix guard)
+      # --no-pure-eval: the devenv-powered devShells.default needs to know the
+      # working directory, which pure flake evaluation hides. Without it,
+      # `nix flake check` fails evaluating that devShell.
       - name: Check flake
-        run: nix flake check --print-build-logs
+        run: nix flake check --no-pure-eval --print-build-logs
 
       - name: Check formatting
         run: nix fmt -- --ci

@@ -4,6 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    devenv.url = "github:cachix/devenv";
   };
 
   outputs =
@@ -11,8 +12,9 @@
       self,
       nixpkgs,
       flake-utils,
+      devenv,
       ...
-    }:
+    }@inputs:
     let
       supportedSystems = [
         "x86_64-linux"
@@ -139,18 +141,16 @@
           };
         };
 
-        devShells.default = pkgs.mkShell {
-          name = "dotemacs-devShell";
-          # emacs-nox: headless, for batch tangle/lint in the shell. Avoids a
-          # GUI source build; the overlay only overrides `emacs`, not `emacs-nox`.
-          packages = [
-            pkgs.emacs-nox
-            pkgs.gnumake
-          ]
-          ++ emacs-tools;
-          shellHook = ''
-            git config --local core.hooksPath .githooks 2>/dev/null || true
-          '';
+        # Dev shell powered by devenv (see ./devenv.nix). `nix develop` still
+        # works, and direnv auto-loads it via .envrc. The emacs-tools closure is
+        # injected here so its single definition stays shared with the
+        # `emacs-tools` package output above.
+        devShells.default = devenv.lib.mkShell {
+          inherit inputs pkgs;
+          modules = [
+            ./devenv.nix
+            { packages = emacs-tools; }
+          ];
         };
 
         checks = {

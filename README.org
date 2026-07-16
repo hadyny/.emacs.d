@@ -101,12 +101,16 @@ Module options (=programs.dotemacs.*=):
 
 Other flake outputs:
 
-- =nix flake check= — runs =checks.smoke= (tangle + byte-compile),
-  =checks.appearance= (theme switch stays cross-platform), and
+- =nix flake check --no-pure-eval= — runs =checks.smoke= (tangle +
+  byte-compile), =checks.appearance= (theme switch stays cross-platform), and
   =checks.packages-loadable= (the Nix Emacs has every config package, incl.
   vterm, on =load-path=), plus =checks.unit-tests= / =checks.integration-tests=
-  (ERT tests for the config's helpers)
-- =nix develop= — dev shell with headless Emacs + the language servers
+  (ERT tests for the config's helpers). =--no-pure-eval= is required because the
+  devenv dev shell needs the working directory (pure eval hides it).
+- =nix develop --no-pure-eval= — devenv-powered dev shell (see [[file:devenv.nix][=devenv.nix=]]) with
+  headless Emacs, =gnumake=, and the language servers; direnv auto-loads it via
+  =.envrc=. A pre-commit hook (devenv =git-hooks=) runs =nixfmt= so =.nix= files
+  stay formatted.
 - =nix fmt= — format the Nix files (=nixfmt=)
 - =packages.<system>.emacs= — the cross-platform Emacs with all packages
 - =packages.<system>.emacs-bare= — Emacs with only the Darwin appearance patch

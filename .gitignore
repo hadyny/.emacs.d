@@ -50,5 +50,11 @@ config.el
 result
 result-*
 
+# devenv (dev shell) + its git-hooks: all regenerated on shell entry
+.devenv/
+.devenv.flake.nix
+.githooks/
+.pre-commit-config.yaml
+
 # Other
 crafted-emacs/
