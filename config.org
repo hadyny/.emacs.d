@@ -317,6 +317,14 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
 (add-to-list 'default-frame-alist '(ns-appearance . dark))
 
 (set-face-background 'fringe (face-attribute 'default :background))
+
+;; Fallback for symbol glyphs Maple Mono NF lacks (Dingbats + Misc Symbols &
+;; Arrows). Menlo is a monospace face that covers e.g. ✳ (U+2733). Note: the
+;; org-modern default L3 stars U+2BC8/U+2BC6 exist in no installed font, so
+;; the org-modern-fold-stars override in the org-modern block is what actually
+;; fixes level-3 headings.
+(set-fontset-font t '(#x2700 . #x27bf) "Menlo" nil 'append)   ; Dingbats
+(set-fontset-font t '(#x2b00 . #x2bff) "Menlo" nil 'append)   ; Misc Symbols & Arrows
 #+end_src
 
 * Tree-sitter
@@ -766,7 +774,17 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
 #+begin_src emacs-lisp
 (use-package org-modern
   :defer t
-  :hook (org-mode . org-modern-mode))
+  :hook (org-mode . org-modern-mode)
+  :config
+  ;; L3's default fold glyphs ⯈/⯆ (U+2BC8/U+2BC6) aren't in Maple Mono NF and
+  ;; no installed font renders them, so they show as tofu. Reuse L1's ▶/▼
+  ;; (non-adjacent, present in the font).
+  (setq org-modern-fold-stars
+        '(("▶" . "▼")     ; L1
+          ("▷" . "▽")     ; L2
+          ("▶" . "▼")     ; L3  (was ⯈/⯆)
+          ("▹" . "▿")     ; L4
+          ("▸" . "▾"))))  ; L5
 #+end_src
 
 * LSP
