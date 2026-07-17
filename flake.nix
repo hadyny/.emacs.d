@@ -46,15 +46,29 @@
               ];
           });
 
-          # Pin ghostel to the v0.41.0 release tag. The nixpkgs snapshot
-          # (0.41.0-unstable-2026-07-06) ships a native module whose registered
-          # arity disagrees with its elisp, breaking the redraw/resize path
-          # (`wrong-number-of-arguments ... 3'). overrideScope replaces the
-          # package in the set so evil-ghostel resolves to the pinned build too.
-          # See nix/ghostel.nix and tests/ghostel-test.el.
+          # Pin evil-ghostel to 20260712.716 (dakra/ghostel commit 0d41dfb).
+          #
+          # nixpkgs' MELPA snapshot moved evil-ghostel to 20260713, which
+          # requires ghostel 0.42.1: its `:around' advice on `ghostel--redraw'
+          # forwards a third `force-sync' arg. The ghostel in nixpkgs is still
+          # 0.41.0-unstable-2026-07-06, whose native `ghostel--redraw' has arity
+          # (1 . 2) -- so every redraw/resize/window-change signals
+          # `wrong-number-of-arguments #<module function ...> 3' and the terminal
+          # never opens. 20260712.716 forwards only (term full), matching the
+          # installed ghostel. Revisit once nixpkgs ships ghostel >= 0.42.1.
           epkgs = (final.emacsPackagesFor patchedEmacs).overrideScope (
-            efinal: _eprev: {
-              ghostel = efinal.callPackage ./nix/ghostel.nix { };
+            _efinal: eprev: {
+              evil-ghostel = eprev.evil-ghostel.overrideAttrs (_old: rec {
+                version = "20260712.716";
+                melpaVersion = version;
+                commit = "0d41dfbbcd0577e7c7969f08703026f299d2eb71";
+                src = final.fetchFromGitHub {
+                  owner = "dakra";
+                  repo = "ghostel";
+                  rev = commit;
+                  hash = "sha256-aYV8VYFrRrkhu2ciJHe6uN318OW+Tjav8nv43bIpAxo=";
+                };
+              });
             }
           );
 
