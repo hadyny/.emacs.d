@@ -46,7 +46,17 @@
               ];
           });
 
-          epkgs = final.emacsPackagesFor patchedEmacs;
+          # Pin ghostel to the v0.41.0 release tag. The nixpkgs snapshot
+          # (0.41.0-unstable-2026-07-06) ships a native module whose registered
+          # arity disagrees with its elisp, breaking the redraw/resize path
+          # (`wrong-number-of-arguments ... 3'). overrideScope replaces the
+          # package in the set so evil-ghostel resolves to the pinned build too.
+          # See nix/ghostel.nix and tests/ghostel-test.el.
+          epkgs = (final.emacsPackagesFor patchedEmacs).overrideScope (
+            efinal: _eprev: {
+              ghostel = efinal.callPackage ./nix/ghostel.nix { };
+            }
+          );
 
           # The package list config.org needs on load-path (managed by Nix,
           # not straight.el). Keep this in sync with the (use-package ...) forms
