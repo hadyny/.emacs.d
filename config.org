@@ -637,15 +637,15 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
         org-pretty-entities t
         org-agenda-tags-column 0
         org-ellipsis "…"
-        ;; Top-level files plus the inbox only (non-recursive). The notes
-        ;; subdirectories (1-notes, 2-maps, 3-sources) hold no agenda items,
-        ;; so scanning them recursively just slowed the agenda down.
-        org-agenda-files '("~/org/" "~/org/0-inbox/"))
+        ;; Top-level files only (non-recursive). The notes subdirectories
+        ;; (0-inbox, 1-notes, 2-maps, 3-sources) hold no agenda items, so
+        ;; scanning them recursively just slowed the agenda down.
+        org-agenda-files '("~/notes/org/"))
 
-  (setq +org-capture-projects-file "~/org/projects.org"
-        +org-capture-todo-file     "~/org/todo.org"
-        +org-capture-journal-file  "~/org/schedule.org"
-        +org-capture-notes-file    "~/org/notes.org")
+  (setq +org-capture-projects-file "~/notes/org/projects.org"
+        +org-capture-todo-file     "~/notes/org/todo.org"
+        +org-capture-journal-file  "~/notes/org/schedule.org"
+        +org-capture-notes-file    "~/notes/org/notes.org")
 
   ;; The (x) suffixes are fast-access keys, so C-c C-t pops up a single-keypress
   ;; selection menu instead of cycling. STARTED replaces IN-PROGRESS to match the
@@ -658,7 +658,7 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
                                  (file+headline +org-capture-todo-file "Todos")
                                  "* TODO %?\n:Created: %T\n" :prepend t)
                                 ("c" "Code To-Do"
-                                 entry (file+headline "~/org/todo.org" "Code Related Tasks")
+                                 entry (file+headline "~/notes/org/todo.org" "Code Related Tasks")
                                  "* TODO [#B] %?\n:Created: %T\n%i\n%a\nProposed Solution: "
                                  :empty-lines 0)
                                 ("e" "Event")
@@ -669,10 +669,10 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
                                  (file+olp +org-capture-journal-file "Events")
                                  "** EVENT %?\n%i\n" :heading "One-off Events" :prepend nil)
                                 ("w" "Work Log Entry" entry
-                                 (file+datetree "~/org/work-log.org")
+                                 (file+datetree "~/notes/org/work-log.org")
                                  "* %?" :empty-lines 0)
                                 ("n" "Note" entry
-                                 (file+headline "~/org/notes.org" "Random Notes")
+                                 (file+headline "~/notes/org/notes.org" "Random Notes")
                                  "** %?" :empty-lines 0)))
 
   (setq org-todo-keyword-faces
