@@ -1,5 +1,5 @@
 {
-  description = "Hadyn's literate Emacs configuration (straight.el), a cross-platform Emacs derivation (emacs-plus patches on Darwin), and its language-server closure, packaged as a home-manager module.";
+  description = "Hadyn's literate Emacs configuration (package.el with a Nix-managed package set), a cross-platform Emacs derivation (emacs-plus patches on Darwin), and its language-server closure, packaged as a home-manager module.";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -22,6 +22,17 @@
         "x86_64-darwin"
         "aarch64-darwin"
       ];
+
+      # External tools / language servers config.org expects on PATH. Defined
+      # once as a function of pkgs and shared by both the `emacs-tools` package
+      # output below and the home-manager module default (nix/hm-module.nix), so
+      # the two can't drift.
+      emacsToolsFor =
+        pkgs: with pkgs; [
+          coreutils-prefixed
+          marksman
+          roslyn-ls
+        ];
 
       # One Emacs for Linux and Darwin. On Darwin the NS build already provides
       # `ns-appearance` / `ns-transparent-titlebar`; this overlay adds the
@@ -150,20 +161,16 @@
           overlays = [ emacs-appearance-overlay ];
         };
 
-        # External tools config.org shells out to. Keep in sync with the
-        # eglot-server-programs / executable-find references in config.org
-        # (line numbers are a hint, not load-bearing):
+        # External tools config.org shells out to (shared with the home-manager
+        # module default via emacsToolsFor). Keep the list in sync with the
+        # eglot-server-programs / executable-find references in config.org:
         #   coreutils-prefixed            -> gls                                (config.org: dired setup)
         #   marksman                      -> Markdown LSP                        (eglot-server-programs)
         #   roslyn-ls                     -> Microsoft.CodeAnalysis.LanguageServer (eglot-server-programs)
         # TypeScript/TSX uses eglot with the project-local typescript-language-server
         # (resolved via my/add-node-modules-path), and ESLint runs through
         # flymake-eslint against the project-local eslint -- neither is a Nix tool.
-        emacs-tools = with pkgs; [
-          coreutils-prefixed
-          marksman
-          roslyn-ls
-        ];
+        emacs-tools = emacsToolsFor pkgs;
       in
       {
         packages = {
@@ -316,7 +323,7 @@
     // {
       # System-independent home-manager module. Import it and set
       # `programs.dotemacs.enable = true;` (see nix/hm-module.nix for options).
-      homeModules.default = import ./nix/hm-module.nix { inherit self; };
+      homeModules.default = import ./nix/hm-module.nix { inherit self emacsToolsFor; };
 
       # Adds `emacs` (patched, no packages) and `emacs-dotemacs` (patched +
       # every config.org package). Apply it in a home-manager / nix-darwin

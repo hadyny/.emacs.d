@@ -9,21 +9,35 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@v14
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: DeterminateSystems/nix-installer-action@ef8a148080ab6020fd15196c2084a2eea5ff2d25 # v22
+      - uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17
+        with:
+          name: nix-tools
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - name: Update flake inputs
         run: nix flake update
 
-      - uses: peter-evans/create-pull-request@v7
+      # PRs opened with the default GITHUB_TOKEN don't trigger check.yml, so
+      # gate the PR on a passing flake check here before opening it.
+      - name: Check flake
+        run: nix flake check --no-pure-eval --print-build-logs
+
+      - uses: peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676 # v7
         with:
           commit-message: "chore: update flake inputs"
           title: "chore: update flake inputs"
           body: |
-            Automated `nix flake update` (nixpkgs, flake-utils).
+            Automated `nix flake update` (nixpkgs, flake-utils, devenv).
           branch: flake-update
           delete-branch: true

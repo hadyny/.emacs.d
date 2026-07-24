@@ -20,8 +20,9 @@
 # itself is opt-in via `package` (default null): leave it null to keep an
 # externally-managed Emacs (Homebrew emacs-plus on macOS), or set it to the
 # flake's `pkgs.emacs` to have nix provide Emacs on Linux and Darwin. Either
-# way, ELisp packages are managed by straight.el, not nix.
-{ self }:
+# way, ELisp packages are Nix-managed (built into the Emacs package set and
+# loaded via package.el); use-package installs nothing.
+{ self, emacsToolsFor }:
 {
   config,
   lib,
@@ -37,11 +38,7 @@ in
 
     tools = lib.mkOption {
       type = lib.types.listOf lib.types.package;
-      default = with pkgs; [
-        coreutils-prefixed
-        marksman
-        roslyn-ls
-      ];
+      default = emacsToolsFor pkgs;
       description = ''
         External tools / language servers config.org expects on PATH. Set to
         `[ ]` when another module already installs them (e.g. a shared package
@@ -68,12 +65,12 @@ in
       description = ''
         Absolute path to a live checkout of this repo. When set, `~/.emacs.d`
         is an out-of-store symlink to it, so edits to config.org take effect
-        without a rebuild and straight.el can write into `~/.emacs.d/straight`.
+        without a rebuild.
 
         When `null`, the flake's own read-only source is linked instead. NOTE:
-        read-only mode is incompatible with straight.el, which writes package
-        checkouts under `~/.emacs.d/straight`; use it only with a fully
-        nix-managed package set.
+        init.el tangles config.org to config.el inside `~/.emacs.d` at startup,
+        which a read-only store path cannot accept; use `null` only if config.el
+        is pre-tangled, otherwise point this at a writable checkout.
       '';
     };
   };

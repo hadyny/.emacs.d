@@ -10,8 +10,9 @@
 ;; it leaves every package function void (e.g. gcmh-mode, marginalia-mode).
 (setq package-enable-at-startup t)
 
-;; Increase garbage collection threshold for faster startup
-;; Reset to lower value after init in init.el if needed
+;; Increase garbage collection threshold for faster startup. `gcmh' (configured
+;; in config.org) takes over after startup, keeping the threshold small while
+;; idle and large during activity, so this high value is only for init.
 (setq gc-cons-threshold #x40000000  ; 1GB
       gc-cons-percentage 0.6)
 

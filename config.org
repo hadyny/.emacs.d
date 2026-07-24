@@ -211,13 +211,24 @@ fixed dark flavor rather than warning at startup.
 APPEARANCE is `light' or `dark'.  Pure: no side effects, so it can be
 unit-tested without loading a theme."
     (if (eq appearance 'light) 'latte 'mocha))
+  (defun my/apply-diff-hl-faces ()
+    "Colour the diff-hl faces from the active catppuccin flavor.
+Called on every flavor switch (and when diff-hl loads) so the fringe/margin
+indicators track Latte/Mocha instead of being pinned to one palette."
+    (set-face-attribute 'diff-hl-change nil :background 'unspecified
+                        :foreground (catppuccin-color 'blue))
+    (set-face-attribute 'diff-hl-delete nil :background 'unspecified
+                        :foreground (catppuccin-color 'red))
+    (set-face-attribute 'diff-hl-insert nil :background 'unspecified
+                        :foreground (catppuccin-color 'green)))
   (defun my/apply-catppuccin-flavor (appearance)
     "Set and reload the catppuccin flavor for system APPEARANCE (`light'/`dark')."
     (setq catppuccin-flavor (my/catppuccin-flavor-for appearance))
     (catppuccin-reload)
     (let ((bg (face-attribute 'mode-line :background)))
       (set-face-attribute 'mode-line nil :box `(:line-width 6 :color ,bg))
-      (set-face-attribute 'mode-line-inactive nil :box `(:line-width 6 :color ,bg)))))
+      (set-face-attribute 'mode-line-inactive nil :box `(:line-width 6 :color ,bg)))
+    (my/apply-diff-hl-faces)))
 
 (use-package doom-themes
   :custom
@@ -331,7 +342,6 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
 
 #+begin_src emacs-lisp
 (use-package treesit-auto
-  :after emacs
   :custom
   (treesit-auto-install 'prompt)
   :config
@@ -513,15 +523,22 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
 
 #+begin_src emacs-lisp
 (use-package neotree
-  :config
-  (setq neo-window-width 50)
-  (setq neo-smart-open t)
-  (setq neo-theme 'icons)
-  (setq neo-window-position 'right)
-
+  ;; Deferred: neotree only loads on first use (the leader toggle below, or
+  ;; C-x n). :commands creates autoloads for the entry points our own commands
+  ;; call so pressing the key pulls neotree in on demand.
+  :commands (neotree-dir neotree-hide neotree-find neotree-toggle)
+  :custom
+  (neo-window-width 50)
+  (neo-smart-open t)
+  (neo-theme 'icons)
+  (neo-window-position 'right)
+  :init
+  ;; Defined eagerly (not in :config) because `<leader> e e' binds directly to
+  ;; this symbol; it requires neotree itself on first invocation.
   (defun neotree-project-root-toggle ()
     "Toggle neotree at the project root."
     (interactive)
+    (require 'neotree)
     (let* ((proj (project-current))
            (project-dir (if proj (project-root proj) default-directory))
            (file-name (buffer-file-name)))
@@ -532,15 +549,15 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
           (when file-name
             (neotree-find file-name))))))
 
-  (define-key neotree-mode-map (kbd "n") 'neotree-create-node)
-  (define-key neotree-mode-map (kbd "d") 'neotree-delete-node)
-  (define-key neotree-mode-map (kbd "r") 'neotree-rename-node)
-  (define-key neotree-mode-map (kbd "c") 'neotree-copy-node)
-
   (global-set-key (kbd "C-x n")
                   (lambda ()
                     (interactive)
-                    (neotree-dir (read-directory-name "Directory: ")))))
+                    (neotree-dir (read-directory-name "Directory: "))))
+  :config
+  (define-key neotree-mode-map (kbd "n") 'neotree-create-node)
+  (define-key neotree-mode-map (kbd "d") 'neotree-delete-node)
+  (define-key neotree-mode-map (kbd "r") 'neotree-rename-node)
+  (define-key neotree-mode-map (kbd "c") 'neotree-copy-node))
 #+end_src
 
 * Ligatures
@@ -609,12 +626,13 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
                                   (delete . "-")
                                   (change . "│")
                                   (unknown . "?")
-                                  (ignored . "i"))))
-
-(custom-set-faces
- '(diff-hl-change ((t (:background unspecified :foreground "#89b4fa"))))
- '(diff-hl-delete ((t (:background unspecified :foreground "#f38ba8"))))
- '(diff-hl-insert ((t (:background unspecified :foreground "#a6e3a1")))))
+                                  (ignored . "i")))
+  :config
+  ;; Colour the faces from the current catppuccin flavor (defined in the
+  ;; catppuccin-theme block). Re-applied here because diff-hl's own deffaces run
+  ;; when it loads, after the initial flavor has been applied at startup.
+  (when (fboundp 'my/apply-diff-hl-faces)
+    (my/apply-diff-hl-faces)))
 #+end_src
 
 * Org-mode
