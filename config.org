@@ -519,6 +519,25 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
               ("C-c C-e" . markdown-do)))
 #+end_src
 
+** Notes (zk4e)
+
+[[https://codeberg.org/mcookly/zk4e][=zk4e=]] is an Emacs interface to the
+zk-org CLI (packaged from source via the flake overlay). Deferred; on first use
+it selects the =~/notes= notebook, whose =.zk/config.toml= it reads through
+=tomlparse= (needing the TOML tree-sitter grammar at runtime). LSP features in
+notes (link completion, dead-link diagnostics) come from eglot + =zk lsp= — see
+the Eglot section.
+
+#+begin_src emacs-lisp
+(use-package zk4e
+  :commands (zk4e-select-notebook zk4e-edit zk4e-insert zk4e-index zk4e-tag-list
+             zk4e-init zk4e-find-configuration-file)
+  :custom
+  (zk4e-notebook-directories '(("notes" . "~/notes")))
+  :config
+  (zk4e-select-notebook "notes"))
+#+end_src
+
 * File Explorer (Neotree)
 
 #+begin_src emacs-lisp
@@ -825,8 +844,15 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
   (setq eglot-confirm-server-initiated-edits t)
   (add-to-list 'eglot-server-programs
                '((csharp-ts-mode csharp-mode) . ("Microsoft.CodeAnalysis.LanguageServer" "--logLevel" "Debug" "--extensionLogDirectory" "~/.dotnet/logs" "--stdio")))
+  ;; Markdown: use `zk lsp' inside a zk notebook (a parent dir has `.zk'),
+  ;; otherwise fall back to marksman for general markdown. eglot calls the CDR
+  ;; function to resolve the program when connecting.
   (add-to-list 'eglot-server-programs
-               '((markdown-mode gfm-mode markdown-ts-mode) . ("marksman"))))
+               (cons '(markdown-mode gfm-mode markdown-ts-mode)
+                     (lambda (&rest _)
+                       (if (locate-dominating-file default-directory ".zk")
+                           '("zk" "lsp")
+                         '("marksman"))))))
 #+end_src
 
 The Roslyn server (=Microsoft.CodeAnalysis.LanguageServer=) does not auto-load a

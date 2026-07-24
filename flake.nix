@@ -80,6 +80,23 @@
                   hash = "sha256-aYV8VYFrRrkhu2ciJHe6uN318OW+Tjav8nv43bIpAxo=";
                 };
               });
+
+              # zk4e: Emacs interface for the zk-org CLI (config.org uses it for
+              # note browsing/creation). Not in nixpkgs, so build from source.
+              # The Citar integration file is dropped so tomlparse is the only
+              # extra dependency; tomlparse's TOML tree-sitter grammar is only
+              # needed at runtime (notebook parsing), not to byte-compile.
+              zk4e = _efinal.trivialBuild {
+                pname = "zk4e";
+                version = "0-unstable-2026-05-11";
+                src = final.fetchgit {
+                  url = "https://codeberg.org/mcookly/zk4e.git";
+                  rev = "b27ca4a0fe55418b65a0bf95846f8eff11c9507d";
+                  hash = "sha256-vwmDTA/7Q+UZg+/zgeHJqsR13JLNULcsj3OUoQ+bhcw=";
+                };
+                postPatch = "rm -f zk4e-citar.el";
+                packageRequires = [ _efinal.tomlparse ];
+              };
             }
           );
 
@@ -132,6 +149,7 @@
               vertico-prescient
               vterm
               which-key
+              zk4e
             ]
             ++ final.lib.optionals withGhostel [
               ghostel
