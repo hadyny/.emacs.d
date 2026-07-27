@@ -214,13 +214,18 @@ unit-tested without loading a theme."
   (defun my/apply-diff-hl-faces ()
     "Colour the diff-hl faces from the active catppuccin flavor.
 Called on every flavor switch (and when diff-hl loads) so the fringe/margin
-indicators track Latte/Mocha instead of being pinned to one palette."
-    (set-face-attribute 'diff-hl-change nil :background 'unspecified
-                        :foreground (catppuccin-color 'blue))
-    (set-face-attribute 'diff-hl-delete nil :background 'unspecified
-                        :foreground (catppuccin-color 'red))
-    (set-face-attribute 'diff-hl-insert nil :background 'unspecified
-                        :foreground (catppuccin-color 'green)))
+indicators track Latte/Mocha instead of being pinned to one palette.
+No-op until diff-hl has loaded and defined its faces: the initial flavor is
+applied by the auto-dark block at startup, before the `:defer'red diff-hl
+package exists, and `set-face-attribute' on an undefined face errors.  The
+diff-hl block re-invokes this once its deffaces have run."
+    (when (facep 'diff-hl-change)
+      (set-face-attribute 'diff-hl-change nil :background 'unspecified
+                          :foreground (catppuccin-color 'blue))
+      (set-face-attribute 'diff-hl-delete nil :background 'unspecified
+                          :foreground (catppuccin-color 'red))
+      (set-face-attribute 'diff-hl-insert nil :background 'unspecified
+                          :foreground (catppuccin-color 'green))))
   (defun my/apply-catppuccin-flavor (appearance)
     "Set and reload the catppuccin flavor for system APPEARANCE (`light'/`dark')."
     (setq catppuccin-flavor (my/catppuccin-flavor-for appearance))
