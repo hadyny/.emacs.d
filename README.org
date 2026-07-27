@@ -32,7 +32,7 @@ To add a package, add it to the =withPackages= list in [[file:flake.nix][=flake.
 - Eglot for C#, Markdown (marksman), and TypeScript/TSX (typescript-language-server, started manually via =M-x eglot=); ESLint via =flymake-eslint=
 - Tree-sitter via =treesit-auto=
 - Magit, diff-hl, Apheleia formatting on save
-- Terminals: =vterm= and =ghostel= (Ghostty VT engine, with =evil-ghostel= integration; =<leader> o t=)
+- Terminal: =ghostel= (Ghostty VT engine, with =evil-ghostel= integration; =<leader> o t=)
 
 * Nix / home-manager
 
@@ -47,8 +47,8 @@ Emacs for Linux and Darwin, built with every =use-package= dependency on
 =load-path= (see the =withPackages= list in [[file:flake.nix][=flake.nix=]]). There is no straight.el:
 =use-package= forms carry no =:ensure=/=:straight= and install nothing. Adding a
 package means adding it to that list and rebuilding. Native modules come from
-Nix rather than at runtime: =vterm='s is compiled, and =ghostel='s prebuilt
-=libghostty= binary is bundled (so its usual first-run download never happens).
+Nix rather than at runtime: =ghostel='s prebuilt =libghostty= binary is bundled
+(so its usual first-run download never happens).
 
 On Darwin the NS build already provides =ns-appearance= / =ns-transparent-titlebar=;
 the overlay adds the emacs-plus =system-appearance= patch on top so
@@ -103,8 +103,8 @@ Other flake outputs:
 
 - =nix flake check --no-pure-eval= — runs =checks.smoke= (tangle +
   byte-compile), =checks.appearance= (theme switch stays cross-platform), and
-  =checks.packages-loadable= (the Nix Emacs has every config package, incl.
-  vterm, on =load-path=), plus =checks.unit-tests= / =checks.integration-tests=
+  =checks.packages-loadable= (the Nix Emacs has every config package on
+  =load-path=), plus =checks.unit-tests= / =checks.integration-tests=
   (ERT tests for the config's helpers). =--no-pure-eval= is required because the
   devenv dev shell needs the working directory (pure eval hides it).
 - =nix develop --no-pure-eval= — devenv-powered dev shell (see [[file:devenv.nix][=devenv.nix=]]) with

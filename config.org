@@ -963,21 +963,14 @@ Replaces `add-node-modules-path', whose `npm bin' default was removed in npm 9."
 
 * Terminals
 
-** Vterm
-
-#+begin_src emacs-lisp
-(use-package vterm
-  :defer t)
-#+end_src
-
 ** Ghostel
 
 [[https://github.com/dakra/ghostel][=ghostel=]] is a terminal emulator built on the Ghostty VT engine (true colour,
 Kitty keyboard/graphics protocols, shell integration). Its native module is a
-prebuilt =libghostty= binary; Nix ships it inside the package (like =vterm='s
-module), so nothing is downloaded at runtime. Launch with =<leader> o t= (or
-=M-x ghostel=). =evil-ghostel= adds Evil integration, modelled on
-=evil-collection-vterm=, enabled per terminal buffer via =ghostel-mode=.
+prebuilt =libghostty= binary; Nix ships it inside the package, so nothing is
+downloaded at runtime. Launch with =<leader> o t= (or =M-x ghostel=).
+=evil-ghostel= adds Evil integration, enabled per terminal buffer via
+=ghostel-mode=.
 
 #+begin_src emacs-lisp
 (use-package ghostel

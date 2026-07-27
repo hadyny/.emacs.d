@@ -173,7 +173,6 @@
               treesit-auto
               vertico
               vertico-prescient
-              vterm
               which-key
               zk4e
             ]
@@ -341,7 +340,7 @@
           # startup: `package-activate-all` must make the packages' entry points
           # autoloadable WITHOUT an explicit require (this is what broke when
           # early-init.el disabled package.el — every :init/:config call hit a
-          # void function). Also loads vterm, which ships a native module.
+          # void function).
           # Runs on emacs-dotemacs-ci (no ghostel), so the ghostel native
           # module is deliberately not built or required here -- that would
           # trigger the network-flaky ghostty/Zig build.
@@ -355,7 +354,6 @@
                                       apheleia-global-mode)) \
                           (unless (fboundp fn) \
                             (error \"not autoloaded (package activation broken?): %s\" fn))) \
-                        (require 'vterm) \
                         (message \"package activation + custom packages OK\"))"
             touch $out
           '';
