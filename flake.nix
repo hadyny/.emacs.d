@@ -81,6 +81,32 @@
                 };
               });
 
+              # org: GNU ELPA has deleted the uncompressed org-9.8.7.tar that
+              # nixpkgs still pins (only the .lz remains), so the fixed-output
+              # fetch falls back to the .lz whose hash differs from the pinned
+              # .tar hash -- breaking every build that fetches org fresh (CI). It
+              # passes locally only because org is substituted from the binary
+              # cache. nixpkgs master is equally stale (still 9.8.7 -> the dead
+              # .tar), so bumping the input does not help. Rebuild org against
+              # ELPA's current release 9.8.8, whose plain tarball is still
+              # served, mirroring nixpkgs' own elpa-generated.nix definition.
+              # Propagates to org-modern and the other org dependents in scope.
+              # Revisit once nixpkgs regenerates elpa-generated.nix past 9.8.7.
+              org = _efinal.elpaBuild {
+                pname = "org";
+                ename = "org";
+                version = "9.8.8";
+                src = final.fetchurl {
+                  url = "https://elpa.gnu.org/packages/org-9.8.8.tar";
+                  hash = "sha256-oF8gH3O9mj+SeiF1DJSlregspzEDlNO99f2h2dhwt2Y=";
+                };
+                packageRequires = [ ];
+                meta = {
+                  homepage = "https://elpa.gnu.org/packages/org.html";
+                  license = final.lib.licenses.free;
+                };
+              };
+
               # zk4e: Emacs interface for the zk-org CLI (config.org uses it for
               # note browsing/creation). Not in nixpkgs, so build from source.
               # The Citar integration file is dropped so tomlparse is the only
