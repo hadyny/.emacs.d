@@ -166,7 +166,30 @@ while idle, moving collection out of interactive work.
         (setq insert-directory-program gls))))
   (setq dired-listing-switches
         "-l --almost-all --human-readable --group-directories-first --no-group")
-  (put 'dired-find-alternate-file 'disabled nil))
+  (put 'dired-find-alternate-file 'disabled nil)
+  (defun my/dired-find-file-reuse ()
+    "Open a directory in place (reusing the dired buffer); open files normally.
+`dired-kill-when-opening-new-dired-buffer' only reuses the buffer when it is
+shown in fewer than two windows (the `(< (length (get-buffer-window-list)) 2)'
+guard in `dired--find-possibly-alternative-file'); with the buffer in two or
+more windows RET falls back to `find-file' and spawns a new buffer.  This
+reuses unconditionally for directories via `find-alternate-file'."
+    (interactive)
+    (let ((file (dired-get-file-for-visit)))
+      (if (file-directory-p file)
+          (progn (set-buffer-modified-p nil)
+                 (find-alternate-file file))
+        (find-file file))))
+  ;; evil-collection binds RET -> dired-find-file when it initialises, which
+  ;; happens (on `evil-mode') after this :config's own `with-eval-after-load'
+  ;; has run -- so it would clobber a rebind made here directly.  Install ours
+  ;; from `dired-mode-hook', which runs when a dired buffer is created, i.e.
+  ;; after evil-collection has set up `dired-mode-map', so ours wins.
+  (defun my/dired-rebind-return ()
+    (when (fboundp 'evil-collection-define-key)
+      (evil-collection-define-key 'normal 'dired-mode-map
+        (kbd "RET") 'my/dired-find-file-reuse)))
+  (add-hook 'dired-mode-hook #'my/dired-rebind-return))
 #+end_src
 
 ** Eldoc
