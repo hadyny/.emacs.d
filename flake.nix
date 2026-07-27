@@ -29,7 +29,9 @@
       # the two can't drift.
       emacsToolsFor =
         pkgs: with pkgs; [
+          claude-agent-acp
           coreutils-prefixed
+          gemini-cli
           marksman
           roslyn-ls
         ];
@@ -139,6 +141,7 @@
             withGhostel: e:
             with e;
             [
+              agent-shell
               apheleia
               auto-dark
               cape
@@ -207,7 +210,9 @@
         # External tools config.org shells out to (shared with the home-manager
         # module default via emacsToolsFor). Keep the list in sync with the
         # eglot-server-programs / executable-find references in config.org:
+        #   claude-agent-acp              -> agent-shell Claude ACP agent        (agent-shell-anthropic-claude-acp-command)
         #   coreutils-prefixed            -> gls                                (config.org: dired setup)
+        #   gemini-cli                    -> agent-shell Gemini ACP agent        (agent-shell-google-gemini-acp-command)
         #   marksman                      -> Markdown LSP                        (eglot-server-programs)
         #   roslyn-ls                     -> Microsoft.CodeAnalysis.LanguageServer (eglot-server-programs)
         # TypeScript/TSX uses eglot with the project-local typescript-language-server
@@ -351,7 +356,7 @@
                         (dolist (fn '(gcmh-mode marginalia-mode exec-path-from-shell-initialize \
                                       corfu-mode corfu-history-mode vertico-mode evil-mode \
                                       doom-themes-visual-bell-config which-key-mode \
-                                      apheleia-global-mode)) \
+                                      apheleia-global-mode agent-shell)) \
                           (unless (fboundp fn) \
                             (error \"not autoloaded (package activation broken?): %s\" fn))) \
                         (message \"package activation + custom packages OK\"))"

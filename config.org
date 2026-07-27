@@ -1005,6 +1005,34 @@ downloaded at runtime. Launch with =<leader> o t= (or =M-x ghostel=).
   :hook (ghostel-mode . evil-ghostel-mode))
 #+end_src
 
+* AI agents
+
+[[https://github.com/xenodium/agent-shell][=agent-shell=]] is an Emacs frontend for coding agents that speak the Agent
+Client Protocol (ACP). It shells out to an external agent process per session;
+=acp= and =shell-maker= (its ELisp dependencies) come from Nix alongside it. Two
+backends are wired here:
+
+- Claude via =agent-shell-anthropic-start-claude-code=, which runs the
+  =claude-agent-acp= binary (the default of =agent-shell-anthropic-claude-acp-command=).
+- Gemini via =agent-shell-google-start-gemini=, which runs =gemini
+  --experimental-acp= (the default of =agent-shell-google-gemini-acp-command=).
+
+Both agent binaries (=claude-agent-acp=, =gemini=) are provided on =PATH= by the
+Nix tool closure (=emacsToolsFor= in [[file:flake.nix][=flake.nix=]]), so the command defaults
+resolve without further configuration. Authentication is handled by each CLI
+itself (its own login/subscription or API-key env var via the backend's
+=…-authentication= / =…-environment= defcustoms), so no secrets live here.
+There is no keybinding; launch with =M-x agent-shell= (pick a backend) or the
+per-backend start commands above.
+
+#+begin_src emacs-lisp
+(use-package agent-shell
+  :defer t
+  :commands (agent-shell
+             agent-shell-anthropic-start-claude-code
+             agent-shell-google-start-gemini))
+#+end_src
+
 * Evil (Vim emulation)
 
 #+begin_src emacs-lisp
