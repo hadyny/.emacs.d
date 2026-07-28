@@ -94,7 +94,7 @@ while idle, moving collection out of interactive work.
 #+begin_src emacs-lisp
 (require 'disp-table)
 (defface my-fallback-glyph
-  '((t :family "Maple Mono NF"
+  '((t :family "MonaspiceNe Nerd Font"
        :inherit font-lock-comment-face))
   "Fallback face for truncation and wrap glyphs.")
 
@@ -333,20 +333,20 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
 #+begin_src emacs-lisp
 (use-package nerd-icons
   :custom
-  (nerd-icons-font-family "Maple Mono NF"))
+  (nerd-icons-font-family "MonaspiceNe Nerd Font"))
 
 (set-face-attribute 'default nil
-                    :font "Maple Mono NF"
+                    :font "MonaspiceNe Nerd Font"
                     :height 140
-                    :weight 'semibold)
+                    :weight 'medium)
 (set-face-attribute 'variable-pitch nil
-                    :font "Maple Mono NF"
+                    :font "MonaspiceNe Nerd Font"
                     :height 140
-                    :weight 'semibold)
+                    :weight 'medium)
 (set-face-attribute 'fixed-pitch nil
-                    :font "Maple Mono NF"
+                    :font "MonaspiceNe Nerd Font"
                     :height 140
-                    :weight 'semibold)
+                    :weight 'medium)
 (set-face-attribute 'font-lock-comment-face nil
                     :slant 'italic)
 (set-face-attribute 'font-lock-keyword-face nil
@@ -357,7 +357,7 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
 
 (set-face-background 'fringe (face-attribute 'default :background))
 
-;; Fallback for symbol glyphs Maple Mono NF lacks (Dingbats + Misc Symbols &
+;; Fallback for symbol glyphs Monaspace lacks (Dingbats + Misc Symbols &
 ;; Arrows). Menlo is a monospace face that covers e.g. ✳ (U+2733). Note: the
 ;; org-modern default L3 stars U+2BC8/U+2BC6 exist in no installed font, so
 ;; the org-modern-fold-stars override in the org-modern block is what actually
@@ -841,7 +841,7 @@ the Eglot section.
   :defer t
   :hook (org-mode . org-modern-mode)
   :config
-  ;; L3's default fold glyphs ⯈/⯆ (U+2BC8/U+2BC6) aren't in Maple Mono NF and
+  ;; L3's default fold glyphs ⯈/⯆ (U+2BC8/U+2BC6) aren't in Monaspace and
   ;; no installed font renders them, so they show as tofu. Reuse L1's ▶/▼
   ;; (non-adjacent, present in the font).
   (setq org-modern-fold-stars
