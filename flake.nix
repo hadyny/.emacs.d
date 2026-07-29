@@ -164,6 +164,7 @@
               magit
               marginalia
               markdown-mode
+              mixed-pitch
               mood-line
               neotree
               nerd-icons
@@ -356,7 +357,8 @@
                         (dolist (fn '(gcmh-mode marginalia-mode exec-path-from-shell-initialize \
                                       corfu-mode corfu-history-mode vertico-mode evil-mode \
                                       doom-themes-visual-bell-config which-key-mode \
-                                      apheleia-global-mode agent-shell)) \
+                                      apheleia-global-mode agent-shell \
+                                      mixed-pitch-mode)) \
                           (unless (fboundp fn) \
                             (error \"not autoloaded (package activation broken?): %s\" fn))) \
                         (message \"package activation + custom packages OK\"))"

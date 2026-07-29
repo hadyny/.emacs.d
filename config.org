@@ -249,6 +249,24 @@ diff-hl block re-invokes this once its deffaces have run."
                           :foreground (catppuccin-color 'red))
       (set-face-attribute 'diff-hl-insert nil :background 'unspecified
                           :foreground (catppuccin-color 'green))))
+  (defun my/apply-monaspace-role-faces ()
+    "Point theme-restyled faces at their Monaspace role variant.
+Re-applied on every flavour switch because `catppuccin-reload' resets face
+specs (the same reason `my/apply-diff-hl-faces' exists).  Headings use Krypton
+\(mechanical, for structure); the mode line uses Argon (humanist sans, for UI
+chrome).  Heading faces are guarded with `facep' since org/markdown are
+deferred and their faces may not exist yet at startup -- the org and
+markdown-mode blocks re-invoke this once they load."
+    (dolist (n (number-sequence 1 8))
+      (let ((face (intern (format "org-level-%d" n))))
+        (when (facep face)
+          (set-face-attribute face nil :family "MonaspiceKr Nerd Font"))))
+    (dolist (n (number-sequence 1 6))
+      (let ((face (intern (format "markdown-header-face-%d" n))))
+        (when (facep face)
+          (set-face-attribute face nil :family "MonaspiceKr Nerd Font"))))
+    (set-face-attribute 'mode-line nil :family "MonaspiceAr Nerd Font")
+    (set-face-attribute 'mode-line-inactive nil :family "MonaspiceAr Nerd Font"))
   (defun my/apply-catppuccin-flavor (appearance)
     "Set and reload the catppuccin flavor for system APPEARANCE (`light'/`dark')."
     (setq catppuccin-flavor (my/catppuccin-flavor-for appearance))
@@ -256,7 +274,8 @@ diff-hl block re-invokes this once its deffaces have run."
     (let ((bg (face-attribute 'mode-line :background)))
       (set-face-attribute 'mode-line nil :box `(:line-width 6 :color ,bg))
       (set-face-attribute 'mode-line-inactive nil :box `(:line-width 6 :color ,bg)))
-    (my/apply-diff-hl-faces)))
+    (my/apply-diff-hl-faces)
+    (my/apply-monaspace-role-faces)))
 
 (use-package doom-themes
   :custom
@@ -339,17 +358,31 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
                     :font "MonaspiceNe Nerd Font"
                     :height 140
                     :weight 'medium)
+;; Prose (variable-pitch) uses Xenon, the slab-serif face, to read distinctly
+;; from Neon code. `mixed-pitch-mode' (enabled in org/markdown below) keeps
+;; code, tables and verbatim in the fixed-pitch Neon face while body text uses
+;; this.
 (set-face-attribute 'variable-pitch nil
-                    :font "MonaspiceNe Nerd Font"
+                    :font "MonaspiceXe Nerd Font"
                     :height 140
                     :weight 'medium)
 (set-face-attribute 'fixed-pitch nil
                     :font "MonaspiceNe Nerd Font"
                     :height 140
                     :weight 'medium)
+;; Render italics in Monaspace Radon (the script/handwriting face) rather than
+;; Neon-italic. `italic' is the base face inherited by org/markdown emphasis
+;; and friends; the two font-lock faces below slant themselves directly (they
+;; don't inherit `italic'), so set the family on them too. Radon ships true
+;; italics, so :slant italic selects a real face, not a synthesised slant.
+(set-face-attribute 'italic nil
+                    :family "MonaspiceRn Nerd Font"
+                    :slant 'italic)
 (set-face-attribute 'font-lock-comment-face nil
+                    :family "MonaspiceRn Nerd Font"
                     :slant 'italic)
 (set-face-attribute 'font-lock-keyword-face nil
+                    :family "MonaspiceRn Nerd Font"
                     :slant 'italic)
 
 (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
@@ -364,6 +397,27 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
 ;; fixes level-3 headings.
 (set-fontset-font t '(#x2700 . #x27bf) "Menlo" nil 'append)   ; Dingbats
 (set-fontset-font t '(#x2b00 . #x2bff) "Menlo" nil 'append)   ; Misc Symbols & Arrows
+
+;; org/markdown are deferred, so their heading faces don't exist when the
+;; flavour hook first runs at startup. Re-apply the Monaspace role faces (which
+;; colours the Krypton headings) once each loads, mirroring how the diff-hl
+;; block re-invokes `my/apply-diff-hl-faces'.
+(with-eval-after-load 'org
+  (when (fboundp 'my/apply-monaspace-role-faces) (my/apply-monaspace-role-faces)))
+(with-eval-after-load 'markdown-mode
+  (when (fboundp 'my/apply-monaspace-role-faces) (my/apply-monaspace-role-faces)))
+#+end_src
+
+** Mixed pitch (prose)
+
+[[https://gitlab.com/jabranham/mixed-pitch][=mixed-pitch=]] renders body text in the =variable-pitch= face (Xenon) while
+keeping code, tables, verbatim and other structural faces in =fixed-pitch=
+(Neon), so prose gets the slab-serif voice without breaking monospace
+alignment. Enabled in org and markdown buffers.
+
+#+begin_src emacs-lisp
+(use-package mixed-pitch
+  :hook ((org-mode markdown-mode) . mixed-pitch-mode))
 #+end_src
 
 * Tree-sitter
