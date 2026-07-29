@@ -252,11 +252,17 @@ diff-hl block re-invokes this once its deffaces have run."
   (defun my/apply-monaspace-role-faces ()
     "Point theme-restyled faces at their Monaspace role variant.
 Re-applied on every flavour switch because `catppuccin-reload' resets face
-specs (the same reason `my/apply-diff-hl-faces' exists).  Headings use Krypton
-\(mechanical, for structure); the mode line uses Argon (humanist sans, for UI
-chrome).  Heading faces are guarded with `facep' since org/markdown are
-deferred and their faces may not exist yet at startup -- the org and
-markdown-mode blocks re-invoke this once they load."
+specs (the same reason `my/apply-diff-hl-faces' exists).  Italics use Radon
+\(script); headings use Krypton (mechanical, for structure); the mode line uses
+Argon (humanist sans, for UI chrome).  Heading faces are guarded with `facep'
+since org/markdown are deferred and their faces may not exist yet at startup --
+the org and markdown-mode blocks re-invoke this once they load."
+    ;; Italics in Radon. These faces are restyled by `catppuccin-reload'
+    ;; (comment/keyword lose their slant entirely), so they must be set here --
+    ;; from the flavour hook -- not just once at top level, or a light/dark
+    ;; switch (or auto-dark's startup re-apply) drops italics everywhere.
+    (dolist (face '(italic font-lock-comment-face font-lock-keyword-face))
+      (set-face-attribute face nil :family "MonaspiceRn Nerd Font" :slant 'italic))
     (dolist (n (number-sequence 1 8))
       (let ((face (intern (format "org-level-%d" n))))
         (when (facep face)
@@ -370,20 +376,11 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
                     :font "MonaspiceNe Nerd Font"
                     :height 140
                     :weight 'medium)
-;; Render italics in Monaspace Radon (the script/handwriting face) rather than
-;; Neon-italic. `italic' is the base face inherited by org/markdown emphasis
-;; and friends; the two font-lock faces below slant themselves directly (they
-;; don't inherit `italic'), so set the family on them too. Radon ships true
-;; italics, so :slant italic selects a real face, not a synthesised slant.
-(set-face-attribute 'italic nil
-                    :family "MonaspiceRn Nerd Font"
-                    :slant 'italic)
-(set-face-attribute 'font-lock-comment-face nil
-                    :family "MonaspiceRn Nerd Font"
-                    :slant 'italic)
-(set-face-attribute 'font-lock-keyword-face nil
-                    :family "MonaspiceRn Nerd Font"
-                    :slant 'italic)
+;; Italics render in Monaspace Radon (the script face). `italic' is the base
+;; face inherited by org/markdown emphasis; font-lock-comment/keyword-face slant
+;; themselves directly. These are all restyled by `catppuccin-reload', so they
+;; are applied in `my/apply-monaspace-role-faces' (called from the flavour hook)
+;; rather than here -- otherwise the reload auto-dark runs at startup wipes them.
 
 (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
 (add-to-list 'default-frame-alist '(ns-appearance . dark))
