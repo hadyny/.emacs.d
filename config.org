@@ -257,6 +257,12 @@ specs (the same reason `my/apply-diff-hl-faces' exists).  Italics use Radon
 Argon (humanist sans, for UI chrome).  Heading faces are guarded with `facep'
 since org/markdown are deferred and their faces may not exist yet at startup --
 the org and markdown-mode blocks re-invoke this once they load."
+    ;; Base font. catppuccin owns the `default' face (fg/bg), so `catppuccin-reload'
+    ;; re-specs it and strips the family/size/weight -- re-apply them here.
+    ;; (variable-pitch/fixed-pitch are NOT themed by catppuccin, so they stay set
+    ;; once in the font block below.)
+    (set-face-attribute 'default nil :font "MonaspiceNe Nerd Font"
+                        :height 140 :weight 'medium)
     ;; Italics in Radon. These faces are restyled by `catppuccin-reload'
     ;; (comment/keyword lose their slant entirely), so they must be set here --
     ;; from the flavour hook -- not just once at top level, or a light/dark
@@ -360,10 +366,10 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
   :custom
   (nerd-icons-font-family "MonaspiceNe Nerd Font"))
 
-(set-face-attribute 'default nil
-                    :font "MonaspiceNe Nerd Font"
-                    :height 140
-                    :weight 'medium)
+;; The `default' face is applied in `my/apply-monaspace-role-faces' (from the
+;; flavour hook), not here: catppuccin re-specs `default' on every reload, which
+;; would strip a top-level family/size/weight. variable-pitch and fixed-pitch
+;; below are not themed by catppuccin, so they are safe to set once here.
 ;; Prose (variable-pitch) uses Xenon, the slab-serif face, to read distinctly
 ;; from Neon code. `mixed-pitch-mode' (enabled in org/markdown below) keeps
 ;; code, tables and verbatim in the fixed-pitch Neon face while body text uses

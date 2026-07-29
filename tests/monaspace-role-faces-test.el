@@ -25,5 +25,19 @@
     (should (equal (face-attribute face :family) "MonaspiceRn Nerd Font"))
     (should (eq (face-attribute face :slant) 'italic))))
 
+(ert-deftest monaspace-role-faces/reapplies-base-default-font ()
+  "The helper re-applies the base default font size and weight.
+`catppuccin-reload' re-specs the (themed) `default' face and strips these, so
+they must be re-applied from the flavour hook, not just once at top level."
+  ;; Arrange
+  (cfg-test-load-defun 'my/apply-monaspace-role-faces)
+  ;; Simulate a post-reload `default' face with height/weight stripped.
+  (set-face-attribute 'default nil :height 100 :weight 'normal)
+  ;; Act
+  (my/apply-monaspace-role-faces)
+  ;; Assert
+  (should (eq (face-attribute 'default :height) 140))
+  (should (eq (face-attribute 'default :weight) 'medium)))
+
 (provide 'monaspace-role-faces-test)
 ;;; monaspace-role-faces-test.el ends here
