@@ -34,6 +34,8 @@
           gemini-cli
           marksman
           roslyn-ls
+          typescript
+          typescript-language-server
         ];
 
       # One Emacs for Linux and Darwin. On Darwin the NS build already provides
@@ -216,9 +218,12 @@
         #   gemini-cli                    -> agent-shell Gemini ACP agent        (agent-shell-google-gemini-acp-command)
         #   marksman                      -> Markdown LSP                        (eglot-server-programs)
         #   roslyn-ls                     -> Microsoft.CodeAnalysis.LanguageServer (eglot-server-programs)
-        # TypeScript/TSX uses eglot with the project-local typescript-language-server
-        # (resolved via my/add-node-modules-path), and ESLint runs through
-        # flymake-eslint against the project-local eslint -- neither is a Nix tool.
+        #   typescript-language-server    -> TypeScript/TSX LSP                   (eglot default mapping)
+        #   typescript                    -> tsserver for the tsls fallback
+        # typescript-language-server is a global fallback: a project-local copy in
+        # node_modules still wins (my/add-node-modules-path prepends node_modules/.bin
+        # to exec-path). ESLint runs through flymake-eslint against the project-local
+        # eslint, which is not a Nix tool.
         emacs-tools = emacsToolsFor pkgs;
       in
       {

@@ -92,10 +92,11 @@ Module options (=programs.dotemacs.*=):
 
 - =enable= — install the tool closure and manage =~/.emacs.d=
 - =tools= — external tools / language servers on =PATH= (default: marksman,
-  roslyn-ls, coreutils-prefixed, plus =claude-agent-acp= / =gemini-cli= for
-  =agent-shell=). Set to =[ ]= to defer to another package list. TypeScript's
-  =typescript-language-server= and =eslint= come from the project's
-  =node_modules=, not this closure.
+  roslyn-ls, =typescript-language-server= + =typescript=, coreutils-prefixed,
+  plus =claude-agent-acp= / =gemini-cli= for =agent-shell=). Set to =[ ]= to
+  defer to another package list. A project-local =typescript-language-server= in
+  =node_modules= still wins; =eslint= is always project-local (via
+  =flymake-eslint=), not in this closure.
 - =configPath= — absolute path to a live checkout; =null= links the flake's
   read-only source instead (which can't be tangled into — see the option doc)
 - =package= — Emacs package to install via nix; =null= (default) keeps an
