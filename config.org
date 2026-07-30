@@ -133,6 +133,7 @@ while idle, moving collection out of interactive work.
   (set-display-table-slot standard-display-table 'vertical-border (make-glyph-code ?│))
   (scroll-bar-mode -1)
   (tool-bar-mode -1)
+  (context-menu-mode 1)
   (recentf-mode 1)
   (savehist-mode 1)
   (global-prettify-symbols-mode 1)
@@ -219,7 +220,15 @@ keybindings section), which toggles it.
   (dirvish-attributes '(nerd-icons file-size))
   (dirvish-side-width 50)
   (dirvish-side-attributes '(nerd-icons file-size))
-  (dirvish-side-display-alist '((side . right) (slot . -1))))
+  (dirvish-side-display-alist '((side . right) (slot . -1)))
+  :config
+  ;; The subtree nesting guides (`dirvish-subtree-prefix' = " │") are text
+  ;; glyphs, so the global `line-spacing' (0.2) breaks them into disconnected
+  ;; segments. Drop the extra spacing in dirvish/dired buffers so the bars
+  ;; join up; prose/code buffers keep the global line-spacing.
+  (defun my/dirvish-tighten-line-spacing ()
+    (setq-local line-spacing 0))
+  (add-hook 'dired-mode-hook #'my/dirvish-tighten-line-spacing))
 #+end_src
 
 ** Eldoc
@@ -910,12 +919,20 @@ fill it in to organise the view, e.g.:
 (use-package org-super-agenda
   :after org
   :config
-  ;; Example groups (uncomment/edit to taste):
-  ;; (setq org-super-agenda-groups
-  ;;       '((:name "Today"     :time-grid t :scheduled today)
-  ;;         (:name "Overdue"   :deadline past)
-  ;;         (:name "Important" :priority "A")
-  ;;         (:name "Waiting"   :todo "WAITING")))
+  ;; Group items in the standard agenda/todo views (and, being global, the
+  ;; custom `c'/`S' commands too). Edit to taste; ungrouped items fall through
+  ;; to a catch-all at the bottom.
+  (setq org-super-agenda-groups
+        '((:name "Today"       :time-grid t :scheduled today)
+          (:name "Overdue"     :deadline past)
+          (:name "Due today"   :deadline today)
+          (:name "Important"   :priority "A")
+          (:name "In progress" :todo "STARTED")
+          (:name "Waiting"     :todo "WAITING")))
+  ;; evil gotcha: `org-super-agenda' binds j/k/RET/TAB on group-header lines via
+  ;; `org-super-agenda-header-map', which hijacks evil navigation when point is
+  ;; on a header. Blank it so evil's j/k work throughout the agenda.
+  (setq org-super-agenda-header-map (make-sparse-keymap))
   (org-super-agenda-mode))
 #+end_src
 

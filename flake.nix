@@ -61,28 +61,21 @@
               ];
           });
 
-          # Pin evil-ghostel to 20260712.716 (dakra/ghostel commit 0d41dfb).
-          #
-          # nixpkgs' MELPA snapshot moved evil-ghostel to 20260713, which
-          # requires ghostel 0.42.1: its `:around' advice on `ghostel--redraw'
-          # forwards a third `force-sync' arg. The ghostel in nixpkgs is still
-          # 0.41.0-unstable-2026-07-06, whose native `ghostel--redraw' has arity
-          # (1 . 2) -- so every redraw/resize/window-change signals
-          # `wrong-number-of-arguments #<module function ...> 3' and the terminal
-          # never opens. 20260712.716 forwards only (term full), matching the
-          # installed ghostel. Revisit once nixpkgs ships ghostel >= 0.42.1.
+          # evil-ghostel lives inside the ghostel repo (dakra/ghostel,
+          # extensions/evil-ghostel) and shares ghostel's `:around' advice
+          # contract on `ghostel--redraw' / `ghostel--apply-cursor-style'. The two
+          # MUST therefore be built from the same revision. nixpkgs packages them
+          # from independent revs, which skews the advice arity: e.g. ghostel
+          # 0.45.0 calls `ghostel--redraw' with (term full force-sync) so the
+          # advice is invoked with 4 args, but an evil-ghostel from an older rev
+          # accepts fewer -> "wrong-number-of-arguments evil-ghostel--around-redraw 4"
+          # and the terminal never redraws. Build evil-ghostel from the *exact*
+          # ghostel package source so the pair can never drift again (self-tracking
+          # across future ghostel bumps).
           epkgs = (final.emacsPackagesFor patchedEmacs).overrideScope (
             _efinal: eprev: {
-              evil-ghostel = eprev.evil-ghostel.overrideAttrs (_old: rec {
-                version = "20260712.716";
-                melpaVersion = version;
-                commit = "0d41dfbbcd0577e7c7969f08703026f299d2eb71";
-                src = final.fetchFromGitHub {
-                  owner = "dakra";
-                  repo = "ghostel";
-                  rev = commit;
-                  hash = "sha256-aYV8VYFrRrkhu2ciJHe6uN318OW+Tjav8nv43bIpAxo=";
-                };
+              evil-ghostel = eprev.evil-ghostel.overrideAttrs (_old: {
+                src = eprev.ghostel.src;
               });
 
               # org: GNU ELPA has deleted the uncompressed org-9.8.7.tar that
