@@ -694,20 +694,47 @@ the Eglot section.
   :mode "\\.nix\\'")
 #+end_src
 
-* Diagnostics (Flymake)
+* Diagnostics (Flycheck)
+
+Flycheck 38 in place of built-in Flymake. Eglot's diagnostics arrive through
+v38's own =global-flycheck-eglot-mode= (which supersedes the third-party
+=flycheck-eglot= package and clashes with it, so that package stays out of the
+closure), inline messages come from =global-flycheck-annotate-mode= at Flycheck's
+own styles -- full messages below the line at point, compact end-of-line on every
+other line -- and machine-applicable fixes are a =C-c ! f= away, including
+[[*ESLint][ESLint]]'s.
+
+Two settings carry real weight. =flycheck-eglot-exclusive= must be nil: at its
+default =t= an Eglot buffer reports /only/ the server's diagnostics and ESLint
+silently stops appearing. And indicators go in the left margin -- the =auto=
+default draws them in the fringe, which [[*Version Control (diff-hl)][diff-hl]]
+owns here; Flycheck widens the margin by a column on its own.
+
+=flycheck-redefine-standard-error-levels= takes one margin string for all three
+levels, so the per-level nerd-font glyphs are written straight into each level's
+margin spec -- the exact property =flycheck-error-level-margin-spec= reads --
+which leaves every other property of the standard levels alone. Flycheck defines
+the levels when it loads, so =:config= is late enough for this to stick. The
+glyphs are single-column: Flycheck provisions a one-column margin, which would
+clip the trailing space the Flymake indicators used to carry.
 
 #+begin_src emacs-lisp
-(use-package flymake
+(use-package flycheck
   :defer t
-  :ensure nil
   :hook
-  (prog-mode . flymake-mode)
+  ((prog-mode . flycheck-mode)
+   (after-init . global-flycheck-annotate-mode)
+   (after-init . global-flycheck-eglot-mode))
   :custom
-  (flymake-show-diagnostics-at-end-of-line 'fancy)
-  (flymake-margin-indicators-string
-   `((error "󰅙 " compilation-error)
-     (warning " " compilation-warning)
-     (note "󰋼 " compilation-info))))
+  (flycheck-indication-mode 'left-margin)
+  (flycheck-eglot-exclusive nil)
+  :config
+  (pcase-dolist (`(,level ,glyph ,face)
+                 '((error   "󰅙" flycheck-fringe-error)
+                   (warning "󰀦" flycheck-fringe-warning)
+                   (info    "󰋼" flycheck-fringe-info)))
+    (setf (get level 'flycheck-margin-spec)
+          (flycheck-make-margin-spec glyph face))))
 #+end_src
 
 * Version Control (diff-hl)
@@ -1015,16 +1042,18 @@ using directive as unused."
 ** ESLint
 
 TypeScript/TSX diagnostics come from Eglot (=typescript-language-server=) plus
-ESLint. Rather than run a second LSP server for ESLint, =flymake-eslint= adds
-ESLint as an extra Flymake backend, so its findings appear alongside Eglot's in
-the same Flymake list. It runs the project-local =eslint= binary, resolved from
-=node_modules/.bin= by [[*JavaScript/TypeScript][=my/add-node-modules-path=]]; a project without ESLint
-installed simply produces no ESLint diagnostics.
+ESLint. Rather than run a second LSP server for ESLint,
+[[*Diagnostics (Flycheck)][Flycheck]]'s built-in =javascript-eslint= checker
+provides it: its =:modes= already cover =js-ts-mode=, =typescript-ts-mode= and
+=tsx-ts-mode=, so nothing needs hooking, and because =flycheck-eglot-exclusive=
+is nil the =eglot-check= checker chains to it and both sets of findings land in
+the same list. It runs the project-local =eslint= binary, resolved from
+=node_modules/.bin= by [[*JavaScript/TypeScript][=my/add-node-modules-path=]]; a
+project without ESLint installed simply produces no ESLint diagnostics.
 
-#+begin_src emacs-lisp
-(use-package flymake-eslint
-  :hook ((tsx-ts-mode typescript-ts-mode js-ts-mode) . flymake-eslint-enable))
-#+end_src
+Flycheck 38 also parses ESLint's own suggested fixes, so =C-c ! f= applies one at
+point and =C-c ! F= applies every fixable finding in the buffer as a single undo
+step.
 
 * Formatting (Apheleia)
 
@@ -1049,8 +1078,8 @@ on a modern toolchain. Instead, locate the nearest =node_modules/.bin= with
 =locate-dominating-file= and prepend it to a buffer-local =exec-path= / =PATH=.
 This is package-manager agnostic (npm/pnpm/yarn) and spawns no subprocess, and
 runs on the mode hook so the project-local =typescript-language-server= (for a
-manually-started =M-x eglot=) and =eslint= (for =flymake-eslint=) are already on
-=exec-path=.
+manually-started =M-x eglot=) and =eslint= (for Flycheck's =javascript-eslint=
+checker) are already on =exec-path=.
 
 #+begin_src emacs-lisp
 (defun my/add-node-modules-path ()
@@ -1147,10 +1176,10 @@ per-backend start commands above.
   (evil-define-key 'normal 'global (kbd "<leader> s h") 'consult-info)
   (evil-define-key 'normal 'global (kbd "<leader> /") 'consult-line)
 
-  ;; Flymake navigation
-  (evil-define-key 'normal 'global (kbd "<leader> x x") 'consult-flymake)
-  (evil-define-key 'normal 'global (kbd "] d") 'flymake-goto-next-error)
-  (evil-define-key 'normal 'global (kbd "[ d") 'flymake-goto-prev-error)
+  ;; Flycheck navigation
+  (evil-define-key 'normal 'global (kbd "<leader> x x") 'consult-flycheck)
+  (evil-define-key 'normal 'global (kbd "] d") 'flycheck-next-error)
+  (evil-define-key 'normal 'global (kbd "[ d") 'flycheck-previous-error)
 
   ;; Dired
   (evil-define-key 'normal 'global (kbd "<leader> x d") 'dired)

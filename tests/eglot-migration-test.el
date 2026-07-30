@@ -1,13 +1,14 @@
 ;;; eglot-migration-test.el --- Tests for the lsp-mode -> eglot migration -*- lexical-binding: t; -*-
 
-;; Specifies the move off lsp-mode onto eglot + flymake-eslint:
+;; Specifies the move off lsp-mode onto eglot + Flycheck's ESLint checker:
 ;;
 ;; * no lsp-mode / lsp-tailwindcss / lsp-eslint use-package forms remain
 ;;   (structural, parses the tangled config.el -- runs anywhere);
 ;; * eglot is NOT auto-started -- it is launched manually via M-x eglot, so the
 ;;   TypeScript/TSX hooks must not run eglot-ensure (behavioural -- needs the
 ;;   full config loaded, so it self-skips on a bare emacs-nox run);
-;; * ESLint is provided by flymake-eslint on those modes, not by an LSP server.
+;; * ESLint is a Flycheck checker rather than a second language server (and no
+;;   longer a Flymake backend -- see flycheck-migration-test.el).
 ;;
 ;; The behavioural tests key off `my/add-node-modules-path' being on
 ;; `tsx-ts-mode-hook' -- the config adds it unconditionally at load, so its
@@ -50,13 +51,16 @@
   (should-not (memq 'eglot-ensure tsx-ts-mode-hook))
   (should-not (memq 'eglot-ensure typescript-ts-mode-hook)))
 
-(ert-deftest eglot-migration/eslint-via-flymake ()
-  "ESLint runs through flymake-eslint on the TypeScript/TSX hooks."
-  ;; Arrange
+(ert-deftest eglot-migration/eslint-not-a-language-server ()
+  "ESLint is a Flycheck checker, not an LSP server and not a Flymake backend."
+  ;; Arrange -- the flycheck block is `:defer'red and no hook that would load it
+  ;; fires in batch, so load it here.
   (skip-unless (em-test--config-loaded-p))
+  (should (require 'flycheck nil t))
   ;; Assert
-  (should (memq 'flymake-eslint-enable tsx-ts-mode-hook))
-  (should (memq 'flymake-eslint-enable typescript-ts-mode-hook)))
+  (should (memq 'javascript-eslint flycheck-checkers))
+  (should-not (memq 'flymake-eslint-enable tsx-ts-mode-hook))
+  (should-not (memq 'flymake-eslint-enable typescript-ts-mode-hook)))
 
 (provide 'eglot-migration-test)
 ;;; eglot-migration-test.el ends here

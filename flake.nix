@@ -78,6 +78,29 @@
                 src = eprev.ghostel.src;
               });
 
+              # flycheck: Flycheck 38 (released 2026-07-29) is the whole reason
+              # config.org is on Flycheck rather than built-in Flymake -- the
+              # bundled Eglot bridge (`global-flycheck-eglot-mode', which
+              # obsoletes the third-party flycheck-eglot), inline diagnostics
+              # (`global-flycheck-annotate-mode') and applicable fixes
+              # (`flycheck-fix-error-at-point') all landed in it. nixpkgs (and
+              # nixos-unstable) still package the MELPA snapshot
+              # 20260720.531, from nine days *before* the release, which defines
+              # none of those, so bumping the nixpkgs input does not help. Pin
+              # the released tag instead. src-only is enough and cannot skew the
+              # closure: v38.3 is still a single flycheck.el (the MELPA recipe
+              # has no `:files') and its Package-Requires is unchanged
+              # (emacs 28.1, seq 2.24). Drop this override once nixpkgs'
+              # melpa-generated.nix passes 38.
+              flycheck = eprev.flycheck.overrideAttrs (_old: {
+                src = final.fetchFromGitHub {
+                  owner = "flycheck";
+                  repo = "flycheck";
+                  tag = "v38.3";
+                  hash = "sha256-X9AnHTZ2wM36iBgFkv6zS/tSI3iTcdOPNMxczXDCLNY=";
+                };
+              });
+
               # org: GNU ELPA has deleted the uncompressed org-9.8.7.tar that
               # nixpkgs still pins (only the .lz remains), so the fixed-output
               # fetch falls back to the .lz whose hash differs from the pinned
@@ -142,6 +165,7 @@
               cape
               catppuccin-theme
               consult
+              consult-flycheck
               corfu
               corfu-prescient
               diff-hl
@@ -153,7 +177,7 @@
               evil
               evil-collection
               exec-path-from-shell
-              flymake-eslint
+              flycheck
               gcmh
               helpful
               ligature
@@ -216,8 +240,8 @@
         #   typescript                    -> tsserver for the tsls fallback
         # typescript-language-server is a global fallback: a project-local copy in
         # node_modules still wins (my/add-node-modules-path prepends node_modules/.bin
-        # to exec-path). ESLint runs through flymake-eslint against the project-local
-        # eslint, which is not a Nix tool.
+        # to exec-path). ESLint runs through Flycheck's built-in javascript-eslint
+        # checker against the project-local eslint, which is not a Nix tool.
         emacs-tools = emacsToolsFor pkgs;
       in
       {
@@ -358,7 +382,9 @@
                                       doom-themes-visual-bell-config which-key-mode \
                                       apheleia-global-mode agent-shell \
                                       mixed-pitch-mode dirvish-override-dired-mode \
-                                      org-super-agenda-mode)) \
+                                      org-super-agenda-mode consult-flycheck \
+                                      flycheck-mode global-flycheck-annotate-mode \
+                                      global-flycheck-eglot-mode)) \
                           (unless (fboundp fn) \
                             (error \"not autoloaded (package activation broken?): %s\" fn))) \
                         (message \"package activation + custom packages OK\"))"

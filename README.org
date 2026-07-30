@@ -30,7 +30,8 @@ To add a package, add it to the =withPackages= list in [[file:flake.nix][=flake.
 - Vertico / Orderless / Corfu / Consult / Embark / Marginalia completion stack
 - Catppuccin theme, auto-switches Latte/Mocha with system appearance (via =auto-dark=, cross-platform)
 - Monaspace typographic voice: Neon (code), Radon (script italics), Xenon (prose, via =mixed-pitch=), Krypton (headings), Argon (mode line)
-- Eglot for C#, Markdown (marksman), and TypeScript/TSX (typescript-language-server, started manually via =M-x eglot=); ESLint via =flymake-eslint=
+- Eglot for C#, Markdown (marksman), and TypeScript/TSX (typescript-language-server, started manually via =M-x eglot=); ESLint via Flycheck's =javascript-eslint= checker
+- Diagnostics: Flycheck 38 (pinned to =v38.3= in the flake, ahead of nixpkgs) — Eglot bridged in via =global-flycheck-eglot-mode=, inline messages via =global-flycheck-annotate-mode=, fixes on =C-c ! f=
 - Tree-sitter via =treesit-auto=
 - Org: =org-modern= styling and =org-super-agenda= agenda grouping
 - Magit, diff-hl, Apheleia formatting on save
@@ -97,8 +98,8 @@ Module options (=programs.dotemacs.*=):
   roslyn-ls, =typescript-language-server= + =typescript=, coreutils-prefixed,
   plus =claude-agent-acp= / =gemini-cli= for =agent-shell=). Set to =[ ]= to
   defer to another package list. A project-local =typescript-language-server= in
-  =node_modules= still wins; =eslint= is always project-local (via
-  =flymake-eslint=), not in this closure.
+  =node_modules= still wins; =eslint= is always project-local (run by Flycheck's
+  =javascript-eslint= checker), not in this closure.
 - =configPath= — absolute path to a live checkout; =null= links the flake's
   read-only source instead (which can't be tangled into — see the option doc)
 - =package= — Emacs package to install via nix; =null= (default) keeps an
