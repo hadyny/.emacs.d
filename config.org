@@ -84,7 +84,9 @@ while idle, moving collection out of interactive work.
 (add-to-list 'default-frame-alist '(min-width              . 1))
 (add-to-list 'default-frame-alist '(width                  . 100))
 (add-to-list 'default-frame-alist '(internal-border-width  . 18))
-(add-to-list 'default-frame-alist '(left-fringe            . 1))
+;; Left fringe wide enough for diff-hl's fringe bitmaps (GUI); right fringe
+;; stays minimal. In the terminal diff-hl falls back to margin indicators.
+(add-to-list 'default-frame-alist '(left-fringe            . 8))
 (add-to-list 'default-frame-alist '(right-fringe           . 1))
 (setq-default line-spacing 0.2)
 #+end_src
@@ -708,7 +710,11 @@ the Eglot section.
   (find-file . (lambda ()
                  (global-diff-hl-mode)
                  (diff-hl-flydiff-mode)
-                 (diff-hl-margin-mode)))
+                 ;; GUI uses the graphical fringe bitmaps (need a left fringe --
+                 ;; see Frame defaults). Only the terminal, which has no fringe,
+                 ;; falls back to the text margin indicators.
+                 (unless (display-graphic-p)
+                   (diff-hl-margin-mode))))
   :custom
   (diff-hl-side 'left)
   (diff-hl-margin-symbols-alist '((insert . "│")
