@@ -29,9 +29,9 @@
       # the two can't drift.
       emacsToolsFor =
         pkgs: with pkgs; [
-          claude-agent-acp
           coreutils-prefixed
           gemini-cli
+          github-copilot-cli
           marksman
           roslyn-ls
           typescript
@@ -226,14 +226,23 @@
         pkgs = import nixpkgs {
           inherit system;
           overlays = [ emacs-appearance-overlay ];
+          # github-copilot-cli (the `copilot' binary agent-shell's Copilot
+          # backend runs) is unfree, and evaluating an unfree package is a hard
+          # error unless allowed -- which took down the whole devShell, since
+          # emacs-tools is one of its inputs. Allow exactly this package, here
+          # rather than via NIXPKGS_ALLOW_UNFREE, so the flake still evaluates
+          # under pure eval (`nix flake check') and for anyone consuming it.
+          # Consumers of homeModules.default need the same allowance in their
+          # own nixpkgs config, or must set `programs.dotemacs.tools = [ ]'.
+          config.allowUnfreePredicate = pkg: builtins.elem (nixpkgs.lib.getName pkg) [ "github-copilot-cli" ];
         };
 
         # External tools config.org shells out to (shared with the home-manager
         # module default via emacsToolsFor). Keep the list in sync with the
         # eglot-server-programs / executable-find references in config.org:
-        #   claude-agent-acp              -> agent-shell Claude ACP agent        (agent-shell-anthropic-claude-acp-command)
         #   coreutils-prefixed            -> gls                                (config.org: dired setup)
         #   gemini-cli                    -> agent-shell Gemini ACP agent        (agent-shell-google-gemini-acp-command)
+        #   github-copilot-cli            -> agent-shell Copilot ACP agent (bin: copilot) (agent-shell-github-acp-command)
         #   marksman                      -> Markdown LSP                        (eglot-server-programs)
         #   roslyn-ls                     -> Microsoft.CodeAnalysis.LanguageServer (eglot-server-programs)
         #   typescript-language-server    -> TypeScript/TSX LSP                   (eglot default mapping)

@@ -38,6 +38,9 @@ jobs:
       - name: Check flake
         run: nix flake check --no-pure-eval --print-build-logs
 
+      - name: Build tool closure
+        run: nix build .#emacs-tools --no-link --print-build-logs
+
       - name: Check formatting
         run: nix fmt -- --ci
 
