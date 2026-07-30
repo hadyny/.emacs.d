@@ -152,6 +152,7 @@
               corfu
               corfu-prescient
               diff-hl
+              dirvish
               doom-themes
               eldoc-box
               embark
@@ -168,12 +169,12 @@
               markdown-mode
               mixed-pitch
               mood-line
-              neotree
               nerd-icons
               nerd-icons-corfu
               nix-mode
               orderless
               org-modern
+              org-super-agenda
               prescient
               smartparens
               treesit-auto
@@ -363,7 +364,8 @@
                                       corfu-mode corfu-history-mode vertico-mode evil-mode \
                                       doom-themes-visual-bell-config which-key-mode \
                                       apheleia-global-mode agent-shell \
-                                      mixed-pitch-mode)) \
+                                      mixed-pitch-mode dirvish-override-dired-mode \
+                                      org-super-agenda-mode)) \
                           (unless (fboundp fn) \
                             (error \"not autoloaded (package activation broken?): %s\" fn))) \
                         (message \"package activation + custom packages OK\"))"

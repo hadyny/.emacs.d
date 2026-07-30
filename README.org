@@ -32,7 +32,9 @@ To add a package, add it to the =withPackages= list in [[file:flake.nix][=flake.
 - Monaspace typographic voice: Neon (code), Radon (script italics), Xenon (prose, via =mixed-pitch=), Krypton (headings), Argon (mode line)
 - Eglot for C#, Markdown (marksman), and TypeScript/TSX (typescript-language-server, started manually via =M-x eglot=); ESLint via =flymake-eslint=
 - Tree-sitter via =treesit-auto=
+- Org: =org-modern= styling and =org-super-agenda= agenda grouping
 - Magit, diff-hl, Apheleia formatting on save
+- Files: =dirvish= (dired front-end, overrides dired globally; =dirvish-side= tree sidebar on =<leader> e=)
 - Terminal: =ghostel= (Ghostty VT engine, with =evil-ghostel= integration; =<leader> o t=)
 - AI agents: =agent-shell= (ACP frontend) for Claude (=claude-agent-acp=) and Gemini (=gemini-cli=), both provided on =PATH= by the Nix tool closure; =M-x agent-shell=
 

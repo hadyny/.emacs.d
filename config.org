@@ -192,6 +192,34 @@ reuses unconditionally for directories via `find-alternate-file'."
   (add-hook 'dired-mode-hook #'my/dired-rebind-return))
 #+end_src
 
+** Dirvish
+
+[[https://github.com/alexluigit/dirvish][=dirvish=]] is a polished front-end for dired. =dirvish-override-dired-mode=
+routes every dired entry point (=dired=, =dired-jump=, the =<leader> x= bindings)
+through dirvish, inheriting the dired settings above (listing switches,
+single-buffer navigation). =nerd-icons= is already installed, so it supplies the
+file glyphs. Rich previews (images, PDF, video) want extra CLI tools on =PATH=
+(e.g. =ffmpegthumbnailer=, =poppler=, =mediainfo=); text/directory previews work
+without them.
+
+=dirvish-side= is the file-tree sidebar (replaces neotree): a project-rooted
+panel on the right, matching neotree's width. =dirvish-side-follow-mode= keeps it
+pointed at the current file, and TAB (=dirvish-subtree-toggle=) expands
+subdirectories inline for tree-like navigation. Bound to =<leader> e= (see the
+keybindings section), which toggles it.
+
+#+begin_src emacs-lisp
+(use-package dirvish
+  :hook ((after-init . dirvish-override-dired-mode)
+         (after-init . dirvish-side-follow-mode))
+  :commands (dirvish-side)
+  :custom
+  (dirvish-attributes '(nerd-icons file-size))
+  (dirvish-side-width 50)
+  (dirvish-side-attributes '(nerd-icons file-size))
+  (dirvish-side-display-alist '((side . right) (slot . -1))))
+#+end_src
+
 ** Eldoc
 
 #+begin_src emacs-lisp
@@ -293,11 +321,9 @@ the org and markdown-mode blocks re-invoke this once they load."
   :custom
   (doom-themes-enable-bold t)
   (doom-themes-enable-italic t)
-  (doom-themes-neotree-enable-chevron-icons nil)
   :config
   (load-theme 'catppuccin t)
   (doom-themes-visual-bell-config)
-  (doom-themes-neotree-config)
   (doom-themes-treemacs-config)
   (doom-themes-org-config))
 
@@ -623,47 +649,6 @@ the Eglot section.
   (zk4e-select-notebook "notes"))
 #+end_src
 
-* File Explorer (Neotree)
-
-#+begin_src emacs-lisp
-(use-package neotree
-  ;; Deferred: neotree only loads on first use (the leader toggle below, or
-  ;; C-x n). :commands creates autoloads for the entry points our own commands
-  ;; call so pressing the key pulls neotree in on demand.
-  :commands (neotree-dir neotree-hide neotree-find neotree-toggle)
-  :custom
-  (neo-window-width 50)
-  (neo-smart-open t)
-  (neo-theme 'icons)
-  (neo-window-position 'right)
-  :init
-  ;; Defined eagerly (not in :config) because `<leader> e e' binds directly to
-  ;; this symbol; it requires neotree itself on first invocation.
-  (defun neotree-project-root-toggle ()
-    "Toggle neotree at the project root."
-    (interactive)
-    (require 'neotree)
-    (let* ((proj (project-current))
-           (project-dir (if proj (project-root proj) default-directory))
-           (file-name (buffer-file-name)))
-      (if (neo-global--window-exists-p)
-          (neotree-hide)
-        (progn
-          (neotree-dir project-dir)
-          (when file-name
-            (neotree-find file-name))))))
-
-  (global-set-key (kbd "C-x n")
-                  (lambda ()
-                    (interactive)
-                    (neotree-dir (read-directory-name "Directory: "))))
-  :config
-  (define-key neotree-mode-map (kbd "n") 'neotree-create-node)
-  (define-key neotree-mode-map (kbd "d") 'neotree-delete-node)
-  (define-key neotree-mode-map (kbd "r") 'neotree-rename-node)
-  (define-key neotree-mode-map (kbd "c") 'neotree-copy-node))
-#+end_src
-
 * Ligatures
 
 #+begin_src emacs-lisp
@@ -909,6 +894,25 @@ the Eglot section.
           ("▸" . "▾"))))  ; L5
 #+end_src
 
+** Super agenda
+
+[[https://github.com/alphapapa/org-super-agenda][=org-super-agenda=]] groups agenda items into sections. The mode is enabled
+here, but the agenda renders unchanged until =org-super-agenda-groups= is set;
+fill it in to organise the view, e.g.:
+
+#+begin_src emacs-lisp
+(use-package org-super-agenda
+  :after org
+  :config
+  ;; Example groups (uncomment/edit to taste):
+  ;; (setq org-super-agenda-groups
+  ;;       '((:name "Today"     :time-grid t :scheduled today)
+  ;;         (:name "Overdue"   :deadline past)
+  ;;         (:name "Important" :priority "A")
+  ;;         (:name "Waiting"   :todo "WAITING")))
+  (org-super-agenda-mode))
+#+end_src
+
 * LSP
 
 ** Eglot
@@ -1134,9 +1138,8 @@ per-backend start commands above.
   (evil-define-key 'normal 'global (kbd "] c") 'diff-hl-next-hunk)
   (evil-define-key 'normal 'global (kbd "[ c") 'diff-hl-previous-hunk)
 
-  ;; NeoTree
-  (evil-define-key 'normal 'global (kbd "<leader> e e") 'neotree-project-root-toggle)
-  (evil-define-key 'normal 'global (kbd "<leader> e d") 'dired-jump)
+  ;; File explorer (dirvish-side)
+  (evil-define-key 'normal 'global (kbd "<leader> e") 'dirvish-side)
 
   ;; Magit
   (evil-define-key 'normal 'global (kbd "<leader> g g") 'magit-status)
