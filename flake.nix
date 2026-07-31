@@ -403,6 +403,48 @@
                         (message \"package activation + custom packages OK\"))"
             touch $out
           '';
+
+          # The config must load on a terminal-only Emacs, not just a GUI one.
+          # This matters in practice: the devenv shell puts `emacs-nox' on PATH
+          # (devenv.nix), so `emacs' inside this repo IS the nox build. It has no
+          # window system, so window-system-only builtins (`set-fontset-font',
+          # `scroll-bar-mode', `tool-bar-mode', ...) are void there -- an
+          # unguarded call at top level aborts the rest of config.el, and one
+          # inside a `:config' body silently loses the rest of that block.
+          #
+          # None of the checks above catch that: `smoke' only byte-compiles (top
+          # level forms never run) and `integration-tests' loads the config on
+          # emacs-dotemacs-ci, a GUI-capable build where those symbols exist.
+          #
+          # emacs-nox is paired with the CI package set's .elc files
+          # (`emacs-dotemacs-ci.deps') rather than a second package set built
+          # against nox: same Emacs version, so the byte-code is portable, and
+          # this adds no package builds. `use-package-expand-minimally' drops
+          # use-package's condition-case wrappers so an error inside a `:config'
+          # body is fatal here instead of merely logged.
+          terminal-load =
+            pkgs.runCommand "dotemacs-terminal-load" { nativeBuildInputs = [ pkgs.emacs-nox ]; }
+              ''
+                cp -r ${self}/. work
+                chmod -R u+w work
+                cd work
+                # recentf/savehist write under HOME; the sandbox default is read-only.
+                export HOME=$TMPDIR
+                emacs --batch -Q \
+                  --eval "(require 'org)" \
+                  --eval '(org-babel-tangle-file "config.org" "config.el")'
+                emacs --batch -Q \
+                  --eval "(progn \
+                            (setq package-directory-list \
+                                  (list \"${pkgs.emacs-dotemacs-ci.deps}/share/emacs/site-lisp/elpa\")) \
+                            (package-activate-all) \
+                            (require 'use-package) \
+                            (setq use-package-always-ensure nil \
+                                  use-package-expand-minimally t) \
+                            (load (expand-file-name \"config.el\") nil t) \
+                            (message \"terminal load OK\"))"
+                touch $out
+              '';
         };
 
         formatter = pkgs.nixfmt-tree;

@@ -111,7 +111,9 @@ Other flake outputs:
 - =nix flake check --no-pure-eval= — runs =checks.smoke= (tangle +
   byte-compile), =checks.appearance= (theme switch stays cross-platform), and
   =checks.packages-loadable= (the Nix Emacs has every config package on
-  =load-path=), plus =checks.unit-tests= / =checks.integration-tests=
+  =load-path=), =checks.terminal-load= (config.el loads on a terminal-only
+  =emacs-nox=, where window-system-only builtins like =set-fontset-font= are
+  void), plus =checks.unit-tests= / =checks.integration-tests=
   (ERT tests for the config's helpers). =--no-pure-eval= is required because the
   devenv dev shell needs the working directory (pure eval hides it).
 - =nix develop --no-pure-eval= — devenv-powered dev shell (see [[file:devenv.nix][=devenv.nix=]]) with

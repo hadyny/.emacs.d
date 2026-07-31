@@ -32,6 +32,8 @@ jobs:
       #   integration-tests- full suite vs the real package set + loaded config
       #   packages-loadable- builds the Nix Emacs, asserts package activation
       #                      + vterm load (straight->nix guard)
+      #   terminal-load    - config.el loads on a terminal-only Emacs (emacs-nox),
+      #                      where window-system-only builtins are void
       # --no-pure-eval: the devenv-powered devShells.default needs to know the
       # working directory, which pure flake evaluation hides. Without it,
       # `nix flake check` fails evaluating that devShell.

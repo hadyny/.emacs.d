@@ -131,8 +131,11 @@ while idle, moving collection out of interactive work.
   (prog-mode . display-line-numbers-mode)
   :config
   (set-display-table-slot standard-display-table 'vertical-border (make-glyph-code ?│))
-  (scroll-bar-mode -1)
-  (tool-bar-mode -1)
+  ;; Window-system-only builtins: void on a terminal-only build (the devenv
+  ;; shell's `emacs-nox'), where an unguarded call would abort the rest of this
+  ;; `:config' body and lose the modes below it.
+  (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
+  (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
   (context-menu-mode 1)
   (recentf-mode 1)
   (savehist-mode 1)
@@ -435,8 +438,15 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
 ;; org-modern default L3 stars U+2BC8/U+2BC6 exist in no installed font, so
 ;; the org-modern-fold-stars override in the org-modern block is what actually
 ;; fixes level-3 headings.
-(set-fontset-font t '(#x2700 . #x27bf) "Menlo" nil 'append)   ; Dingbats
-(set-fontset-font t '(#x2b00 . #x2bff) "Menlo" nil 'append)   ; Misc Symbols & Arrows
+;;
+;; `set-fontset-font' only exists in a window-system build, and this is top
+;; level: unguarded, it aborts the load of the whole rest of config.el on the
+;; devenv shell's `emacs-nox' (guarded by `checks.terminal-load' in flake.nix).
+;; `fboundp' rather than `display-graphic-p' so a GUI-capable Emacs started with
+;; -nw or as a daemon still sets these up for frames made later via emacsclient.
+(when (fboundp 'set-fontset-font)
+  (set-fontset-font t '(#x2700 . #x27bf) "Menlo" nil 'append)    ; Dingbats
+  (set-fontset-font t '(#x2b00 . #x2bff) "Menlo" nil 'append))   ; Misc Symbols & Arrows
 
 ;; org/markdown are deferred, so their heading faces don't exist when the
 ;; flavour hook first runs at startup. Re-apply the Monaspace role faces (which
