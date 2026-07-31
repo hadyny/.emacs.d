@@ -33,6 +33,7 @@
           gemini-cli
           github-copilot-cli
           marksman
+          ripgrep
           roslyn-ls
           typescript
           typescript-language-server
@@ -182,6 +183,7 @@
               helpful
               ligature
               magit
+              magit-todos
               marginalia
               markdown-mode
               mixed-pitch
@@ -244,6 +246,7 @@
         #   gemini-cli                    -> agent-shell Gemini ACP agent        (agent-shell-google-gemini-acp-command)
         #   github-copilot-cli            -> agent-shell Copilot ACP agent (bin: copilot) (agent-shell-github-acp-command)
         #   marksman                      -> Markdown LSP                        (eglot-server-programs)
+        #   ripgrep                       -> rg for consult-ripgrep + magit-todos' scanner (magit-todos--choose-scanner)
         #   roslyn-ls                     -> Microsoft.CodeAnalysis.LanguageServer (eglot-server-programs)
         #   typescript-language-server    -> TypeScript/TSX LSP                   (eglot default mapping)
         #   typescript                    -> tsserver for the tsls fallback
@@ -390,6 +393,7 @@
                                       corfu-mode corfu-history-mode vertico-mode evil-mode \
                                       doom-themes-visual-bell-config which-key-mode \
                                       apheleia-global-mode agent-shell \
+                                      magit-todos-mode magit-todos-list \
                                       mixed-pitch-mode dirvish-override-dired-mode \
                                       org-super-agenda-mode consult-flycheck \
                                       flycheck-mode global-flycheck-annotate-mode \

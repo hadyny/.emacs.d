@@ -1067,6 +1067,31 @@ step.
   :defer t)
 #+end_src
 
+** TODO items (magit-todos)
+
+[[https://github.com/alphapapa/magit-todos][=magit-todos=]] scans the repo's
+tracked files for comment keywords (=TODO=, =FIXME=, ... — the =hl-todo= set) and
+lists them as a section in =magit-status=; =<leader> g t= opens the same list in
+its own buffer.
+
+=magit-todos-mode= is a *global* minor mode whose job is to push the section onto
+=magit-status-sections-hook=, so it has to be on before the first status refresh —
+hence =:after magit= (an =eval-after-load=, which runs as Magit finishes loading)
+rather than a plain =:defer t= that nothing would ever trigger.
+
+Scanning is done by an external tool, chosen automatically on first use by
+=magit-todos--choose-scanner= from the first available of =rg=, =git grep=, =git
+diff= and =find|grep=; with none of them it warns and disables itself. =ripgrep=
+is in the tool closure ([[file:flake.nix][=flake.nix=]]) so the fastest scanner is
+always the one picked.
+
+#+begin_src emacs-lisp
+(use-package magit-todos
+  :after magit
+  :config
+  (magit-todos-mode))
+#+end_src
+
 * JavaScript/TypeScript
 
 The =add-node-modules-path= package defaults to running =npm bin= to locate the
@@ -1199,6 +1224,7 @@ above.
   (evil-define-key 'normal 'global (kbd "<leader> g l") 'magit-log-current)
   (evil-define-key 'normal 'global (kbd "<leader> g d") 'magit-diff-buffer-file)
   (evil-define-key 'normal 'global (kbd "<leader> g D") 'diff-hl-show-hunk)
+  (evil-define-key 'normal 'global (kbd "<leader> g t") 'magit-todos-list)
   (evil-define-key 'normal 'global (kbd "<leader> g b") 'vc-annotate)
 
   ;; Buffers
