@@ -925,13 +925,10 @@ clip the trailing space the Flymake indicators used to carry.
   :defer t
   :hook (org-mode . org-modern-mode)
   :config
-  ;; L3's default fold glyphs ⯈/⯆ (U+2BC8/U+2BC6) aren't in Monaspace and
-  ;; no installed font renders them, so they show as tofu. Reuse L1's ▶/▼
-  ;; (non-adjacent, present in the font).
   (setq org-modern-fold-stars
         '(("▶" . "▼")     ; L1
           ("▷" . "▽")     ; L2
-          ("▶" . "▼")     ; L3  (was ⯈/⯆)
+          ("▶" . "▼")     ; L3
           ("▹" . "▿")     ; L4
           ("▸" . "▾"))))  ; L5
 #+end_src
