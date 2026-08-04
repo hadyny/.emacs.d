@@ -714,11 +714,16 @@ own styles -- full messages below the line at point, compact end-of-line on ever
 other line -- and machine-applicable fixes are a =C-c ! f= away, including
 [[*ESLint][ESLint]]'s.
 
-Two settings carry real weight. =flycheck-eglot-exclusive= must be nil: at its
-default =t= an Eglot buffer reports /only/ the server's diagnostics and ESLint
-silently stops appearing. And indicators go in the left margin -- the =auto=
-default draws them in the fringe, which [[*Version Control (diff-hl)][diff-hl]]
-owns here; Flycheck widens the margin by a column on its own.
+=flycheck-eglot-exclusive= stays at its default =t=. ESLint used to need the
+chain: it ran as =javascript-eslint= alongside Eglot. It is now a server behind
+the [[*Eglot][=rass= multiplexer]], so a chain would report each ESLint result
+twice -- once from the LSP diagnostics and once from the CLI checker. Flycheck
+still reaches the checker in a buffer Eglot does not manage, because the
+=eglot-check= predicate requires =eglot-managed-p=. See [[*ESLint][ESLint]].
+
+Indicators go in the left margin -- the =auto= default draws them in the fringe,
+which [[*Version Control (diff-hl)][diff-hl]] owns here; Flycheck widens the
+margin by a column on its own.
 
 =flycheck-redefine-standard-error-levels= takes one margin string for all three
 levels, so the per-level nerd-font glyphs are written straight into each level's
@@ -737,7 +742,6 @@ clip the trailing space the Flymake indicators used to carry.
    (after-init . global-flycheck-eglot-mode))
   :custom
   (flycheck-indication-mode 'left-margin)
-  (flycheck-eglot-exclusive nil)
   :config
   (pcase-dolist (`(,level ,glyph ,face)
                  '((error   "󰅙" flycheck-fringe-error)
@@ -982,14 +986,33 @@ fill it in to organise the view, e.g.:
              eglot-rename
              eglot-format-buffer)
   ;; eglot is started manually with `M-x eglot' (not auto-started on the TS/TSX
-  ;; hooks). Eglot already maps these modes to `typescript-language-server
-  ;; --stdio' out of the box, and `my/add-node-modules-path' has put the
-  ;; project-local server on `exec-path' by the time you connect.
+  ;; hooks). `my/add-node-modules-path' has put the project-local servers on
+  ;; `exec-path' and PATH by the time you connect, and `rass' resolves each
+  ;; server itself from the PATH it inherits.
   :config
   (setq eglot-code-action-indications '(mode-line))
   (setq eglot-confirm-server-initiated-edits t)
   (add-to-list 'eglot-server-programs
                '((csharp-ts-mode csharp-mode) . ("Microsoft.CodeAnalysis.LanguageServer" "--logLevel" "Debug" "--extensionLogDirectory" "~/.dotnet/logs" "--stdio")))
+  ;; TS/TSX: three servers behind the `rass' multiplexer. Eglot connects one
+  ;; server for each major mode and project, so Tailwind and ESLint cannot be
+  ;; separate connections. The bundled `tslint' preset runs
+  ;; typescript-language-server + vscode-eslint-language-server and does the
+  ;; `workspace/configuration' handholding ESLint needs; tailwindcss-language-server
+  ;; needs none and is appended after `--'.
+  ;;
+  ;; Every mode declares its `:language-id'. Absent one, Eglot strips
+  ;; "\\(?:-ts\\)?-mode$" from the mode name and sends "tsx" / "js", which are
+  ;; not LSP language IDs -- ESLint's `validate: probe' and Tailwind's class
+  ;; completion both go quiet. The entry is also written out in full rather than
+  ;; left to `eglot-alternatives': Eglot offers `("rass" "ts")' for these modes
+  ;; and probes only for the `rass' binary, but rassumfrassum ships no `ts'
+  ;; preset, so that command dies on startup.
+  (add-to-list 'eglot-server-programs
+               '(((tsx-ts-mode :language-id "typescriptreact")
+                  (typescript-ts-mode :language-id "typescript")
+                  (js-ts-mode :language-id "javascript"))
+                 . ("rass" "tslint" "--" "tailwindcss-language-server" "--stdio")))
   ;; Markdown: use `zk lsp' inside a zk notebook (a parent dir has `.zk'),
   ;; otherwise fall back to marksman for general markdown. eglot calls the CDR
   ;; function to resolve the program when connecting.
@@ -1048,19 +1071,40 @@ using directive as unused."
 
 ** ESLint
 
-TypeScript/TSX diagnostics come from Eglot (=typescript-language-server=) plus
-ESLint. Rather than run a second LSP server for ESLint,
-[[*Diagnostics (Flycheck)][Flycheck]]'s built-in =javascript-eslint= checker
-provides it: its =:modes= already cover =js-ts-mode=, =typescript-ts-mode= and
-=tsx-ts-mode=, so nothing needs hooking, and because =flycheck-eglot-exclusive=
-is nil the =eglot-check= checker chains to it and both sets of findings land in
-the same list. It runs the project-local =eslint= binary, resolved from
-=node_modules/.bin= by [[*JavaScript/TypeScript][=my/add-node-modules-path=]]; a
-project without ESLint installed simply produces no ESLint diagnostics.
+ESLint runs as a language server, behind the [[*Eglot][=rass= multiplexer]]. It
+used to be [[*Diagnostics (Flycheck)][Flycheck]]'s =javascript-eslint= checker,
+which shells out to =eslint --format=json --stdin=. A type-aware
+=typescript-eslint= configuration makes each run take about six seconds, and
+Flycheck starts a check on =idle-change= and on =new-line= by default. Flycheck
+cancelled each slow run and started it again, so few runs ever finished. The
+language server keeps one warm process instead.
 
-Flycheck 38 also parses ESLint's own suggested fixes, so =C-c ! f= applies one at
-point and =C-c ! F= applies every fixable finding in the buffer as a single undo
-step.
+The checker stays registered, and it is still the checker in a buffer without a
+connection. Eglot is started by hand, and the =eglot-check= predicate requires
+=eglot-managed-p=, so Flycheck falls through to =javascript-eslint= whenever no
+server is attached. That path keeps the six-second cost, so the TS mode hooks
+limit =flycheck-check-syntax-automatically= to =save= and =mode-enabled=. The
+limit cannot delay LSP diagnostics: =flycheck-eglot--report= calls
+=flycheck-buffer-automatically= with no condition, and
+=flycheck-may-check-automatically= returns non-nil for any trigger list.
+
+Either way the results land in Flycheck, fixes included. Flycheck 38 parses
+ESLint's own suggested fixes from the CLI, and converts LSP quickfix code actions
+into the same kind of fix (=flycheck-eglot-code-actions=, on by default). So
+=C-c ! f= applies one at point and =C-c ! F= applies every fixable finding in the
+buffer as a single undo step, from whichever side supplied it.
+
+#+begin_src emacs-lisp
+;; The fallback CLI checker costs ~6s per run, so do not start one while typing.
+;; Buffer-local on purpose: the Nix and Elisp checkers are fast, and live results
+;; are worth having there.
+(defun my/eslint-limit-check-triggers ()
+  "Check on save only, so the slow ESLint CLI fallback does not thrash."
+  (setq-local flycheck-check-syntax-automatically '(save mode-enabled)))
+
+(dolist (hook '(tsx-ts-mode-hook typescript-ts-mode-hook js-ts-mode-hook))
+  (add-hook hook #'my/eslint-limit-check-triggers))
+#+end_src
 
 * Formatting (Apheleia)
 
@@ -1109,9 +1153,10 @@ directory, but that command was removed in npm v9, so it silently does nothing
 on a modern toolchain. Instead, locate the nearest =node_modules/.bin= with
 =locate-dominating-file= and prepend it to a buffer-local =exec-path= / =PATH=.
 This is package-manager agnostic (npm/pnpm/yarn) and spawns no subprocess, and
-runs on the mode hook so the project-local =typescript-language-server= (for a
-manually-started =M-x eglot=) and =eslint= (for Flycheck's =javascript-eslint=
-checker) are already on =exec-path=.
+runs on the mode hook so the project-local servers are already on =exec-path= and
+PATH before a manually-started =M-x eglot= spawns =rass=. =rass= inherits that
+PATH and resolves each server itself, so the project's own
+=typescript-language-server= and =eslint= win over the ones in the Nix closure.
 
 #+begin_src emacs-lisp
 (defun my/add-node-modules-path ()
@@ -1125,7 +1170,15 @@ Replaces `add-node-modules-path', whose `npm bin' default was removed in npm 9."
                   (cons (concat "PATH=" bin path-separator (getenv "PATH"))
                         process-environment)))))
 
-(dolist (hook '(tsx-ts-mode-hook typescript-ts-mode-hook js-mode-hook))
+;; `js-ts-mode-hook' as well as `js-mode-hook': `treesit-auto-add-to-auto-mode-alist'
+;; is called with `all', so a .js file opens in `js-ts-mode', and Emacs does not
+;; run `js-mode-hook' there. Both modes derive from `js-base-mode', and
+;; `provided-mode-derived-p' does report `js-ts-mode' -> `js-mode', but that
+;; relation only drives `:modes' matching -- not hooks. `js-mode-hook' stays for
+;; the fallback, because `treesit-auto' uses `js-mode' when the JavaScript grammar
+;; is absent.
+(dolist (hook '(tsx-ts-mode-hook typescript-ts-mode-hook
+                js-ts-mode-hook js-mode-hook))
   (add-hook hook #'my/add-node-modules-path))
 #+end_src
 

@@ -30,8 +30,9 @@ To add a package, add it to the =withPackages= list in [[file:flake.nix][=flake.
 - Vertico / Orderless / Corfu / Consult / Embark / Marginalia completion stack
 - Catppuccin theme, auto-switches Latte/Mocha with system appearance (via =auto-dark=, cross-platform)
 - Monaspace typographic voice: Neon (code), Radon (script italics), Xenon (prose, via =mixed-pitch=), Krypton (headings), Argon (mode line)
-- Eglot for C#, Markdown (marksman), and TypeScript/TSX (typescript-language-server, started manually via =M-x eglot=); ESLint via Flycheck's =javascript-eslint= checker
-- Diagnostics: Flycheck 38 (pinned to =v38.3= in the flake, ahead of nixpkgs) — Eglot bridged in via =global-flycheck-eglot-mode=, inline messages via =global-flycheck-annotate-mode=, fixes on =C-c ! f=
+- Eglot for C#, Markdown (marksman), and TypeScript/TSX, started manually via =M-x eglot=
+- TS/TSX runs three servers behind the =rass= multiplexer (=rassumfrassum=), since Eglot connects one server per (major-mode, project): =typescript-language-server= + =vscode-eslint-language-server= (the bundled =tslint= preset) + =tailwindcss-language-server=. Flycheck's =javascript-eslint= checker stays as the fallback when no server is attached
+- Diagnostics: Flycheck 38 (pinned to =v38.3= in the flake, ahead of nixpkgs) — Eglot bridged in via =global-flycheck-eglot-mode=, inline messages via =global-flycheck-annotate-mode=, fixes on =C-c ! f= (LSP quickfixes included)
 - Tree-sitter via =treesit-auto=
 - Org: =org-modern= styling and =org-super-agenda= agenda grouping
 - Magit, diff-hl, Apheleia formatting on save

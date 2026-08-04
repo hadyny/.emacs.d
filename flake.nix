@@ -33,10 +33,13 @@
           gemini-cli
           github-copilot-cli
           marksman
+          rassumfrassum
           ripgrep
           roslyn-ls
+          tailwindcss-language-server
           typescript
           typescript-language-server
+          vscode-langservers-extracted
         ];
 
       # One Emacs for Linux and Darwin. On Darwin the NS build already provides
@@ -246,14 +249,21 @@
         #   gemini-cli                    -> agent-shell Gemini ACP agent        (agent-shell-google-gemini-acp-command)
         #   github-copilot-cli            -> agent-shell Copilot ACP agent (bin: copilot) (agent-shell-github-acp-command)
         #   marksman                      -> Markdown LSP                        (eglot-server-programs)
+        #   rassumfrassum                 -> rass, the LSP multiplexer for TS/TSX (eglot-server-programs)
         #   ripgrep                       -> rg for consult-ripgrep + magit-todos' scanner (magit-todos--choose-scanner)
         #   roslyn-ls                     -> Microsoft.CodeAnalysis.LanguageServer (eglot-server-programs)
-        #   typescript-language-server    -> TypeScript/TSX LSP                   (eglot default mapping)
+        #   tailwindcss-language-server   -> Tailwind class completion in TS/TSX   (rass tslint -- ...)
+        #   typescript-language-server    -> TypeScript/TSX LSP                    (rass tslint preset)
         #   typescript                    -> tsserver for the tsls fallback
-        # typescript-language-server is a global fallback: a project-local copy in
-        # node_modules still wins (my/add-node-modules-path prepends node_modules/.bin
-        # to exec-path). ESLint runs through Flycheck's built-in javascript-eslint
-        # checker against the project-local eslint, which is not a Nix tool.
+        #   vscode-langservers-extracted  -> vscode-eslint-language-server         (rass tslint preset)
+        # Eglot connects one server per (major-mode, project), so TS/TSX goes through
+        # `rass': the bundled tslint preset runs typescript-language-server plus
+        # vscode-eslint-language-server, and tailwindcss-language-server is appended.
+        # These are global fallbacks -- rass resolves each server from the PATH it
+        # inherits, so a project-local copy in node_modules still wins
+        # (my/add-node-modules-path prepends node_modules/.bin to exec-path and PATH).
+        # The tslint preset probes for vscode-eslint-language-server first and falls
+        # back to the name eslint-language-server.
         emacs-tools = emacsToolsFor pkgs;
       in
       {

@@ -7,8 +7,17 @@
 ;; * eglot is NOT auto-started -- it is launched manually via M-x eglot, so the
 ;;   TypeScript/TSX hooks must not run eglot-ensure (behavioural -- needs the
 ;;   full config loaded, so it self-skips on a bare emacs-nox run);
-;; * ESLint is a Flycheck checker rather than a second language server (and no
-;;   longer a Flymake backend -- see flycheck-migration-test.el).
+;; * ESLint is not a Flymake backend.  See flycheck-migration-test.el.
+;;
+;; ESLint has moved twice since this file was written.  This file therefore no
+;; longer specifies where ESLint runs.  It specifies only that Flymake is not
+;; involved.  ESLint was `lsp-eslint' with lsp-mode.  It then became the
+;; Flycheck `javascript-eslint' checker.  It is now a server behind the `rass'
+;; multiplexer, with typescript-language-server and tailwindcss-language-server.
+;; The CLI checker runs `eslint --format=json --stdin' on each idle-change and
+;; new-line.  A type-aware typescript-eslint configuration makes each run take
+;; approximately 6 seconds.  The checker stays registered as the fallback when
+;; no connection is up.  See eglot-multiserver-test.el.
 ;;
 ;; The behavioural tests key off `my/add-node-modules-path' being on
 ;; `tsx-ts-mode-hook' -- the config adds it unconditionally at load, so its
@@ -51,16 +60,18 @@
   (should-not (memq 'eglot-ensure tsx-ts-mode-hook))
   (should-not (memq 'eglot-ensure typescript-ts-mode-hook)))
 
-(ert-deftest eglot-migration/eslint-not-a-language-server ()
-  "ESLint is a Flycheck checker, not an LSP server and not a Flymake backend."
+(ert-deftest eglot-migration/eslint-not-a-flymake-backend ()
+  "ESLint reaches Flycheck and never Flymake, whatever supplies it.
+For the place where ESLint runs, see eglot-multiserver-test.el.  This test
+specifies only that `flymake-eslint' is absent from the TS hooks."
   ;; Arrange -- the flycheck block is `:defer'red and no hook that would load it
   ;; fires in batch, so load it here.
   (skip-unless (em-test--config-loaded-p))
   (should (require 'flycheck nil t))
   ;; Assert
-  (should (memq 'javascript-eslint flycheck-checkers))
   (should-not (memq 'flymake-eslint-enable tsx-ts-mode-hook))
-  (should-not (memq 'flymake-eslint-enable typescript-ts-mode-hook)))
+  (should-not (memq 'flymake-eslint-enable typescript-ts-mode-hook))
+  (should-not (memq 'flymake-mode tsx-ts-mode-hook)))
 
 (provide 'eglot-migration-test)
 ;;; eglot-migration-test.el ends here

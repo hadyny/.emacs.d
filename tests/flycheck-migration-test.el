@@ -116,14 +116,20 @@ parenthesised `((VAR VALUE) ...)' shape use-package also accepts."
   (should (fm-test--custom-set-p 'flycheck-indication-mode))
   (should (eq (fm-test--custom-value 'flycheck-indication-mode) 'left-margin)))
 
-(ert-deftest flycheck-migration/eglot-bridge-chains-to-other-checkers ()
-  "The Eglot bridge is enabled and is not exclusive, so ESLint still runs."
+(ert-deftest flycheck-migration/eglot-bridge-is-exclusive ()
+  "The Eglot bridge is on and stays exclusive at the Flycheck default.
+ESLint needed the chain before.  It then ran as `javascript-eslint' together
+with Eglot.  ESLint is now a server behind the `rass' multiplexer.  A chain
+would therefore report each ESLint result twice.  One result would come from
+the LSP diagnostics and one from the CLI checker.  Flycheck still reaches the
+checker in a buffer that Eglot does not manage, because the predicate of
+`eglot-check' excludes it there.  See eglot-multiserver-test.el."
   ;; Arrange / Act
   (let ((code (fm-test--config-code)))
     ;; Assert
     (should (string-match-p "global-flycheck-eglot-mode" code))
-    (should (fm-test--custom-set-p 'flycheck-eglot-exclusive))
-    (should (null (fm-test--custom-value 'flycheck-eglot-exclusive)))))
+    ;; Absent is the point -- the default is already t.
+    (should-not (fm-test--custom-set-p 'flycheck-eglot-exclusive))))
 
 (ert-deftest flycheck-migration/annotate-mode-on-at-flycheck-defaults ()
   "Inline diagnostics are enabled and left at Flycheck's own styles."
@@ -164,8 +170,9 @@ Guards the flake's `flycheck' pin -- the version nixpkgs packages predates
   (should (memq 'javascript-eslint flycheck-checkers))
   (dolist (mode '(tsx-ts-mode typescript-ts-mode js-ts-mode))
     (should (flycheck-checker-supports-major-mode-p 'javascript-eslint mode)))
-  ;; Chaining, not exclusivity: otherwise `eglot-check' hides ESLint entirely.
-  (should (null flycheck-eglot-exclusive)))
+  ;; In a buffer that Eglot manages, ESLint comes from the multiplexer.  A chain
+  ;; to the CLI checker would therefore report each result twice.
+  (should (eq flycheck-eglot-exclusive t)))
 
 (ert-deftest flycheck-migration/error-levels-keep-distinct-glyphs ()
   "error/warning/info each carry their own margin glyph, not Flycheck's `»'."
