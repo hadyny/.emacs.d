@@ -585,9 +585,20 @@ alignment. Enabled in org and markdown buffers.
 
 ** Consult
 
+Consult previews a file candidate by opening the real file, so every previewed
+file runs =find-file-hook= and the mode hooks. At the =consult-preview-key=
+default of =any= that happens on each keystroke, which makes scrolling a result
+list open every file it passes over. A debounce keeps the preview automatic but
+lets fast movement skip the files in between.
+
 #+begin_src emacs-lisp
 (use-package consult
   :defer t
+  :custom
+  ;; Preview after 0.3s of no input, rather than on every keystroke. Opening a
+  ;; file is not free here: see [[*Version Control (diff-hl)][diff-hl]] and
+  ;; [[*ESLint][ESLint]].
+  (consult-preview-key '(:debounce 0.3 any))
   :init
   (advice-add #'register-preview :override #'consult-register-window)
   (setq xref-show-xrefs-function #'consult-xref
@@ -753,20 +764,56 @@ clip the trailing space the Flymake indicators used to carry.
 
 * Version Control (diff-hl)
 
+=global-diff-hl-mode= is a /globalized/ minor mode: each enable walks
+=buffer-list= and turns =diff-hl-mode= on in every buffer. Enabling it from a
+=find-file= hook therefore repeated that walk for every file opened, over a
+buffer list that [[*Consult][Consult]]'s previews keep making longer -- so
+scrolling a long result list got slower as it went. The hook stays the trigger,
+so the package still loads late rather than at startup, but the setup takes
+itself off =find-file-hook= after the first file.
+
+=diff-hl-flydiff-mode= is what shows indicators for /unsaved/ edits. It works by
+advice: =diff-hl-changes-buffer= is overridden so the reference blob is extracted
+to a temp file with =git cat-file= and the external =diff-program= runs against
+the live buffer, rather than one =git diff= on the file as saved. A global idle
+timer then re-runs that. It skips a buffer whose =buffer-chars-modified-tick= has
+not moved, so an untouched buffer is never re-diffed -- the cost lands while you
+type, which is why =diff-hl-flydiff-delay= is raised to 1s.
+
 #+begin_src emacs-lisp
+(defun my/diff-hl-setup ()
+  "Turn the diff-hl global modes on once, then take this off `find-file-hook'.
+`global-diff-hl-mode' is a globalized minor mode, so each enable walks
+`buffer-list' and turns `diff-hl-mode' on in every buffer.  This used to
+run for every file opened, which repeated that walk over a buffer list
+that Consult's previews keep making longer.  The hook is still the
+trigger, so the package stays deferred until the first file, but one run
+is enough."
+  (remove-hook 'find-file-hook #'my/diff-hl-setup)
+  (global-diff-hl-mode)
+  (diff-hl-flydiff-mode)
+  ;; GUI uses the graphical fringe bitmaps (need a left fringe -- see Frame
+  ;; defaults). Only the terminal, which has no fringe, falls back to the text
+  ;; margin indicators.
+  (unless (display-graphic-p)
+    (diff-hl-margin-mode)))
+
 (use-package diff-hl
   :defer t
-  :hook
-  (find-file . (lambda ()
-                 (global-diff-hl-mode)
-                 (diff-hl-flydiff-mode)
-                 ;; GUI uses the graphical fringe bitmaps (need a left fringe --
-                 ;; see Frame defaults). Only the terminal, which has no fringe,
-                 ;; falls back to the text margin indicators.
-                 (unless (display-graphic-p)
-                   (diff-hl-margin-mode))))
+  ;; `:init', not `:hook': use-package's `:hook' adds the handler to the
+  ;; package's autoload list, and `my/diff-hl-setup' does not live in diff-hl.
+  ;; Adding the hook costs nothing at startup -- the autoloaded
+  ;; `global-diff-hl-mode' inside it is what pulls the package in.
+  :init
+  (add-hook 'find-file-hook #'my/diff-hl-setup)
   :custom
   (diff-hl-side 'left)
+  ;; 1s, not the 0.3s default: each flydiff run extracts the reference blob with
+  ;; `git cat-file' and runs the external diff against the live buffer, so at the
+  ;; default it repeats that while you type. `:custom' rather than `:config' --
+  ;; diff-hl-flydiff.el loads later than diff-hl.el, and a defcustom keeps a
+  ;; value that is already set.
+  (diff-hl-flydiff-delay 1)
   (diff-hl-margin-symbols-alist '((insert . "│")
                                   (delete . "-")
                                   (change . "│")
@@ -1083,7 +1130,9 @@ The checker stays registered, and it is still the checker in a buffer without a
 connection. Eglot is started by hand, and the =eglot-check= predicate requires
 =eglot-managed-p=, so Flycheck falls through to =javascript-eslint= whenever no
 server is attached. That path keeps the six-second cost, so the TS mode hooks
-limit =flycheck-check-syntax-automatically= to =save= and =mode-enabled=. The
+limit =flycheck-check-syntax-automatically= to =save= alone. =mode-enabled= is
+excluded on purpose: [[*Consult][Consult]] previews a file candidate by opening
+it, which would put a six-second run behind every TS file scrolled past. The
 limit cannot delay LSP diagnostics: =flycheck-eglot--report= calls
 =flycheck-buffer-automatically= with no condition, and
 =flycheck-may-check-automatically= returns non-nil for any trigger list.
@@ -1095,12 +1144,14 @@ into the same kind of fix (=flycheck-eglot-code-actions=, on by default). So
 buffer as a single undo step, from whichever side supplied it.
 
 #+begin_src emacs-lisp
-;; The fallback CLI checker costs ~6s per run, so do not start one while typing.
-;; Buffer-local on purpose: the Nix and Elisp checkers are fast, and live results
-;; are worth having there.
+;; The fallback CLI checker costs ~6s per run, so do not start one while typing,
+;; and do not start one when the buffer opens either -- Consult previews a file
+;; candidate by opening it, so `mode-enabled' put a 6s run behind every TS file
+;; scrolled past. Buffer-local on purpose: the Nix and Elisp checkers are fast,
+;; and live results are worth having there.
 (defun my/eslint-limit-check-triggers ()
   "Check on save only, so the slow ESLint CLI fallback does not thrash."
-  (setq-local flycheck-check-syntax-automatically '(save mode-enabled)))
+  (setq-local flycheck-check-syntax-automatically '(save)))
 
 (dolist (hook '(tsx-ts-mode-hook typescript-ts-mode-hook js-ts-mode-hook))
   (add-hook hook #'my/eslint-limit-check-triggers))

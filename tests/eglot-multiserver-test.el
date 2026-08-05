@@ -304,12 +304,14 @@ diagnostic immediately, and the limit throttles only the CLI checker."
   (with-temp-buffer
     ;; `flycheck-may-check-automatically' excludes an ephemeral buffer by name.
     (rename-buffer "ts-trigger-limit-test.tsx" t)
-    (let ((flycheck-check-syntax-automatically '(save mode-enabled)))
+    (let ((flycheck-check-syntax-automatically '(save)))
       ;; The Eglot report path passes no condition.
       (should (flycheck-may-check-automatically))
       ;; A typing trigger is refused, which is the point of the limit.
       (should-not (flycheck-may-check-automatically 'idle-change))
       (should-not (flycheck-may-check-automatically 'new-line))
+      ;; `mode-enabled' is refused too, so a Consult preview costs nothing.
+      (should-not (flycheck-may-check-automatically 'mode-enabled))
       (should (flycheck-may-check-automatically 'save)))))
 
 (provide 'eglot-multiserver-test)
