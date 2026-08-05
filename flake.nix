@@ -78,6 +78,55 @@
           # across future ghostel bumps).
           epkgs = (final.emacsPackagesFor patchedEmacs).overrideScope (
             _efinal: eprev: {
+              # ghostel: the `zig-deps' fixed-output derivation downloads ~40 Zig
+              # packages from GitHub in one `zig build --fetch=all' run. Zig
+              # 0.16 pools keep-alive connections. On a long fetch (~3.5 min)
+              # GitHub closes an idle pooled connection, Zig then reuses it and
+              # aborts with "invalid HTTP response: HttpConnectionClosing". The
+              # package that fails differs on each run, and a single fetch of
+              # that same URL always succeeds -- so this is connection reuse,
+              # not a bad URL, not the sandbox and not concurrency (it also
+              # fails with -j1).
+              #
+              # nixpkgs' recipe makes a new ZIG_GLOBAL_CACHE_DIR on every build,
+              # so each retry restarts at zero packages and never converges.
+              # Retry *inside* one build against a cache that stays, so progress
+              # accumulates: attempt 1 fetched 39 of 40 packages, attempt 2
+              # resumed and completed.
+              #
+              # This is safe to carry. A fixed-output derivation is addressed by
+              # (hash, name), not by its build steps, so the override changes
+              # the .drv but keeps the same output path. Nobody who already has
+              # the path rebuilds, and the loop only runs on a cold fetch.
+              # nixpkgs hoists `zig' and `zigDeps' to the top level of the
+              # package for exactly this kind of override, and `passthru.module'
+              # reads `finalAttrs.zigDeps', so one override covers both.
+              # Drop this once nixpkgs vendors the Zig dependencies with
+              # fetchgit, or once Zig retries on a closed pooled connection.
+              ghostel = eprev.ghostel.overrideAttrs (old: {
+                zigDeps = old.zigDeps.overrideAttrs (_: {
+                  buildCommand = ''
+                    export ZIG_GLOBAL_CACHE_DIR=$(mktemp -d)
+                    mkdir -p $ZIG_GLOBAL_CACHE_DIR/tmp
+                    runHook unpackPhase
+
+                    cd $sourceRoot
+                    for attempt in $(seq 1 10); do
+                      if zig build --fetch''${fetchAll:+=all}; then
+                        break
+                      fi
+                      if [ "$attempt" = 10 ]; then
+                        echo "zig fetch failed after $attempt attempts" >&2
+                        exit 1
+                      fi
+                      echo "zig fetch attempt $attempt failed; retrying (cache is kept)"
+                    done
+
+                    mv $ZIG_GLOBAL_CACHE_DIR/p $out
+                  '';
+                });
+              });
+
               evil-ghostel = eprev.evil-ghostel.overrideAttrs (_old: {
                 src = eprev.ghostel.src;
               });
