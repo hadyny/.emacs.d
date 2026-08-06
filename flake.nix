@@ -224,6 +224,13 @@
               diff-hl
               dirvish
               doom-themes
+              # eglot from GNU ELPA, not the copy bundled with Emacs 30.2
+              # (1.17.30). Roslyn reports diagnostics by pull only, and pull
+              # support landed in 1.20; `eglot-code-action-indications' (set in
+              # config.org) landed in 1.19 and is a no-op before it. This also
+              # brings ELPA jsonrpc/flymake/project/xref/eldoc onto the
+              # load-path ahead of the bundled copies.
+              eglot
               eldoc-box
               embark
               embark-consult

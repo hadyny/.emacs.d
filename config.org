@@ -1025,9 +1025,15 @@ fill it in to organise the view, e.g.:
 
 ** Eglot
 
+Eglot comes from GNU ELPA rather than the copy bundled with Emacs 30.2, which is
+1.17.30. The bundled version predates three things this configuration relies on:
+=eglot-code-action-indications= (set below, and a no-op before 1.19), the
+[[*Roslyn pull diagnostics][pull diagnostics]] C# needs, and the much faster
+diagnostic conversion in 1.20. It arrives through the Nix package set like every
+other package, so there is no =:ensure nil= here.
+
 #+begin_src emacs-lisp
 (use-package eglot
-  :ensure nil
   :commands (eglot
              eglot-ensure
              eglot-rename
@@ -1038,7 +1044,10 @@ fill it in to organise the view, e.g.:
   ;; server itself from the PATH it inherits.
   :config
   (setq eglot-code-action-indications '(mode-line))
-  (setq eglot-confirm-server-initiated-edits t)
+  ;; `eglot-confirm-server-initiated-edits' has been an obsolete alias for this
+  ;; since Eglot 1.16. Same value, so the behaviour is unchanged: any non-nil
+  ;; symbol means "summarise the edit and prompt".
+  (setq eglot-confirm-server-edits t)
   (add-to-list 'eglot-server-programs
                '((csharp-ts-mode csharp-mode) . ("Microsoft.CodeAnalysis.LanguageServer" "--logLevel" "Debug" "--extensionLogDirectory" "~/.dotnet/logs" "--stdio")))
   ;; TS/TSX: three servers behind the `rass' multiplexer. Eglot connects one
@@ -1114,6 +1123,56 @@ using directive as unused."
                                                 (plist-get plan :paths))))))))))
 
 (add-hook 'eglot-connect-hook #'my/eglot-roslyn-load-solution)
+#+end_src
+
+** Roslyn pull diagnostics
+
+Roslyn reports diagnostics by /pull/ only. Driving =roslyn-ls= 5.10.0 over stdio,
+with a project open and a file that has a real compile error, shows all three
+halves of the problem:
+
+- it sends no =textDocument/publishDiagnostics= at all, even after
+  =workspace/projectInitializationComplete=;
+- its initialize response has =diagnosticProvider: null=. It registers
+  =textDocument/diagnostic= afterwards, with =client/registerCapability=;
+- it answers a =textDocument/diagnostic= request with =kind: "full"= and the
+  expected items (=CS0029=, =CS1002=, ...).
+
+Eglot pulls diagnostics from 1.20, but chooses to by asking
+=(eglot-server-capable :diagnosticProvider)=, and =eglot-server-capable= reads
+only the initialize response. Eglot acts on exactly one dynamic registration,
+=workspace/didChangeWatchedFiles=; every other registration reaches the default
+method, which warns and does nothing. So Eglot never asks, Roslyn never
+volunteers, and Flycheck's =eglot-check= correctly reports the nothing that Eglot
+holds.
+
+Writing the capability in when Roslyn registers it is enough to make Eglot's own
+pull path (=eglot--flymake-pull=) run; it carries only =:textDocument= and an
+optional =:previousResultId=, so the registration options themselves are never
+read and any non-nil value will do. This reaches into Eglot internals -- =eglot--capabilities= is an
+EIEIO accessor, and =eglot-register-capability= is an internal generic -- so it
+is the most upgrade-fragile part of this configuration. The decision is kept in a
+pure function so the merge is unit-tested; only the =setf= is uncovered.
+
+#+begin_src emacs-lisp
+(defun my/eglot-capabilities-with-pull-diagnostics (caps params)
+  "Return CAPS with `:diagnosticProvider' set from registration PARAMS.
+PARAMS is the `registerOptions' plist of a `textDocument/diagnostic' dynamic
+registration, and may be nil.  Eglot only tests this value for truth: its pull
+request carries `:textDocument' plus an optional `:previousResultId' and reads
+none of the options, so nil PARAMS becomes t.
+Pure: copies CAPS rather than writing through to the server's own plist."
+  (plist-put (copy-sequence caps) :diagnosticProvider (or params t)))
+
+(cl-defmethod eglot-register-capability
+  (server (_method (eql textDocument/diagnostic)) _id &rest params)
+  "Record Roslyn's dynamically registered pull diagnostics on SERVER.
+Without this the registration hits Eglot's default method, which only warns,
+and `eglot-server-capable' keeps reporting the null `diagnosticProvider' from
+the initialize response."
+  (setf (eglot--capabilities server)
+        (my/eglot-capabilities-with-pull-diagnostics
+         (eglot--capabilities server) params)))
 #+end_src
 
 ** ESLint
