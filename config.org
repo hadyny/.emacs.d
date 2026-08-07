@@ -1348,13 +1348,20 @@ downloaded at runtime. Launch with =<leader> o t= (or =M-x ghostel=).
 =ghostel-mode=.
 
 #+begin_src emacs-lisp
-(use-package ghostel
-  :defer t
-  :commands (ghostel))
+  (use-package ghostel
+    :defer t
+    :commands (ghostel)
+    :config
+    (add-to-list 'project-switch-commands '(ghostel-project "Ghostel") t)
+    (add-to-list 'project-switch-commands '(ghostel-project-list-buffers "Ghostel buffers") t)
+    (add-to-list 'ghostel-eval-cmds '("magit-status-setup-buffer" magit-status-setup-buffer)))
 
-(use-package evil-ghostel
-  :after (ghostel evil)
-  :hook (ghostel-mode . evil-ghostel-mode))
+  (use-package evil-ghostel
+    :after (ghostel evil)
+    :hook (ghostel-mode . evil-ghostel-mode))
+
+  (use-package ghostel-comint
+    :hook (after-init . ghostel-comint-global-mode))
 #+end_src
 
 * AI agents
