@@ -62,17 +62,6 @@
   "Return non-nil if this Emacs has loaded the full configuration."
   (memq 'my/add-node-modules-path tsx-ts-mode-hook))
 
-(defun erd-test--nix-list (name)
-  "Return the names in the first Nix list literal after NAME in flake.nix."
-  (with-temp-buffer
-    (insert-file-contents "flake.nix")
-    (goto-char (point-min))
-    (re-search-forward (concat (regexp-quote name) "[[:space:]]*="))
-    (re-search-forward "\\[")
-    (let ((start (point)))
-      (re-search-forward "\\]")
-      (split-string (buffer-substring-no-properties start (1- (point))) nil t))))
-
 (defun erd-test--eglot-use-package ()
   "Return the `use-package eglot' form from config.el, or nil."
   (catch 'found
@@ -196,7 +185,7 @@ Eglot marks it with the whole buffer: `:region (POINT-MIN . POINT-MAX)'."
 The bundled 1.17.30 defines no pull diagnostics, so `:ensure nil' would leave
 the whole feature missing."
   ;; Arrange / Act
-  (let ((packages (erd-test--nix-list "dotemacsPackageList"))
+  (let ((packages (cfg-test-nix-list "dotemacsPackageList"))
         (form (erd-test--eglot-use-package)))
     ;; Assert
     (should (member "eglot" packages))

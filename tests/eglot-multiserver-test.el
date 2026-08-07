@@ -133,17 +133,6 @@ The value is unquoted."
             (setq tail (cddr tail))))))
     nil))
 
-(defun ems-test--emacs-tools ()
-  "Return the package names in the `emacsToolsFor' list of flake.nix."
-  (with-temp-buffer
-    (insert-file-contents "flake.nix")
-    (goto-char (point-min))
-    (re-search-forward "emacsToolsFor[[:space:]]*=")
-    (re-search-forward "\\[")
-    (let ((start (point)))
-      (re-search-forward "\\]")
-      (split-string (buffer-substring-no-properties start (1- (point))) nil t))))
-
 ;;; Structural -- the tangled configuration and the tool closure
 
 (ert-deftest eglot-multiserver/ts-modes-get-an-explicit-entry ()
@@ -205,7 +194,7 @@ do nothing."
 (ert-deftest eglot-multiserver/tools-are-in-the-closure ()
   "flake.nix puts the multiplexer and the two new servers on the PATH."
   ;; Arrange / Act
-  (let ((tools (ems-test--emacs-tools)))
+  (let ((tools (cfg-test-nix-list "emacsToolsFor")))
     ;; Assert
     (should (member "rassumfrassum" tools))
     (should (member "tailwindcss-language-server" tools))

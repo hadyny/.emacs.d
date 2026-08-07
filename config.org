@@ -1219,6 +1219,55 @@ Known limit: in an empty buffer `point-min' equals `point-max', so a real
               #'my/flycheck-eglot-report-honour-stay))
 #+end_src
 
+** File-watch globs
+
+Eglot's glob grammar leaves the comma out of its literal character class:
+
+#+begin_example
+(:literal "[^][,*?{}]+" eglot--glob-emit-self)
+#+end_example
+
+A comma is only special inside brace expansion (={a,b}=), so a filename that
+contains one cannot be parsed at all. Roslyn asks Eglot to watch the
+MSBuild-generated =obj/.../.NETCoreApp,Version=v10.0.AssemblyAttributes.cs=, and
+every connect then reports:
+
+#+begin_example
+Error running timer: (error "Glob '.NETCoreApp,Version=v10.0.…' invalid at 12")
+#+end_example
+
+The damage is a little wider than one skipped file. =eglot--glob-compile= parses
+eagerly, before its own =NOERROR= argument can apply -- =NOERROR= only wraps the
+/generated/ matcher, not the parse. So the error escapes the =mapc= inside the
+=workspace/didChangeWatchedFiles= registration, and the =maphash= that actually
+creates the watches runs /after/ that =mapc=. Every glob in the *same
+registration* is therefore lost, not just the bad one. Roslyn sends several
+registrations, so the rest survive: measured on a one-project solution, 137
+watches without this advice and 140 with it.
+
+Making a single unparseable glob skip itself keeps its registration. That is the
+right outcome here -- the file in question is a generated build artefact nobody
+watches deliberately -- and it covers any future glob Eglot cannot read, not just
+commas. It also silences an error on every connect.
+
+#+begin_src emacs-lisp
+(defun my/eglot-glob-compile-tolerantly (orig glob &optional byte-compile noerror)
+  "Skip a watch GLOB that will not compile, rather than abort the batch.
+ORIG is `eglot--glob-compile', whose NOERROR only guards the matcher it builds,
+not the parse that builds it.  Returns a matcher that matches nothing, in the
+same shape ORIG would have returned for BYTE-COMPILE."
+  (condition-case err
+      (funcall orig glob byte-compile noerror)
+    (error
+     (message "eglot: skipping unwatchable glob %s: %s"
+              glob (error-message-string err))
+     (let ((form '(lambda (_string) nil)))
+       (if byte-compile (byte-compile form) form)))))
+
+(with-eval-after-load 'eglot
+  (advice-add 'eglot--glob-compile :around #'my/eglot-glob-compile-tolerantly))
+#+end_src
+
 ** ESLint
 
 ESLint runs as a language server, behind the [[*Eglot][=rass= multiplexer]]. It
@@ -1273,6 +1322,33 @@ buffer as a single undo step, from whichever side supplied it.
 #+begin_src emacs-lisp
 (use-package magit
   :defer t)
+#+end_src
+
+** Diffs (magit-delta)
+
+[[https://github.com/dandavison/magit-delta][=magit-delta=]] pipes Magit's diffs
+through [[https://github.com/dandavison/delta][=delta=]], which re-highlights
+them with real syntax awareness instead of Magit's line-based faces. It shells
+out to whatever =magit-delta-delta-executable= names -- a bare ~delta~ by default
+-- so the binary is in the Nix tool closure alongside the ELisp package.
+
+The syntax theme is chosen from the frame's =background-mode=, and the package's
+own defaults (~GitHub~ and ~Monokai Extended~) clash with Catppuccin. delta has
+"Catppuccin Latte" and "Catppuccin Mocha" built in, which are the same two
+flavors [[*Theme][=my/catppuccin-flavor-for=]] selects, so the diff follows the
+rest of the frame when =auto-dark= switches.
+
+=magit-delta-mode= turns =magit-diff-refine-hunk= off while it is on (restoring
+it on exit): delta does its own intra-line highlighting, and the two together
+double up.
+
+#+begin_src emacs-lisp
+(use-package magit-delta
+  :after magit
+  :hook (magit-mode . magit-delta-mode)
+  :custom
+  (magit-delta-default-light-theme "Catppuccin Latte")
+  (magit-delta-default-dark-theme "Catppuccin Mocha"))
 #+end_src
 
 ** TODO items (magit-todos)
@@ -1369,31 +1445,27 @@ downloaded at runtime. Launch with =<leader> o t= (or =M-x ghostel=).
 [[https://github.com/xenodium/agent-shell][=agent-shell=]] is an Emacs frontend for coding agents that speak the Agent
 Client Protocol (ACP). It shells out to an external agent process per session;
 =acp= and =shell-maker= (its ELisp dependencies) come from Nix alongside it.
-agent-shell ships seventeen backends; two are wired here:
+agent-shell ships seventeen backends; one is wired here:
 
 - Copilot via =agent-shell-github-start-copilot=, which runs =copilot --acp=
   (the default of =agent-shell-github-acp-command=).
-- Gemini via =agent-shell-google-start-gemini=, which runs =gemini
-  --experimental-acp= (the default of =agent-shell-google-gemini-acp-command=).
 
-The Anthropic backend is deliberately unwired: Claude Code is driven from the
-terminal here, so its =claude-agent-acp= binary is not in the tool closure and a
-bound-but-broken start command would be worse than an absent one.
+The Anthropic and Google backends are deliberately unwired: Claude Code is driven
+from the terminal here, so its =claude-agent-acp= binary is not in the tool
+closure and a bound-but-broken start command would be worse than an absent one.
 
-Both agent binaries (=copilot=, =gemini=) are on =PATH= via the Nix tool closure
-(=emacsToolsFor= in [[file:flake.nix][=flake.nix=]]), so the command defaults resolve without
-further configuration. Authentication is handled by each CLI itself (its own
-login/subscription or API-key env var via the backend's =…-authentication= /
-=…-environment= defcustoms), so no secrets live here. There is no keybinding;
-launch with =M-x agent-shell= (pick a backend) or the per-backend start commands
-above.
+The =copilot= binary is on =PATH= via the Nix tool closure (=emacsToolsFor= in
+[[file:flake.nix][=flake.nix=]]), so the command defaults resolve without further configuration.
+Authentication is handled by the CLI itself (login/subscription or API-key env
+var via the backend's =…-authentication= / =…-environment= defcustoms), so no
+secrets live here. There is no keybinding; launch with =M-x agent-shell= (pick a
+backend) or =agent-shell-github-start-copilot= directly.
 
 #+begin_src emacs-lisp
 (use-package agent-shell
   :defer t
   :commands (agent-shell
-             agent-shell-github-start-copilot
-             agent-shell-google-start-gemini))
+             agent-shell-github-start-copilot))
 #+end_src
 
 * Evil (Vim emulation)

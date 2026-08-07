@@ -30,6 +30,7 @@
       emacsToolsFor =
         pkgs: with pkgs; [
           coreutils-prefixed
+          delta
           gemini-cli
           github-copilot-cli
           marksman
@@ -242,6 +243,7 @@
               helpful
               ligature
               magit
+              magit-delta
               magit-todos
               marginalia
               markdown-mode
@@ -302,6 +304,7 @@
         # module default via emacsToolsFor). Keep the list in sync with the
         # eglot-server-programs / executable-find references in config.org:
         #   coreutils-prefixed            -> gls                                (config.org: dired setup)
+        #   delta                         -> syntax-highlighted Magit diffs      (magit-delta-delta-executable)
         #   gemini-cli                    -> agent-shell Gemini ACP agent        (agent-shell-google-gemini-acp-command)
         #   github-copilot-cli            -> agent-shell Copilot ACP agent (bin: copilot) (agent-shell-github-acp-command)
         #   marksman                      -> Markdown LSP                        (eglot-server-programs)

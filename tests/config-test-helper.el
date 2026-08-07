@@ -58,5 +58,23 @@
         (error "defun %s not found in %s" name (or file "config.el")))
       (eval found t))))
 
+(defun cfg-test-nix-list (name &optional file)
+  "Return the names in the first Nix list literal after NAME in FILE.
+FILE defaults to \"flake.nix\".  Used to check that a package or a tool the
+configuration needs is actually in the closure."
+  (with-temp-buffer
+    (insert-file-contents (or file "flake.nix"))
+    (goto-char (point-min))
+    (re-search-forward (concat (regexp-quote name) "[[:space:]]*="))
+    (re-search-forward "\\[")
+    (let ((start (point)))
+      (re-search-forward "\\]")
+      ;; Drop comment lines: a `#' comment can name a package it does not add.
+      (split-string
+       (replace-regexp-in-string
+        "#[^\n]*" ""
+        (buffer-substring-no-properties start (1- (point))))
+       nil t))))
+
 (provide 'config-test-helper)
 ;;; config-test-helper.el ends here
