@@ -42,7 +42,31 @@ in
       description = ''
         External tools / language servers config.org expects on PATH. Set to
         `[ ]` when another module already installs them (e.g. a shared package
-        list) so the closure is not restated.
+        list) so the closure is not restated. To drop only some of them, prefer
+        `excludeTools` — it keeps the rest in step with the flake.
+      '';
+    };
+
+    excludeTools = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      example = [ "delta" ];
+      description = ''
+        Names of packages to drop from `tools`, for anything another module
+        already puts on PATH. `home.packages` is a `buildEnv`, which dedupes an
+        identical store path but fails on two *different* derivations owning the
+        same file:
+
+            pkgs.buildEnv error: two given paths contain a conflicting subpath:
+              `/nix/store/…-delta-wrapped/bin/delta' and
+              `/nix/store/…-delta-0.19.2/bin/delta'
+
+        So this is needed when the other copy is wrapped, or comes from a
+        different nixpkgs, rather than being the very same package.
+
+        Matched with `lib.getName`, i.e. against the derivation's pname — not
+        the nixpkgs attribute name. `coreutils-prefixed` is therefore
+        `"coreutils"`.
       '';
     };
 
@@ -76,7 +100,9 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    home.packages = cfg.tools ++ lib.optional (cfg.package != null) cfg.package;
+    home.packages =
+      (builtins.filter (p: !(builtins.elem (lib.getName p) cfg.excludeTools)) cfg.tools)
+      ++ lib.optional (cfg.package != null) cfg.package;
 
     home.file.".emacs.d".source =
       if cfg.configPath != null then config.lib.file.mkOutOfStoreSymlink cfg.configPath else self;

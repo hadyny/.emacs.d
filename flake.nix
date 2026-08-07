@@ -512,6 +512,52 @@
                             (message \"terminal load OK\"))"
                 touch $out
               '';
+
+          # `programs.dotemacs.excludeTools` is the escape hatch for a tool the
+          # consumer's own config already puts on PATH. `home.packages` is a
+          # buildEnv: it dedupes an identical store path, but two *different*
+          # derivations owning `bin/delta` (a wrapped one, or one from another
+          # nixpkgs) is a hard failure, and the only alternative was `tools = [
+          # ]`, which drops the whole closure. Evaluate the module against a
+          # stub of the home-manager options it touches and check the filtering,
+          # including that it leaves everything else alone.
+          hm-module-excludes-tools =
+            let
+              stub = {
+                options.home.packages = pkgs.lib.mkOption {
+                  type = pkgs.lib.types.listOf pkgs.lib.types.package;
+                  default = [ ];
+                };
+                options.home.file = pkgs.lib.mkOption {
+                  type = pkgs.lib.types.attrs;
+                  default = { };
+                };
+              };
+              evalWith =
+                settings:
+                (pkgs.lib.evalModules {
+                  modules = [
+                    stub
+                    (import ./nix/hm-module.nix { inherit self emacsToolsFor; })
+                    {
+                      _module.args.pkgs = pkgs;
+                      programs.dotemacs = {
+                        enable = true;
+                      }
+                      // settings;
+                    }
+                  ];
+                }).config.home.packages;
+              names = settings: map pkgs.lib.getName (evalWith settings);
+              kept = names { };
+              filtered = names { excludeTools = [ "delta" ]; };
+            in
+            assert builtins.elem "delta" kept;
+            assert !(builtins.elem "delta" filtered);
+            # Nothing else may vanish with it.
+            assert (builtins.length kept) == (builtins.length filtered) + 1;
+            assert builtins.elem "marksman" filtered;
+            pkgs.runCommand "dotemacs-hm-module-excludes-tools" { } "touch $out";
         };
 
         formatter = pkgs.nixfmt-tree;
@@ -521,6 +567,12 @@
       # System-independent home-manager module. Import it and set
       # `programs.dotemacs.enable = true;` (see nix/hm-module.nix for options).
       homeModules.default = import ./nix/hm-module.nix { inherit self emacsToolsFor; };
+
+      # The tool closure as a function of pkgs, so a consumer can build its own
+      # list from it rather than restating it. `programs.dotemacs.excludeTools`
+      # covers the common case (drop one tool another module already installs);
+      # this is for anything more involved.
+      lib = { inherit emacsToolsFor; };
 
       # Adds `emacs` (patched, no packages) and `emacs-dotemacs` (patched +
       # every config.org package). Apply it in a home-manager / nix-darwin

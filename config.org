@@ -619,12 +619,14 @@ lets fast movement skip the files in between.
 * Actions (Embark)
 
 #+begin_src emacs-lisp
-(use-package embark
-  :defer t)
+  (use-package embark
+    :defer t
+    :config
+    (setq prefix-help-command #'embark-prefix-help-command))
 
-(use-package embark-consult
-  :hook
-  (embark-collect-mode . consult-preview-at-point-mode))
+  (use-package embark-consult
+    :hook
+    (embark-collect-mode . consult-preview-at-point-mode))
 #+end_src
 
 * Help
