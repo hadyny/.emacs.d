@@ -31,6 +31,25 @@
 ;; a live server.  The `setf' on the server object is not covered here -- see the
 ;; note in the config.
 
+;; A third part is needed before any of that reaches the screen.  Flycheck 38.3's
+;; bridge drops Eglot's `:region' argument:
+;;
+;;   (defun flycheck-eglot--report (diags &rest _)
+;;     (setq flycheck-eglot--diagnostics (append diags nil))
+;;     ...)
+;;
+;; Eglot reports nil with a degenerate `:region' to mean "keep what you have".
+;; It does that whenever a pull answers "unchanged", which Roslyn does for the
+;; second pull of an unedited buffer -- and Flycheck itself makes that second
+;; pull, because the first report triggers a re-check.  So the diagnostics
+;; arrive and are wiped about a second later:
+;;
+;;   PULL id=99  kind=full      items=3
+;;   PULL id=100 kind=unchanged items=0    <- reported as nil, cache cleared
+;;
+;; The advice below restores the meaning of `:stay'.  This is a Flycheck bug and
+;; affects every pull server, not only Roslyn.
+
 ;;; Code:
 
 (require 'ert)
@@ -117,6 +136,59 @@ be a surprise for callers and for this test's own fixtures."
     ;; Assert
     (should (equal caps before))))
 
+;;; Pure -- the `:stay' fix for Flycheck's bridge
+
+(defvar flycheck-eglot--diagnostics nil)   ; declared by Flycheck when it loads
+
+(defun erd-test--call-report (cached diags &rest args)
+  "Call the advice with CACHED diagnostics, DIAGS and ARGS.
+Return (CALLED-P . ARGS-PASSED-TO-ORIG)."
+  (cfg-test-load-defun 'my/flycheck-eglot-report-honour-stay)
+  (with-temp-buffer
+    (setq-local flycheck-eglot--diagnostics cached)
+    (let (called passed)
+      (apply #'my/flycheck-eglot-report-honour-stay
+             (lambda (d &rest a) (setq called t passed (cons d a)))
+             diags args)
+      (cons called passed))))
+
+(ert-deftest roslyn-diagnostics/stay-with-no-diagnostics-keeps-the-cache ()
+  "An \"unchanged\" pull must not clear the diagnostics already shown.
+Eglot marks it with a degenerate region: `:region (POS . POS)'."
+  ;; Arrange / Act
+  (let ((result (erd-test--call-report '(a b c) nil :region '(1 . 1))))
+    ;; Assert -- the original never runs, so the cache and the display stand.
+    (should-not (car result))))
+
+(ert-deftest roslyn-diagnostics/stay-with-diagnostics-adds-to-the-cache ()
+  "A `:stay' report carrying diagnostics adds to them, and does not replace.
+Eglot uses `:stay' to fold pushed diagnostics in beside pulled ones."
+  ;; Arrange / Act
+  (let* ((result (erd-test--call-report '(a b) '(c) :region '(1 . 1)))
+         (passed (cdr result)))
+    ;; Assert
+    (should (car result))
+    (should (equal (car passed) '(a b c)))))
+
+(ert-deftest roslyn-diagnostics/clear-replaces-the-cache ()
+  "A `:clear' report is the normal full update and passes straight through.
+Eglot marks it with the whole buffer: `:region (POINT-MIN . POINT-MAX)'."
+  ;; Arrange / Act
+  (let* ((result (erd-test--call-report '(a b) '(x y) :region '(1 . 99)))
+         (passed (cdr result)))
+    ;; Assert
+    (should (car result))
+    (should (equal (car passed) '(x y)))))
+
+(ert-deftest roslyn-diagnostics/report-without-a-region-passes-through ()
+  "Eglot omits `:region' entirely for a plain report, which is a full update."
+  ;; Arrange / Act
+  (let* ((result (erd-test--call-report '(a b) '(x)))
+         (passed (cdr result)))
+    ;; Assert
+    (should (car result))
+    (should (equal (car passed) '(x)))))
+
 ;;; Structural -- the package source and the method
 
 (ert-deftest roslyn-diagnostics/eglot-comes-from-elpa ()
@@ -168,6 +240,15 @@ in an `elpa' directory."
   (should (fboundp 'eglot--flymake-pull))        ; Eglot 1.20
   (should (boundp 'eglot-code-action-indications)) ; Eglot 1.19
   (should (string-match-p "/elpa/" (locate-library "eglot"))))
+
+(ert-deftest roslyn-diagnostics/stay-advice-is-installed ()
+  "The `:stay' advice is attached to Flycheck's bridge once Flycheck loads."
+  ;; Arrange
+  (skip-unless (erd-test--config-loaded-p))
+  (should (require 'flycheck nil t))
+  ;; Assert
+  (should (advice-member-p #'my/flycheck-eglot-report-honour-stay
+                           'flycheck-eglot--report)))
 
 (ert-deftest roslyn-diagnostics/method-is-registered-on-the-generic ()
   "Emacs dispatches `eglot-register-capability' to the new method."

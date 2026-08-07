@@ -1175,6 +1175,50 @@ the initialize response."
          (eglot--capabilities server) params)))
 #+end_src
 
+That gets the diagnostics as far as Flycheck, where a second problem eats them.
+Flycheck 38.3's bridge drops Eglot's =:region= argument:
+
+#+begin_example
+(defun flycheck-eglot--report (diags &rest _)
+  (setq flycheck-eglot--diagnostics (append diags nil))
+  ...)
+#+end_example
+
+Eglot reports nil with a /degenerate/ region -- =:region (POS . POS)= -- to mean
+"keep what you have", and reports the whole buffer -- =(POINT-MIN . POINT-MAX)=
+-- for a real update. It sends the first whenever a pull answers =unchanged=.
+Roslyn answers =unchanged= for the second pull of an unedited buffer, and
+Flycheck itself makes that second pull, because the first report triggers a
+re-check. So the diagnostics arrive and are wiped about a second later:
+
+#+begin_example
+PULL id=99  kind=full      items=3
+PULL id=100 kind=unchanged items=0    <- reported as nil, cache cleared
+#+end_example
+
+The advice restores the meaning of =:stay=. Eglot also uses =:stay= to fold
+/pushed/ diagnostics in beside pulled ones, so a =:stay= carrying diagnostics
+adds to the cache rather than replacing it. This is a Flycheck bug and affects
+every pull server, not only Roslyn.
+
+#+begin_src emacs-lisp
+(defun my/flycheck-eglot-report-honour-stay (orig diags &rest args)
+  "Treat Eglot's `:stay' reports as \"keep what you have\".
+ORIG is `flycheck-eglot--report', which ignores the `:region' in ARGS and so
+lets a nil DIAGS clear the buffer.  A degenerate region marks a `:stay'.
+Known limit: in an empty buffer `point-min' equals `point-max', so a real
+`:clear' looks like a `:stay' -- Eglot passes no mode, only the region."
+  (let* ((region (plist-get args :region))
+         (stay (and region (eq (car region) (cdr region)))))
+    (cond ((and stay (null diags)) nil)
+          (stay (apply orig (append flycheck-eglot--diagnostics diags nil) args))
+          (t (apply orig diags args)))))
+
+(with-eval-after-load 'flycheck
+  (advice-add 'flycheck-eglot--report :around
+              #'my/flycheck-eglot-report-honour-stay))
+#+end_src
+
 ** ESLint
 
 ESLint runs as a language server, behind the [[*Eglot][=rass= multiplexer]]. It
