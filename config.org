@@ -1219,6 +1219,39 @@ Known limit: in an empty buffer `point-min' equals `point-max', so a real
               #'my/flycheck-eglot-report-honour-stay))
 #+end_src
 
+One gap is left, and it is a timing one. Roslyn loads the workspace in the
+background, and the first pull races it: connecting to a one-project solution
+gave =items: []= a second before =Successfully completed load of ...=. Nothing
+re-checks when the load finishes -- Roslyn does not push, and Flycheck only
+re-runs on its own triggers -- so the buffer stays empty until you type or save.
+On a real solution that window is minutes, which reads exactly like "no errors".
+
+Roslyn does announce it, with a =workspace/projectInitializationComplete=
+notification. Unlike the two fixes above this needs no advice on a private
+function: =eglot-handle-notification= is a public generic whose catch-all method
+ignores anything unrecognised, so adding a method is purely additive.
+
+#+begin_src emacs-lisp
+(defun my/eglot-recheck-managed-buffers (server)
+  "Re-run Flycheck in every buffer SERVER manages.
+`eglot-current-server' resolves by project, so it also answers for buffers Eglot
+does not manage -- hence the `eglot-managed-p' guard.  `flycheck-mode' being
+bound and non-nil implies Flycheck has loaded."
+  (dolist (buf (buffer-list))
+    (with-current-buffer buf
+      (when (and (eglot-managed-p)
+                 (eq (eglot-current-server) server)
+                 (bound-and-true-p flycheck-mode))
+        (flycheck-buffer-automatically)))))
+
+(cl-defmethod eglot-handle-notification
+  (server (_method (eql workspace/projectInitializationComplete)) &rest _)
+  "Re-check once Roslyn has finished loading the workspace.
+The diagnostics pulled before that point are empty or syntax-only, and nothing
+else would ask again until the next edit."
+  (my/eglot-recheck-managed-buffers server))
+#+end_src
+
 ** File-watch globs
 
 Eglot's glob grammar leaves the comma out of its literal character class:

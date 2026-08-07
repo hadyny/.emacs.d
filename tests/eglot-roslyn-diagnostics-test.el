@@ -178,6 +178,54 @@ Eglot marks it with the whole buffer: `:region (POINT-MIN . POINT-MAX)'."
     (should (car result))
     (should (equal (car passed) '(x)))))
 
+;;; Pure -- re-checking once the workspace has loaded
+
+(ert-deftest roslyn-diagnostics/recheck-covers-buffers-of-this-server ()
+  "A managed buffer of SERVER with Flycheck on is re-checked."
+  ;; Arrange
+  (cfg-test-load-defun 'my/eglot-recheck-managed-buffers)
+  (let ((server 'srv) rechecked)
+    (with-temp-buffer
+      (rename-buffer "recheck-hit.cs" t)
+      (setq-local flycheck-mode t)
+      (cl-letf (((symbol-function 'eglot-managed-p) (lambda () t))
+                ((symbol-function 'eglot-current-server) (lambda () server))
+                ((symbol-function 'flycheck-buffer-automatically)
+                 (lambda (&rest _) (push (buffer-name) rechecked))))
+        ;; Act
+        (my/eglot-recheck-managed-buffers server))
+      ;; Assert
+      (should (member (buffer-name) rechecked)))))
+
+(ert-deftest roslyn-diagnostics/recheck-skips-other-servers-and-plain-buffers ()
+  "Buffers of another server, and buffers without Flycheck, are left alone.
+`eglot-current-server' resolves by project, so it answers for buffers Eglot
+does not manage -- hence the `eglot-managed-p' guard as well."
+  ;; Arrange
+  (cfg-test-load-defun 'my/eglot-recheck-managed-buffers)
+  (let (rechecked)
+    (with-temp-buffer
+      (rename-buffer "recheck-miss.cs" t)
+      (setq-local flycheck-mode t)
+      (cl-letf (((symbol-function 'eglot-managed-p) (lambda () t))
+                ((symbol-function 'eglot-current-server) (lambda () 'other-server))
+                ((symbol-function 'flycheck-buffer-automatically)
+                 (lambda (&rest _) (push (buffer-name) rechecked))))
+        ;; Act
+        (my/eglot-recheck-managed-buffers 'srv))
+      ;; Assert -- wrong server
+      (should-not (member (buffer-name) rechecked)))
+    (with-temp-buffer
+      (rename-buffer "recheck-noflycheck.cs" t)
+      (cl-letf (((symbol-function 'eglot-managed-p) (lambda () t))
+                ((symbol-function 'eglot-current-server) (lambda () 'srv))
+                ((symbol-function 'flycheck-buffer-automatically)
+                 (lambda (&rest _) (push (buffer-name) rechecked))))
+        ;; Act
+        (my/eglot-recheck-managed-buffers 'srv))
+      ;; Assert -- Flycheck is not on in this buffer
+      (should-not (member (buffer-name) rechecked)))))
+
 ;;; Structural -- the package source and the method
 
 (ert-deftest roslyn-diagnostics/eglot-comes-from-elpa ()
@@ -229,6 +277,31 @@ in an `elpa' directory."
   (should (fboundp 'eglot--flymake-pull))        ; Eglot 1.20
   (should (boundp 'eglot-code-action-indications)) ; Eglot 1.19
   (should (string-match-p "/elpa/" (locate-library "eglot"))))
+
+(ert-deftest roslyn-diagnostics/init-complete-notification-is-handled ()
+  "config.el defines a handler for Roslyn's project-initialisation notification.
+Nothing else re-checks when the workspace finishes loading: Roslyn does not
+push, and the first pull races the load and comes back empty."
+  ;; Arrange / Act
+  (let ((methods (cfg-test-find-all (cons 'progn (cfg-test-read-forms))
+                                    'cl-defmethod)))
+    ;; Assert
+    (should (cl-find-if
+             (lambda (m)
+               (and (eq (nth 1 m) 'eglot-handle-notification)
+                    (string-match-p "workspace/projectInitializationComplete"
+                                    (prin1-to-string m))))
+             methods))))
+
+(ert-deftest roslyn-diagnostics/init-complete-method-is-registered ()
+  "Emacs dispatches the notification to the new method."
+  ;; Arrange
+  (skip-unless (erd-test--config-loaded-p))
+  (should (require 'eglot nil t))
+  ;; Assert
+  (should (cl-find-method
+           #'eglot-handle-notification '()
+           (list t '(eql workspace/projectInitializationComplete)))))
 
 (ert-deftest roslyn-diagnostics/stay-advice-is-installed ()
   "The `:stay' advice is attached to Flycheck's bridge once Flycheck loads."

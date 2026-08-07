@@ -38,7 +38,7 @@ To add a package, add it to the =withPackages= list in [[file:flake.nix][=flake.
 - Magit, diff-hl, Apheleia formatting on save
 - Files: =dirvish= (dired front-end, overrides dired globally; =dirvish-side= tree sidebar on =<leader> e=)
 - Terminal: =ghostel= (Ghostty VT engine, with =evil-ghostel= integration; =<leader> o t=)
-- AI agents: =agent-shell= (ACP frontend) for Copilot (=github-copilot-cli=, bin =copilot=) and Gemini (=gemini-cli=), both provided on =PATH= by the Nix tool closure; =M-x agent-shell=
+- AI agents: =agent-shell= (ACP frontend) for Copilot (=github-copilot-cli=, bin =copilot=), provided on =PATH= by the Nix tool closure; =M-x agent-shell=
 
 * Nix / home-manager
 
@@ -96,11 +96,13 @@ Module options (=programs.dotemacs.*=):
 
 - =enable= — install the tool closure and manage =~/.emacs.d=
 - =tools= — external tools / language servers on =PATH= (default: marksman,
-  roslyn-ls, =typescript-language-server= + =typescript=, coreutils-prefixed,
-  plus =github-copilot-cli= / =gemini-cli= for =agent-shell=). Set to =[ ]= to
-  defer to another package list. A project-local =typescript-language-server= in
-  =node_modules= still wins; =eslint= is always project-local (run by Flycheck's
-  =javascript-eslint= checker), not in this closure.
+  roslyn-ls, =rassumfrassum= + =typescript-language-server= + =typescript= +
+  =tailwindcss-language-server= + =vscode-langservers-extracted= for TS/TSX,
+  =delta= for Magit diffs, coreutils-prefixed, ripgrep, plus
+  =github-copilot-cli= for =agent-shell=). Set to =[ ]= to defer to another
+  package list. These are fallbacks: =rass= resolves each server from the PATH
+  it inherits, so a project-local copy in =node_modules= still wins. =eslint=
+  itself is never in this closure — it is always the project's own.
 - =configPath= — absolute path to a live checkout; =null= links the flake's
   read-only source instead (which can't be tangled into — see the option doc)
 - =package= — Emacs package to install via nix; =null= (default) keeps an

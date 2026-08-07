@@ -6,12 +6,16 @@
 ;; the tool closure in flake.nix.
 ;;
 ;; * Copilot (`agent-shell-github-start-copilot', which runs `copilot --acp')
-;;   and Gemini are wired;
+;;   is wired;
 ;; * the Anthropic/Claude backend is deliberately NOT wired -- its
 ;;   `claude-agent-acp' binary is out of the tool closure, and a bound-but-broken
 ;;   start command is worse than an absent one.  This asserts the whole
 ;;   `agent-shell-anthropic-' prefix is gone, so the prose defcustom mentions
-;;   cannot quietly come back either.
+;;   cannot quietly come back either;
+;; * Gemini is no longer wired either (removed in "git-delta, fix glob error,
+;;   remove gemini"), and `gemini-cli' has left the tool closure with it.  A
+;;   binary nobody invokes is the same drift as a command with no binary, just
+;;   in the other direction, so the closure is asserted here too.
 ;;
 ;; Parses the tangled config.el, so it runs anywhere -- no package set needed.
 
@@ -37,14 +41,28 @@
          (tail (cdr (memq :commands form))))
     (car tail)))
 
-(ert-deftest agent-shell-backends/copilot-and-gemini-are-wired ()
-  "The Copilot and Gemini start commands are exposed, alongside `agent-shell'."
+(ert-deftest agent-shell-backends/copilot-is-wired ()
+  "The Copilot start command is exposed, alongside `agent-shell'."
   ;; Arrange / Act
   (let ((commands (as-test--commands)))
     ;; Assert
     (should (memq 'agent-shell commands))
-    (should (memq 'agent-shell-github-start-copilot commands))
-    (should (memq 'agent-shell-google-start-gemini commands))))
+    (should (memq 'agent-shell-github-start-copilot commands))))
+
+(ert-deftest agent-shell-backends/gemini-backend-not-wired ()
+  "Nothing references the Gemini backend; it was removed deliberately."
+  ;; Arrange / Act
+  (let ((code (prin1-to-string (cfg-test-read-forms))))
+    ;; Assert
+    (should-not (string-match-p "agent-shell-google-" code))))
+
+(ert-deftest agent-shell-backends/tool-closure-matches-the-wired-backends ()
+  "The closure carries the Copilot binary and no longer carries the Gemini one."
+  ;; Arrange / Act
+  (let ((tools (cfg-test-nix-list "emacsToolsFor")))
+    ;; Assert
+    (should (member "github-copilot-cli" tools))
+    (should-not (member "gemini-cli" tools))))
 
 (ert-deftest agent-shell-backends/claude-backend-not-wired ()
   "Nothing references the Anthropic backend: its binary is not in the closure."
