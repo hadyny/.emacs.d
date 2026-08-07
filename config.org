@@ -24,6 +24,27 @@ package, add it to the =withPackages= list in =flake.nix= and rebuild.
 
 * Environment
 
+** direnv (envrc)
+
+Emacs subprocesses do not enter a project's direnv environment, so a devenv
+shell's tools never reach Eglot, Apheleia or =compile=.
+[[*JavaScript/TypeScript][=my/add-node-modules-path=]] solves one instance of
+this by hand; =envrc= solves the general case, setting =process-environment= and
+=exec-path= buffer-locally from =direnv export=.
+
+=envrc-global-mode= must be enabled /late/, because it works through
+=find-file-hook= and window selection and wants to run after the hooks that read
+the environment -- hence =after-init= rather than at load.
+
+Note this repo's own zsh setup skips direnv in Node projects (=fnm= handles those
+instead), so the win here is the Nix/devenv repos and any dotnet project carrying
+an =.envrc=; TypeScript projects are unaffected either way.
+
+#+begin_src emacs-lisp
+(use-package envrc
+  :hook (after-init . envrc-global-mode))
+#+end_src
+
 ** Platform detection
 
 #+begin_src emacs-lisp
@@ -652,6 +673,87 @@ lets fast movement skip the files in between.
   :defer t
   :hook
   (prog-mode . smartparens-mode))
+#+end_src
+
+** Snippets (yasnippet)
+
+Snippets matter here for a reason beyond boilerplate: Eglot decides what to tell
+a server about =snippetSupport= purely from whether an expander exists --
+=eglot--snippet-expansion-fn= is =(and (fboundp 'yas-minor-mode) ...)=. Without
+yasnippet the servers are told this client cannot expand snippets, so a completed
+function arrives as a bare identifier instead of a call template with parameter
+tabstops. An autoload is enough to satisfy =fboundp=, so the package can stay
+deferred and still flip the capability.
+
+=yasnippet-snippets= is the community collection; =yas-global-mode= makes both it
+and Eglot's server-provided snippets available everywhere.
+
+#+begin_src emacs-lisp
+(use-package yasnippet
+  :defer t
+  :hook (after-init . yas-global-mode))
+
+(use-package yasnippet-snippets
+  :after yasnippet)
+#+end_src
+
+** EditorConfig
+
+Built into Emacs 30 (=lisp/editorconfig.el=), so this needs no package -- only
+enabling. It reads =.editorconfig= for indent width, final newline and trailing
+whitespace, which otherwise drift from what a shared repo expects and then fight
+[[*Formatting (Apheleia)][Apheleia]] on save.
+
+#+begin_src emacs-lisp
+(use-package editorconfig
+  :ensure nil
+  :hook (after-init . editorconfig-mode))
+#+end_src
+
+** Spelling (jinx)
+
+=jinx= checks only the parts of a buffer that are prose, using the major mode's
+own faces, so it stays quiet in code even inside comments-heavy files. It is
+enabled per prose mode rather than globally: spell-checking every code buffer is
+noise, and the value is in Org, Markdown, the [[*Notes (zk4e)][notes]] and commit
+messages.
+
+It talks to =libenchant=, which chooses a backend at runtime. On macOS nixpkgs'
+enchant ships =enchant_applespell.so=, so the system dictionary is used with
+nothing further installed -- =enchant-lsmod-2 -list-dicts= reports =de_DE=,
+=en_AU=, =en_CA=, =en_GB= and =en_US= from AppleSpell.
+
+=jinx-languages= must be set, though. It defaults to the locale, which here is
+=en_NZ=, and AppleSpell offers no such dictionary -- jinx then warns "No
+dictionaries available" once and silently checks nothing. =en_GB= is the closest
+available and takes NZ spelling: =colour= and =organisation= both pass, while
+=sentance= and =mispelled= are caught. On Linux this instead wants a hunspell
+dictionary (e.g. =hunspellDicts.en_GB-ise=) copied into
+=$XDG_CONFIG_HOME/enchant/hunspell=; =DICPATH= is hunspell's own variable and
+enchant ignores it.
+
+#+begin_src emacs-lisp
+(use-package jinx
+  :hook ((text-mode markdown-mode org-mode git-commit-mode) . jinx-mode)
+  :custom
+  ;; Not the `en_NZ' locale default: no backend provides it.
+  (jinx-languages "en_GB")
+  :bind (("M-$" . jinx-correct)
+         ("C-M-$" . jinx-languages)))
+#+end_src
+
+** Editable grep (wgrep)
+
+[[*Consult][=consult-ripgrep=]] plus [[*Actions (Embark)][=embark-export=]] gives
+a grep buffer of every match in the project; =wgrep= is what makes that buffer
+/editable/, so a project-wide rename is an ordinary editing session followed by
+=C-c C-c=. Without it the buffer is read-only and the results are only a list of
+places to visit.
+
+#+begin_src emacs-lisp
+(use-package wgrep
+  :defer t
+  :hook (grep-mode . wgrep-setup))
 #+end_src
 
 ** Markdown
@@ -1615,6 +1717,13 @@ backend) or =agent-shell-github-start-copilot= directly.
 
   (evil-define-key 'normal 'global (kbd "K") 'eldoc-box-help-at-point)
 
+  ;; Build / test. `compile' prompts for the command and remembers it per
+  ;; directory; `recompile' repeats it without prompting, which is the one you
+  ;; want bound for a test-watch loop. Failures land in a compilation buffer, so
+  ;; `next-error' walks them into the source.
+  (evil-define-key 'normal 'global (kbd "<leader> c c") 'compile)
+  (evil-define-key 'normal 'global (kbd "<leader> c r") 'recompile)
+
   ;; Comment current line / region
   (evil-define-key 'normal 'global (kbd "gcc")
     (lambda ()
@@ -1636,4 +1745,17 @@ backend) or =agent-shell-github-start-copilot= directly.
   (evil-collection-want-find-usages-bindings t)
   :hook
   (evil-mode . evil-collection-init))
+#+end_src
+
+** Surround
+
+=evil-collection= does not cover =evil-surround=, which supplies the =cs=/=ds=/=ys=
+operators -- =cs"'= to swap quotes, =ysiw)= to wrap a word. It is the one piece of
+core Vim ergonomics missing from the set above.
+
+#+begin_src emacs-lisp
+(use-package evil-surround
+  :after evil
+  :config
+  (global-evil-surround-mode 1))
 #+end_src
