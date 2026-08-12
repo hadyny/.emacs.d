@@ -36,7 +36,13 @@ package, add it to the =withPackages= list in =flake.nix= and rebuild.
 (use-package exec-path-from-shell
   :config (setq exec-path-from-shell-variables '("PATH"))
   :init
-  (when (memq window-system '(mac ns x))
+  ;; `daemonp' as well as `window-system': a launchd agent inherits a minimal
+  ;; PATH, and a daemon has no frame until a client connects, so
+  ;; `window-system' is nil there and a windowed-only guard never fires --
+  ;; leaving every language server, formatter and linter unfindable. Verified
+  ;; against a real `--daemon': ((daemonp . t) (window-system)
+  ;; (initial-window-system)).
+  (when (or (daemonp) (memq window-system '(mac ns x)))
     (exec-path-from-shell-initialize)))
 #+end_src
 
@@ -418,7 +424,13 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
 (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
 (add-to-list 'default-frame-alist '(ns-appearance . dark))
 
-(set-face-background 'fringe (face-attribute 'default :background))
+;; The fringe is left to catppuccin, which already gives it the same background
+;; as `default' -- `(fringe :background ctp-base)' against
+;; `(default :background ctp-base)'. Deriving it here with
+;; `(face-attribute 'default :background)' read the value at *load* time, before
+;; the theme had been applied and, in a daemon, before any frame existed: the
+;; first client frame got a mis-coloured fringe that only corrected itself on the
+;; next flavour switch, when the theme re-specified the face.
 
 ;; Fallback for symbol glyphs the code/role fonts lack (Dingbats + Misc Symbols &
 ;; Arrows). Menlo is a monospace face that covers e.g. ✳ (U+2733). Note: the

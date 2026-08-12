@@ -171,5 +171,27 @@ package whose autoloads are missing is a void-function at startup."
                 editorconfig-mode))
     (should (fboundp fn))))
 
+(ert-deftest dev-tooling/shell-path-is-imported-in-a-daemon ()
+  "`exec-path-from-shell' runs in a daemon, not only in a windowed Emacs.
+A launchd agent inherits a minimal PATH, so the shell PATH has to be imported or
+nothing on it is found -- every language server included.  Guarding only on
+`window-system' skips that: a daemon has no frame until a client connects, so
+`window-system' and `initial-window-system' are both nil while `(daemonp)' is t.
+Verified against a real `--daemon':
+
+  ((daemonp . t) (window-system) (initial-window-system))"
+  ;; Arrange / Act
+  (let ((form (catch 'found
+                (dolist (f (cfg-test-read-forms))
+                  (dolist (up (cfg-test-find-all f 'use-package))
+                    (when (eq (nth 1 up) 'exec-path-from-shell)
+                      (throw 'found up))))
+                nil)))
+    ;; Assert
+    (should form)
+    (let ((printed (prin1-to-string form)))
+      (should (string-match-p "exec-path-from-shell-initialize" printed))
+      (should (string-match-p "daemonp" printed)))))
+
 (provide 'dev-tooling-test)
 ;;; dev-tooling-test.el ends here

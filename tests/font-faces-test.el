@@ -90,5 +90,31 @@ found and changed again next time the font moves."
     (should-not (member "ligature" packages))
     (should-not (string-match-p "ligature" code))))
 
+(ert-deftest font-faces/no-top-level-face-reads ()
+  "No top-level form reads a realised face value.
+`(face-attribute ...)' at load time is answered before the theme has been
+applied -- and in a daemon before any frame exists at all -- so anything derived
+from it is pinned to the wrong colour until the next flavour switch re-specs the
+face.  Faces the theme owns must be left to the theme; anything that genuinely
+needs to read one belongs in a function called from the flavour hook, like
+`my/apply-diff-hl-faces'.
+
+This caught `(set-face-background \='fringe (face-attribute \='default
+:background))', which produced a mis-coloured fringe in the first client frame
+of an Emacs daemon.  It was redundant too: catppuccin already specifies
+`(fringe :background ctp-base)', the same base as `default'."
+  ;; Arrange / Act
+  (let (offenders)
+    (dolist (form (cfg-test-read-forms))
+      (unless (memq (car-safe form) '(defun use-package with-eval-after-load))
+        (let ((printed (prin1-to-string form)))
+          ;; "(face-attribute" does not match "(set-face-attribute" -- the
+          ;; character before `face-' is `-', not `('.
+          (when (string-match-p "(\\(face-attribute\\|face-background\\|face-foreground\\)"
+                                printed)
+            (push (substring printed 0 (min 70 (length printed))) offenders)))))
+    ;; Assert
+    (should (null offenders))))
+
 (provide 'font-faces-test)
 ;;; font-faces-test.el ends here
