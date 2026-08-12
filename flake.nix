@@ -554,14 +554,6 @@
                 touch $out
               '';
 
-          # `programs.dotemacs.excludeTools` is the escape hatch for a tool the
-          # consumer's own config already puts on PATH. `home.packages` is a
-          # buildEnv: it dedupes an identical store path, but two *different*
-          # derivations owning `bin/delta` (a wrapped one, or one from another
-          # nixpkgs) is a hard failure, and the only alternative was `tools = [
-          # ]`, which drops the whole closure. Evaluate the module against a
-          # stub of the home-manager options it touches and check the filtering,
-          # including that it leaves everything else alone.
           # `nix run .#try` is a shell script, so nothing else type-checks it.
           # `writeShellApplication` already runs shellcheck at build time; this
           # pins the two things that make it a *trial* rather than a rebuild:
@@ -580,7 +572,12 @@
               touch $out
             '';
 
-          hm-module-excludes-tools =
+          # Nothing else evaluates the home-manager module. Check it against a stub
+          # of the options it touches: the tool closure must reach
+          # `home.packages` (that is what puts the language servers on PATH), and
+          # `tools = [ ]` must empty it for a consumer whose own package list
+          # already installs them.
+          hm-module-installs-tools =
             let
               stub = {
                 options.home.packages = pkgs.lib.mkOption {
@@ -609,14 +606,11 @@
                 }).config.home.packages;
               names = settings: map pkgs.lib.getName (evalWith settings);
               kept = names { };
-              filtered = names { excludeTools = [ "delta" ]; };
             in
-            assert builtins.elem "delta" kept;
-            assert !(builtins.elem "delta" filtered);
-            # Nothing else may vanish with it.
-            assert (builtins.length kept) == (builtins.length filtered) + 1;
-            assert builtins.elem "marksman" filtered;
-            pkgs.runCommand "dotemacs-hm-module-excludes-tools" { } "touch $out";
+            assert builtins.elem "marksman" kept;
+            assert builtins.elem "rassumfrassum" kept;
+            assert (names { tools = [ ]; }) == [ ];
+            pkgs.runCommand "dotemacs-hm-module-installs-tools" { } "touch $out";
         };
 
         formatter = pkgs.nixfmt-tree;
@@ -627,10 +621,8 @@
       # `programs.dotemacs.enable = true;` (see nix/hm-module.nix for options).
       homeModules.default = import ./nix/hm-module.nix { inherit self emacsToolsFor; };
 
-      # The tool closure as a function of pkgs, so a consumer can build its own
-      # list from it rather than restating it. `programs.dotemacs.excludeTools`
-      # covers the common case (drop one tool another module already installs);
-      # this is for anything more involved.
+      # The tool closure as a function of pkgs, so a consumer whose own package
+      # list overlaps can build a filtered list from it rather than restating it.
       lib = { inherit emacsToolsFor; };
 
       # Adds `emacs` (patched, no packages) and `emacs-dotemacs` (patched +
