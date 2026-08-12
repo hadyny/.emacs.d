@@ -193,5 +193,21 @@ Verified against a real `--daemon':
       (should (string-match-p "exec-path-from-shell-initialize" printed))
       (should (string-match-p "daemonp" printed)))))
 
+(ert-deftest dev-tooling/nix-formatting-matches-the-repo-formatter ()
+  "`nixfmt' is on PATH so Apheleia can format .nix on save.
+Apheleia already ships the formatter and the mode mapping -- `(nixfmt
+. (\"nixfmt\"))' plus `nix-mode' and `nix-ts-mode' -- so only the binary is
+needed and no `apheleia-formatters' entry belongs here.  It is the same nixfmt
+that `nix fmt' (nixfmt-tree) runs, so format-on-save and the pre-commit hook
+cannot disagree."
+  ;; Arrange / Act
+  (let ((tools (cfg-test-nix-list "emacsToolsFor"))
+        (code (prin1-to-string (cfg-test-read-forms))))
+    ;; Assert
+    (should (member "nixfmt" tools))
+    ;; Apheleia knows nix already; a local override would be dead weight.
+    (should-not (string-match-p "apheleia-formatters" code))
+    (should-not (string-match-p "apheleia-mode-alist" code))))
+
 (provide 'dev-tooling-test)
 ;;; dev-tooling-test.el ends here

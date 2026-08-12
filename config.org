@@ -760,6 +760,26 @@ the Eglot section.
 
 ** Nix
 
+Eglot needs no =eglot-server-programs= entry here: it already maps =nix-mode= to
+an =eglot-alternatives= list of =nil=, =rnix-lsp= and =nixd=, and picks the first
+of those on =PATH=. The closure supplies
+[[https://github.com/nix-community/nixd][=nixd=]] and no =nil=, so =nixd= is what
+gets used.
+
+=nixd= /evaluates/ Nix rather than only parsing it, which is what lets it
+complete attribute paths and option names. That needs an expression to evaluate
+against, and nixd takes those from LSP settings or a project =.nixd.json= --
+without one you still get diagnostics and completion of local bindings, but not
+nixpkgs or home-manager option names. The expressions are per-project (this repo
+would point at its own flake inputs; the nix-darwin one at nix-darwin and
+home-manager), so they belong in each project rather than here.
+
+Formatting is [[https://github.com/NixOS/nixfmt][=nixfmt=]], reached through
+[[*Formatting (Apheleia)][Apheleia]], which already ships
+=(nixfmt . ("nixfmt"))= and maps both =nix-mode= and =nix-ts-mode= to it -- so
+only the binary is needed. It is the same =nixfmt 1.4.0= that =nix fmt=
+(nixfmt-tree) uses, so format-on-save and the pre-commit hook agree.
+
 #+begin_src emacs-lisp
 (use-package nix-mode
   :defer t

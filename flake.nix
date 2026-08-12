@@ -33,6 +33,8 @@
           delta
           github-copilot-cli
           marksman
+          nixd
+          nixfmt
           rassumfrassum
           ripgrep
           roslyn-ls
@@ -310,6 +312,8 @@
         #   delta                         -> syntax-highlighted Magit diffs      (magit-delta-delta-executable)
         #   github-copilot-cli            -> agent-shell Copilot ACP agent (bin: copilot) (agent-shell-github-acp-command)
         #   marksman                      -> Markdown LSP                        (eglot-server-programs)
+        #   nixd                          -> Nix LSP                             (eglot's own nix-mode alternatives)
+        #   nixfmt                        -> .nix formatting                     (apheleia's built-in nixfmt)
         #   rassumfrassum                 -> rass, the LSP multiplexer for TS/TSX (eglot-server-programs)
         #   ripgrep                       -> rg for consult-ripgrep + magit-todos' scanner (magit-todos--choose-scanner)
         #   roslyn-ls                     -> Microsoft.CodeAnalysis.LanguageServer (eglot-server-programs)

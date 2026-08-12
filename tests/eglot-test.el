@@ -18,6 +18,7 @@
 ;;; Code:
 
 (require 'ert)
+(require 'cl-lib)
 (require 'config-test-helper (expand-file-name "config-test-helper.el"
                                                (file-name-directory
                                                 (or load-file-name buffer-file-name))))
@@ -61,6 +62,21 @@
   (should-not (memq 'flymake-eslint-enable tsx-ts-mode-hook))
   (should-not (memq 'flymake-eslint-enable typescript-ts-mode-hook))
   (should-not (memq 'flymake-mode tsx-ts-mode-hook)))
+
+(ert-deftest eglot/nix-server-is-in-the-closure ()
+  "A Nix language server is on PATH, and Eglot needs no entry for it.
+Eglot 1.24 already maps `nix-mode' to an `eglot-alternatives' list of
+\\=`nil', \\=`rnix-lsp' and \\=`nixd', and picks the first of those it can find --
+so the closure supplies one and `eglot-server-programs' stays untouched.
+\\=`nil' is first in that order and needs no configuration, unlike \\=`nixd',
+which evaluates the flake."
+  ;; Arrange / Act
+  (let ((tools (cfg-test-nix-list "emacsToolsFor"))
+        (code (prin1-to-string (cfg-test-read-forms))))
+    ;; Assert
+    (should (cl-intersection '("nil" "nixd" "rnix-lsp") tools :test #'equal))
+    ;; No hand-written entry: Eglot's own alternatives cover this.
+    (should-not (string-match-p "nix-mode[^)]*rnix\\|nixd\\|\"nil\"" code))))
 
 (provide 'eglot-test)
 ;;; eglot-test.el ends here
