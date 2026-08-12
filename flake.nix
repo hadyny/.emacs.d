@@ -242,7 +242,6 @@
               gcmh
               helpful
               jinx
-              ligature
               magit
               magit-delta
               magit-todos
