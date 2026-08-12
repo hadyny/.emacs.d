@@ -96,7 +96,7 @@ while idle, moving collection out of interactive work.
 #+begin_src emacs-lisp
 (require 'disp-table)
 (defface my-fallback-glyph
-  '((t :family "MonaspiceNe Nerd Font"
+  '((t :family "Maple Mono NF"
        :inherit font-lock-comment-face))
   "Fallback face for truncation and wrap glyphs.")
 
@@ -291,36 +291,21 @@ diff-hl block re-invokes this once its deffaces have run."
                           :foreground (catppuccin-color 'red))
       (set-face-attribute 'diff-hl-insert nil :background 'unspecified
                           :foreground (catppuccin-color 'green))))
-  (defun my/apply-monaspace-role-faces ()
-    "Point theme-restyled faces at their Monaspace role variant.
-Re-applied on every flavour switch because `catppuccin-reload' resets face
-specs (the same reason `my/apply-diff-hl-faces' exists).  Italics use Radon
-\(script); headings use Krypton (mechanical, for structure); the mode line uses
-Argon (humanist sans, for UI chrome).  Heading faces are guarded with `facep'
-since org/markdown are deferred and their faces may not exist yet at startup --
-the org and markdown-mode blocks re-invoke this once they load."
-    ;; Base font. catppuccin owns the `default' face (fg/bg), so `catppuccin-reload'
-    ;; re-specs it and strips the family/size/weight -- re-apply them here.
-    ;; (variable-pitch/fixed-pitch are NOT themed by catppuccin, so they stay set
-    ;; once in the font block below.)
-    (set-face-attribute 'default nil :font "MonaspiceNe Nerd Font"
+  (defun my/apply-font-faces ()
+    "Re-apply the font attributes `catppuccin-reload' strips.
+Everything is Maple Mono NF now, so no face needs its own family: an
+unspecified family falls through to `default' at render time.  Two things do
+not survive a reload and must be re-applied from the flavour hook -- the same
+reason `my/apply-diff-hl-faces' exists:
+
+  * `default' is themed by catppuccin (fg/bg), so re-specifying it strips the
+    family, height and weight;
+  * `italic', comment and keyword lose their *slant* entirely, so a light/dark
+    switch (or auto-dark's startup re-apply) would drop italics everywhere."
+    (set-face-attribute 'default nil :font "Maple Mono NF"
                         :height 140 :weight 'medium)
-    ;; Italics in Radon. These faces are restyled by `catppuccin-reload'
-    ;; (comment/keyword lose their slant entirely), so they must be set here --
-    ;; from the flavour hook -- not just once at top level, or a light/dark
-    ;; switch (or auto-dark's startup re-apply) drops italics everywhere.
     (dolist (face '(italic font-lock-comment-face font-lock-keyword-face))
-      (set-face-attribute face nil :family "MonaspiceRn Nerd Font" :slant 'italic))
-    (dolist (n (number-sequence 1 8))
-      (let ((face (intern (format "org-level-%d" n))))
-        (when (facep face)
-          (set-face-attribute face nil :family "MonaspiceKr Nerd Font"))))
-    (dolist (n (number-sequence 1 6))
-      (let ((face (intern (format "markdown-header-face-%d" n))))
-        (when (facep face)
-          (set-face-attribute face nil :family "MonaspiceKr Nerd Font"))))
-    (set-face-attribute 'mode-line nil :family "MonaspiceAr Nerd Font")
-    (set-face-attribute 'mode-line-inactive nil :family "MonaspiceAr Nerd Font"))
+      (set-face-attribute face nil :slant 'italic)))
   (defun my/apply-catppuccin-flavor (appearance)
     "Set and reload the catppuccin flavor for system APPEARANCE (`light'/`dark')."
     (setq catppuccin-flavor (my/catppuccin-flavor-for appearance))
@@ -329,7 +314,7 @@ the org and markdown-mode blocks re-invoke this once they load."
       (set-face-attribute 'mode-line nil :box `(:line-width 6 :color ,bg))
       (set-face-attribute 'mode-line-inactive nil :box `(:line-width 6 :color ,bg)))
     (my/apply-diff-hl-faces)
-    (my/apply-monaspace-role-faces)))
+    (my/apply-font-faces)))
 
 (use-package doom-themes
   :custom
@@ -404,28 +389,30 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
 #+begin_src emacs-lisp
 (use-package nerd-icons
   :custom
-  (nerd-icons-font-family "MonaspiceNe Nerd Font"))
+  (nerd-icons-font-family "Maple Mono NF"))
 
-;; The `default' face is applied in `my/apply-monaspace-role-faces' (from the
+;; The `default' face is applied in `my/apply-font-faces' (from the
 ;; flavour hook), not here: catppuccin re-specs `default' on every reload, which
 ;; would strip a top-level family/size/weight. variable-pitch and fixed-pitch
 ;; below are not themed by catppuccin, so they are safe to set once here.
-;; Prose (variable-pitch) uses Xenon, the slab-serif face, to read distinctly
-;; from Neon code. `mixed-pitch-mode' (enabled in org/markdown below) keeps
-;; code, tables and verbatim in the fixed-pitch Neon face while body text uses
-;; this.
+;; Prose (variable-pitch) is Inter, the one face that is not the code font, so
+;; `mixed-pitch-mode' (enabled in org/markdown below) has something to switch to.
+;; Inter was chosen on x-height -- 0.546em against Maple Mono's 0.550em -- so both
+;; look the same size at one `:height' and prose needs no fudge factor. Its static
+;; instances use typographic families (`Inter Medium' carries nameID 16 `Inter'),
+;; so the family plus `:weight' resolves without naming a per-weight family.
 (set-face-attribute 'variable-pitch nil
-                    :font "MonaspiceXe Nerd Font"
+                    :font "Inter"
                     :height 140
                     :weight 'medium)
 (set-face-attribute 'fixed-pitch nil
-                    :font "MonaspiceNe Nerd Font"
+                    :font "Maple Mono NF"
                     :height 140
                     :weight 'medium)
-;; Italics render in Monaspace Radon (the script face). `italic' is the base
+;; Italics render in Maple Mono's own italic. `italic' is the base
 ;; face inherited by org/markdown emphasis; font-lock-comment/keyword-face slant
 ;; themselves directly. These are all restyled by `catppuccin-reload', so they
-;; are applied in `my/apply-monaspace-role-faces' (called from the flavour hook)
+;; are applied in `my/apply-font-faces' (called from the flavour hook)
 ;; rather than here -- otherwise the reload auto-dark runs at startup wipes them.
 
 (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
@@ -433,7 +420,7 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
 
 (set-face-background 'fringe (face-attribute 'default :background))
 
-;; Fallback for symbol glyphs Monaspace lacks (Dingbats + Misc Symbols &
+;; Fallback for symbol glyphs the code/role fonts lack (Dingbats + Misc Symbols &
 ;; Arrows). Menlo is a monospace face that covers e.g. ✳ (U+2733). Note: the
 ;; org-modern default L3 stars U+2BC8/U+2BC6 exist in no installed font, so
 ;; the org-modern-fold-stars override in the org-modern block is what actually
@@ -441,30 +428,23 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
 ;;
 ;; `set-fontset-font' only exists in a window-system build, and this is top
 ;; level: unguarded, it aborts the load of the whole rest of config.el on the
-;; devenv shell's `emacs-nox' (guarded by `checks.terminal-load' in flake.nix).
+ ;; devenv shell's `emacs-nox' (guarded by `checks.terminal-load' in flake.nix).
 ;; `fboundp' rather than `display-graphic-p' so a GUI-capable Emacs started with
 ;; -nw or as a daemon still sets these up for frames made later via emacsclient.
 (when (fboundp 'set-fontset-font)
   (set-fontset-font t '(#x2700 . #x27bf) "Menlo" nil 'append)    ; Dingbats
   (set-fontset-font t '(#x2b00 . #x2bff) "Menlo" nil 'append))   ; Misc Symbols & Arrows
 
-;; org/markdown are deferred, so their heading faces don't exist when the
-;; flavour hook first runs at startup. Re-apply the Monaspace role faces (which
-;; colours the Krypton headings) once each loads, mirroring how the diff-hl
-;; block re-invokes `my/apply-diff-hl-faces'.
-(with-eval-after-load 'org
-  (when (fboundp 'my/apply-monaspace-role-faces) (my/apply-monaspace-role-faces)))
-(with-eval-after-load 'markdown-mode
-  (when (fboundp 'my/apply-monaspace-role-faces) (my/apply-monaspace-role-faces)))
+;; Heading faces no longer get a family of their own -- everything is Maple Mono
+;; -- so there is nothing to re-apply when org/markdown load. `default' and the
+;; italic slant are re-applied from the flavour hook, which is enough.
 #+end_src
 
 ** Mixed pitch (prose)
 
-[[https://gitlab.com/jabranham/mixed-pitch][=mixed-pitch=]] renders body text in the =variable-pitch= face (Xenon) while
-keeping code, tables, verbatim and other structural faces in =fixed-pitch=
-(Neon), so prose gets the slab-serif voice without breaking monospace
-alignment. Enabled in org and markdown buffers.
-
+[[https://gitlab.com/jabranham/mixed-pitch][=mixed-pitch=]] renders body text in the =variable-pitch= face (Inter) while
+keeping code, tables, verbatim and other structural faces in =fixed-pitch= (Maple
+Mono)
 #+begin_src emacs-lisp
 (use-package mixed-pitch
   :hook ((org-mode markdown-mode) . mixed-pitch-mode))
