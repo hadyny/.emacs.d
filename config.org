@@ -24,27 +24,6 @@ package, add it to the =withPackages= list in =flake.nix= and rebuild.
 
 * Environment
 
-** direnv (envrc)
-
-Emacs subprocesses do not enter a project's direnv environment, so a devenv
-shell's tools never reach Eglot, Apheleia or =compile=.
-[[*JavaScript/TypeScript][=my/add-node-modules-path=]] solves one instance of
-this by hand; =envrc= solves the general case, setting =process-environment= and
-=exec-path= buffer-locally from =direnv export=.
-
-=envrc-global-mode= must be enabled /late/, because it works through
-=find-file-hook= and window selection and wants to run after the hooks that read
-the environment -- hence =after-init= rather than at load.
-
-Note this repo's own zsh setup skips direnv in Node projects (=fnm= handles those
-instead), so the win here is the Nix/devenv repos and any dotnet project carrying
-an =.envrc=; TypeScript projects are unaffected either way.
-
-#+begin_src emacs-lisp
-(use-package envrc
-  :hook (after-init . envrc-global-mode))
-#+end_src
-
 ** Platform detection
 
 #+begin_src emacs-lisp

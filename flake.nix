@@ -31,7 +31,6 @@
         pkgs: with pkgs; [
           coreutils-prefixed
           delta
-          direnv
           github-copilot-cli
           marksman
           rassumfrassum
@@ -235,7 +234,6 @@
               eldoc-box
               embark
               embark-consult
-              envrc
               evil
               evil-collection
               evil-surround
@@ -311,7 +309,6 @@
         # eglot-server-programs / executable-find references in config.org:
         #   coreutils-prefixed            -> gls                                (config.org: dired setup)
         #   delta                         -> syntax-highlighted Magit diffs      (magit-delta-delta-executable)
-        #   direnv                        -> per-project env for envrc            (envrc-global-mode)
         #   github-copilot-cli            -> agent-shell Copilot ACP agent (bin: copilot) (agent-shell-github-acp-command)
         #   marksman                      -> Markdown LSP                        (eglot-server-programs)
         #   rassumfrassum                 -> rass, the LSP multiplexer for TS/TSX (eglot-server-programs)

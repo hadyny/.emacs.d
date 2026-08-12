@@ -1,6 +1,6 @@
 ;;; dev-tooling-test.el --- Tests for the development tooling additions -*- lexical-binding: t; -*-
 
-;; Seven additions, each closing a gap that cost something concrete.
+;; Six additions, each closing a gap that cost something concrete.
 ;;
 ;; * yasnippet.  Eglot advertises `snippetSupport' from whether a snippet
 ;;   expander exists -- `eglot--snippet-expansion-fn' is `(and (fboundp
@@ -9,16 +9,26 @@
 ;;   identifier with no parameter tabstops.  An autoload is enough to make
 ;;   `fboundp' true, so the package may stay deferred.
 ;;
-;; * envrc.  Emacs subprocesses do not enter a project's direnv environment, so
-;;   a devenv shell's tools never reach Eglot, Apheleia or `compile'.
-;;   `my/add-node-modules-path' solves one instance of this by hand.
-;;
 ;; * compile / recompile bindings.  Nothing ran a build or a test suite from
 ;;   inside Emacs, and `next-error' had no compilation buffer to walk.
 ;;
 ;; * evil-surround, wgrep, jinx, editorconfig.  See the config for each.
 ;;   `wgrep' is what makes an `embark-export'ed grep buffer editable, which is
 ;;   the project-wide refactor path this config was one package short of.
+;;
+;; A seventh, `envrc', was added for the same class of problem and then removed again, so the
+;; tests below pin its absence.  It shells out synchronously -- upstream's own
+;; `;; TODO: handle "allow" asynchronously?' -- so Emacs blocks for the whole
+;; direnv run.  Measured warm, `direnv export json' took 6.3s in this repo and
+;; 3.0s in the nix-darwin one, at ~0.3s of CPU: it waits on nix evaluation.  On a
+;; project whose devShell is not yet built, that wait is a build.  devenv also
+;; re-runs `enterShell' on every load, which rewrites git hooks as a side effect.
+;;
+;; The benefit did not cover that.  This machine's zsh hook skips direnv in Node
+;; projects in favour of `fnm', and `my/add-node-modules-path' already puts the
+;; project-local TS tools on PATH, so envrc would only have earned its keep in
+;; Nix and dotnet repos -- where pre-warming the shell does the same job without
+;; freezing the editor.
 ;;
 ;; Structural unless noted: these read the tangled config.el and flake.nix.
 
@@ -31,7 +41,7 @@
                                                 (or load-file-name buffer-file-name))))
 
 (defconst dt-test--packages
-  '("yasnippet" "yasnippet-snippets" "envrc" "evil-surround" "wgrep" "jinx")
+  '("yasnippet" "yasnippet-snippets" "evil-surround" "wgrep" "jinx")
   "Packages the additions need from the Nix set.  editorconfig is built in.")
 
 (defun dt-test--config-loaded-p ()
@@ -95,21 +105,19 @@ holds even though the package is deferred."
 
 ;;; direnv
 
-(ert-deftest dev-tooling/direnv-is-global-but-late ()
-  "envrc is enabled globally, and after the modes whose hooks it must wrap.
-`envrc-global-mode' works by `find-file-hook' and window selection, so it is
-enabled from `after-init' rather than at load."
+(ert-deftest dev-tooling/direnv-integration-is-not-wired ()
+  "envrc stays out: it blocks Emacs for the whole of a synchronous direnv run.
+See this file's header for the measurements.  Both halves must go, or the tool
+closure keeps a `direnv' nothing uses -- and that one collides with the
+`programs.direnv' copy on this machine."
   ;; Arrange / Act
-  (let ((code (prin1-to-string (cfg-test-read-forms))))
+  (let ((packages (cfg-test-nix-list "dotemacsPackageList"))
+        (tools (cfg-test-nix-list "emacsToolsFor"))
+        (code (prin1-to-string (cfg-test-read-forms))))
     ;; Assert
-    (should (string-match-p "envrc-global-mode" code))))
-
-(ert-deftest dev-tooling/direnv-binary-is-in-the-closure ()
-  "envrc shells out to `direnv', so the tool closure carries it."
-  ;; Arrange / Act
-  (let ((tools (cfg-test-nix-list "emacsToolsFor")))
-    ;; Assert
-    (should (member "direnv" tools))))
+    (should-not (member "envrc" packages))
+    (should-not (member "direnv" tools))
+    (should-not (string-match-p "envrc" code))))
 
 ;;; Spelling
 
@@ -170,7 +178,6 @@ package whose autoloads are missing is a void-function at startup."
   ;; Assert
   (dolist (fn '(yas-minor-mode
                 yas-global-mode
-                envrc-global-mode
                 global-evil-surround-mode
                 wgrep-setup
                 jinx-mode
