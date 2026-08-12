@@ -768,11 +768,22 @@ gets used.
 
 =nixd= /evaluates/ Nix rather than only parsing it, which is what lets it
 complete attribute paths and option names. That needs an expression to evaluate
-against, and nixd takes those from LSP settings or a project =.nixd.json= --
-without one you still get diagnostics and completion of local bindings, but not
-nixpkgs or home-manager option names. The expressions are per-project (this repo
-would point at its own flake inputs; the nix-darwin one at nix-darwin and
-home-manager), so they belong in each project rather than here.
+against, which nixd reads from a project [[file:.nixd.json][=.nixd.json=]] --
+per-project, so not configured here. This repo's points =nixpkgs.expr= at its own
+flake input, so package names complete inside =emacsToolsFor= and
+=dotemacsPackageList=:
+
+#+begin_example
+{ "nixpkgs": { "expr": "import (builtins.getFlake \"…/dotemacs.d\").inputs.nixpkgs { }" } }
+#+end_example
+
+A configuration repo wants =options= providers too, keyed by name, each an
+/options attrset/ rather than a module -- e.g.
+=darwinConfigurations.<host>.options= for nix-darwin, and
+=.options.home-manager.users.type.getSubOptions [ ]= for the home-manager options
+nested inside it. The schema is =nixpkgs.expr=, =options.<name>.expr=,
+=formatting.command= and =diagnostic.suppress=; =formatting= already defaults to
+=nixfmt=, and [[*Formatting (Apheleia)][Apheleia]] owns formatting here anyway.
 
 Formatting is [[https://github.com/NixOS/nixfmt][=nixfmt=]], reached through
 [[*Formatting (Apheleia)][Apheleia]], which already ships

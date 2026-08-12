@@ -1,0 +1,5 @@
+{
+  "nixpkgs": {
+    "expr": "import (builtins.getFlake \"/Users/hadyn/src/dotemacs.d\").inputs.nixpkgs { }"
+  }
+}
