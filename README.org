@@ -123,6 +123,15 @@ Other flake outputs:
   headless Emacs, =gnumake=, and the language servers; direnv auto-loads it via
   =.envrc=. A pre-commit hook (devenv =git-hooks=) runs =nixfmt= so =.nix= files
   stay formatted.
+- =nix run .#try= — launch a throwaway Emacs on the /working tree/, to see a
+  config change in a real frame before restarting the daily Emacs into it. Since
+  =~/.emacs.d= is an out-of-store symlink to this checkout, there is otherwise no
+  gap between "edited" and "applied": the next Emacs to start tangles whatever
+  =config.org= currently says. The checks above verify a change /loads/; this
+  shows what it /looks like/. The tree is copied to a temp directory first, so
+  tangling and =recentf=/=savehist=/=prescient= state do not dirty the repo —
+  uncommitted edits are still picked up. Extra arguments go to Emacs, e.g.
+  =nix run .#try -- some/file.tsx=.
 - =nix fmt= — format the Nix files (=nixfmt=)
 - =packages.<system>.emacs= — the cross-platform Emacs with all packages
 - =packages.<system>.emacs-bare= — Emacs with only the Darwin appearance patch

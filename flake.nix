@@ -343,6 +343,44 @@
             name = "dotemacs-tools";
             paths = emacs-tools;
           };
+
+          # `nix run .#try` -- launch a throwaway Emacs on the *working tree*, so
+          # a config change can be seen in a real frame before the daily Emacs is
+          # restarted into it.
+          #
+          # `~/.emacs.d` is an out-of-store symlink to this checkout, so there is
+          # otherwise no gap between "edited" and "applied": the next Emacs to
+          # start tangles whatever config.org currently says, half-finished edits
+          # included. The flake checks verify a change loads; this shows what it
+          # looks like.
+          #
+          # The tree is *copied* rather than used in place. Emacs would otherwise
+          # tangle config.el and write recentf/savehist/prescient state into the
+          # checkout -- and `var/prescient-save.el` and `transient/history.el` are
+          # tracked, so a trial run would dirty the repo. Copying keeps
+          # uncommitted edits (the whole point) without that side effect.
+          #
+          # `$PWD`, not `${self}`: a dirty flake tree excludes untracked files,
+          # and unstaged edits are exactly what wants previewing.
+          try = pkgs.writeShellApplication {
+            name = "dotemacs-try";
+            runtimeInputs = [ pkgs.emacs-dotemacs ] ++ emacs-tools;
+            text = ''
+              if [ ! -f "$PWD/config.org" ]; then
+                echo "dotemacs-try: no config.org here; run from a checkout" >&2
+                exit 1
+              fi
+              dir=$(mktemp -d)
+              trap 'rm -rf "$dir"' EXIT
+              mkdir -p "$dir/emacs.d"
+              # Skip VCS and build detritus; keep everything the config reads.
+              tar -cf - --exclude=.git --exclude=.direnv --exclude=.devenv \
+                        --exclude=result --exclude='result-*' -C "$PWD" . \
+                | tar -xf - -C "$dir/emacs.d"
+              echo "dotemacs-try: $dir/emacs.d (removed on exit)"
+              emacs --init-directory="$dir/emacs.d" "$@"
+            '';
+          };
         };
 
         # Dev shell powered by devenv (see ./devenv.nix). `nix develop` still
@@ -525,6 +563,24 @@
           # ]`, which drops the whole closure. Evaluate the module against a
           # stub of the home-manager options it touches and check the filtering,
           # including that it leaves everything else alone.
+          # `nix run .#try` is a shell script, so nothing else type-checks it.
+          # `writeShellApplication` already runs shellcheck at build time; this
+          # pins the two things that make it a *trial* rather than a rebuild:
+          # an isolated `--init-directory`, and $PWD rather than the store copy.
+          try-app-is-isolated =
+            let
+              script = "${self.packages.${system}.try}/bin/dotemacs-try";
+            in
+            pkgs.runCommand "dotemacs-try-app-is-isolated" { } ''
+              grep -q -- '--init-directory=' ${script} \
+                || { echo "try: must use --init-directory, or it writes to ~/.emacs.d" >&2; exit 1; }
+              grep -q 'mktemp -d' ${script} \
+                || { echo "try: must run in a temp dir, not the checkout" >&2; exit 1; }
+              grep -q '\$PWD/config.org' ${script} \
+                || { echo "try: must read the working tree, not the store copy" >&2; exit 1; }
+              touch $out
+            '';
+
           hm-module-excludes-tools =
             let
               stub = {
