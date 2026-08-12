@@ -1,36 +1,23 @@
 ;;; font-faces-test.el --- Tests for my/apply-font-faces -*- lexical-binding: t; -*-
 
 ;; Code is Maple Mono NF: `default', `fixed-pitch', the fallback glyph face and
-;; the nerd-icons family.  Prose (`variable-pitch') is Inter, so `mixed-pitch' in
-;; org and markdown actually changes typeface -- with Monaspace Xenon it never
-;; did, because every Monaspace variant is monospaced.  Inter was picked on
-;; x-height: 0.546em against Maple Mono's 0.550em, so both look the same size at
-;; one `:height'.  Monaspace stays installed but unused.
+;; the nerd-icons family.  Prose (`variable-pitch') is Inter, chosen on x-height
+;; -- 0.546em against Maple Mono's 0.550em -- so both look the same size at one
+;; `:height' and `mixed-pitch' needs no fudge factor.
 ;;
-;; `my/apply-font-faces' therefore does much less than the role scheme it
-;; replaced.  With one family everywhere, no face needs its own: an unspecified
-;; family falls through to `default' at render time.  Only two things fail to
-;; survive `catppuccin-reload' and must be re-applied from the flavour hook, the
-;; same reason `my/apply-diff-hl-faces' exists:
+;; With one family for code, no face needs its own: an unspecified family falls
+;; through to `default' at render time.  Only two things fail to survive
+;; `catppuccin-reload' and must be re-applied from the flavour hook, the same
+;; reason `my/apply-diff-hl-faces' exists:
 ;;
 ;;   * `default' is themed by catppuccin, so a reload strips family/height/weight;
 ;;   * `italic', comment and keyword lose their *slant*, so a light/dark switch
 ;;     (or auto-dark's startup re-apply) would drop italics everywhere.
 ;;
-;; LIGATURES need no package with this font, which is why `ligature' is absent
-;; and asserted so.  Maple Mono does not implement ligatures as ligatures at all:
-;; there is no many-to-one GSUB substitution for `->'.  Its `calt' feature holds
-;; *chaining* lookups covering `hyphen' that invoke *single* substitutions --
-;; each character is swapped for a partial glyph, so the pair reads as an arrow
-;; across two cells.  `calt' is on by default, so the font does this unaided.
-;;
-;; That is also why adding `ligature' back would be a mistake rather than a
-;; no-op: it would compose the two characters into one unit and ask the font to
-;; shape them together, which is not how these glyphs are built.  Monaspace was
-;; the opposite case -- real ligatures, but behind stylistic sets Emacs cannot
-;; enable on an NS build (ss01 Equal Symbols, ss03 Arrows, ...), and
-;; `pyftfeatfreeze' cannot bake them in because it handles "only single and
-;; alternate substitutions".
+;; Ligatures need no package: Maple Mono's `calt' holds chaining lookups that
+;; swap each character for a partial glyph, so `->' reads as an arrow across two
+;; cells with nothing composed.  Adding `ligature' would compose the pair and
+;; fight the font, so its absence is asserted.
 
 ;;; Code:
 
@@ -69,12 +56,7 @@ deliberately *not* set -- it falls through to `default'."
     (should (eq (face-attribute face :slant) 'italic))))
 
 (ert-deftest font-faces/code-is-maple-mono-prose-is-inter ()
-  "Code faces are Maple Mono NF; `variable-pitch' is Inter.
-`variable-pitch' is the one face that deliberately differs, so `mixed-pitch'
-has something to switch to.  Inter is chosen for its x-height: 0.546em against
-Maple Mono's 0.550em, so prose and code look the same size at one `:height' and
-no fudge factor is needed.  No face names Monaspace -- it stays installed, but
-unused."
+  "Code faces are Maple Mono NF; `variable-pitch' is Inter."
   ;; Arrange / Act
   (let ((code (prin1-to-string (cfg-test-read-forms))))
     ;; Assert
@@ -100,9 +82,7 @@ found and changed again next time the font moves."
     (should-not (string-match-p ":family" printed))))
 
 (ert-deftest font-faces/ligature-package-is-not-wired ()
-  "`ligature' stays out: Maple Mono needs no composition to draw its arrows.
-See this file's header -- its `calt' swaps each character for a partial glyph, so
-composing the pair would fight the font rather than help it."
+  "`ligature' stays out: Maple Mono draws its arrows without composition."
   ;; Arrange / Act
   (let ((packages (cfg-test-nix-list "dotemacsPackageList"))
         (code (prin1-to-string (cfg-test-read-forms))))

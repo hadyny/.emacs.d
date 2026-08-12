@@ -1,34 +1,23 @@
-;;; dev-tooling-test.el --- Tests for the development tooling additions -*- lexical-binding: t; -*-
+;;; dev-tooling-test.el --- Tests for the development tooling -*- lexical-binding: t; -*-
 
 ;; Six additions, each closing a gap that cost something concrete.
 ;;
-;; * yasnippet.  Eglot advertises `snippetSupport' from whether a snippet
-;;   expander exists -- `eglot--snippet-expansion-fn' is `(and (fboundp
-;;   'yas-minor-mode) ...)'.  Without yasnippet the servers are told the client
-;;   cannot expand snippets, so a completed function arrives as a bare
-;;   identifier with no parameter tabstops.  An autoload is enough to make
-;;   `fboundp' true, so the package may stay deferred.
+;; * yasnippet.  Eglot advertises `snippetSupport' from whether a snippet expander
+;;   exists -- `eglot--snippet-expansion-fn' is `(and (fboundp 'yas-minor-mode)
+;;   ...)'.  Without it the servers are told this client cannot expand snippets,
+;;   so a completed function arrives as a bare identifier with no parameter
+;;   tabstops.  An autoload satisfies `fboundp', so the package may stay deferred.
 ;;
-;; * compile / recompile bindings.  Nothing ran a build or a test suite from
-;;   inside Emacs, and `next-error' had no compilation buffer to walk.
+;; * compile / recompile bindings, so a build or test suite can be run from inside
+;;   Emacs and `next-error' has a compilation buffer to walk.
 ;;
-;; * evil-surround, wgrep, jinx, editorconfig.  See the config for each.
-;;   `wgrep' is what makes an `embark-export'ed grep buffer editable, which is
-;;   the project-wide refactor path this config was one package short of.
+;; * evil-surround, wgrep, jinx, editorconfig.  See the config for each.  `wgrep'
+;;   is what makes an `embark-export'ed grep buffer editable, which is the
+;;   project-wide refactor path this config was one package short of.
 ;;
-;; A seventh, `envrc', was added for the same class of problem and then removed again, so the
-;; tests below pin its absence.  It shells out synchronously -- upstream's own
-;; `;; TODO: handle "allow" asynchronously?' -- so Emacs blocks for the whole
-;; direnv run.  Measured warm, `direnv export json' took 6.3s in this repo and
-;; 3.0s in the nix-darwin one, at ~0.3s of CPU: it waits on nix evaluation.  On a
-;; project whose devShell is not yet built, that wait is a build.  devenv also
-;; re-runs `enterShell' on every load, which rewrites git hooks as a side effect.
-;;
-;; The benefit did not cover that.  This machine's zsh hook skips direnv in Node
-;; projects in favour of `fnm', and `my/add-node-modules-path' already puts the
-;; project-local TS tools on PATH, so envrc would only have earned its keep in
-;; Nix and dotnet repos -- where pre-warming the shell does the same job without
-;; freezing the editor.
+;; `envrc' is deliberately absent, and asserted so: it shells out to direnv
+;; synchronously, so Emacs blocks for the whole run -- seconds on a warm nix
+;; evaluation, a full build on a project whose devShell is not yet built.
 ;;
 ;; Structural unless noted: these read the tangled config.el and flake.nix.
 
@@ -106,10 +95,8 @@ holds even though the package is deferred."
 ;;; direnv
 
 (ert-deftest dev-tooling/direnv-integration-is-not-wired ()
-  "envrc stays out: it blocks Emacs for the whole of a synchronous direnv run.
-See this file's header for the measurements.  Both halves must go, or the tool
-closure keeps a `direnv' nothing uses -- and that one collides with the
-`programs.direnv' copy on this machine."
+  "envrc stays out: it blocks Emacs for a whole synchronous direnv run.
+Both halves must go, or the closure keeps a `direnv' nothing uses."
   ;; Arrange / Act
   (let ((packages (cfg-test-nix-list "dotemacsPackageList"))
         (tools (cfg-test-nix-list "emacsToolsFor"))

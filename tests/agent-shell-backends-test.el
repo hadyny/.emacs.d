@@ -1,23 +1,12 @@
 ;;; agent-shell-backends-test.el --- Which agent-shell backends are wired -*- lexical-binding: t; -*-
 
-;; Structural spec for the agent-shell block in config.org.  agent-shell ships
-;; seventeen ACP backends; only the ones whose agent binary is actually reachable
-;; are worth exposing, and every reference to a backend has to stay in step with
-;; the tool closure in flake.nix.
+;; agent-shell ships many ACP backends; only the ones whose agent binary is
+;; actually in the tool closure are worth exposing, so every backend reference
+;; has to stay in step with `emacsToolsFor' in flake.nix.  Copilot is wired.
 ;;
-;; * Copilot (`agent-shell-github-start-copilot', which runs `copilot --acp')
-;;   is wired;
-;; * the Anthropic/Claude backend is deliberately NOT wired -- its
-;;   `claude-agent-acp' binary is out of the tool closure, and a bound-but-broken
-;;   start command is worse than an absent one.  This asserts the whole
-;;   `agent-shell-anthropic-' prefix is gone, so the prose defcustom mentions
-;;   cannot quietly come back either;
-;; * Gemini is no longer wired either (removed in "git-delta, fix glob error,
-;;   remove gemini"), and `gemini-cli' has left the tool closure with it.  A
-;;   binary nobody invokes is the same drift as a command with no binary, just
-;;   in the other direction, so the closure is asserted here too.
-;;
-;; Parses the tangled config.el, so it runs anywhere -- no package set needed.
+;; The Anthropic and Gemini backends are deliberately not: a bound-but-broken
+;; start command is worse than an absent one, and a binary nobody invokes is the
+;; same drift in the other direction.  Both are asserted absent, on both sides.
 
 ;;; Code:
 
@@ -50,7 +39,7 @@
     (should (memq 'agent-shell-github-start-copilot commands))))
 
 (ert-deftest agent-shell-backends/gemini-backend-not-wired ()
-  "Nothing references the Gemini backend; it was removed deliberately."
+  "Nothing references the Gemini backend."
   ;; Arrange / Act
   (let ((code (prin1-to-string (cfg-test-read-forms))))
     ;; Assert

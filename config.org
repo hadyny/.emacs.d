@@ -18,7 +18,7 @@ Ensures the tangled =config.el= starts with a =lexical-binding= cookie.
 
 Emacs packages are provided by Nix (see [[file:flake.nix][=flake.nix=]] and [[file:nix/hm-module.nix][=nix/hm-module.nix=]]):
 the flake builds Emacs with every package below on =load-path=, so =use-package=
-forms carry no =:ensure=/=:straight= and install nothing at runtime. Built-in
+forms carry no =:ensure= and install nothing at runtime. Built-in
 features (=emacs=, =eglot=, =org=, =dired=, …) use =:ensure nil=. To add a
 package, add it to the =withPackages= list in =flake.nix= and rebuild.
 

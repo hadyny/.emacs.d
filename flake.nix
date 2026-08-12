@@ -199,9 +199,9 @@
             }
           );
 
-          # The package list config.org needs on load-path (managed by Nix,
-          # not straight.el). Keep this in sync with the (use-package ...) forms
-          # in config.org; built-ins are intentionally absent.
+          # The package list config.org needs on load-path. Keep this in sync
+          # with the (use-package ...) forms in config.org; built-ins are
+          # intentionally absent.
           #
           # ghostel + its Evil integration evil-ghostel (which depends on
           # ghostel) build a from-source ghostty/Zig terminal whose fixed-output
@@ -486,11 +486,10 @@
             touch $out
           '';
 
-          # Regression guard for the straight -> nix migration. Mimics real
-          # startup: `package-activate-all` must make the packages' entry points
-          # autoloadable WITHOUT an explicit require (this is what broke when
-          # early-init.el disabled package.el — every :init/:config call hit a
-          # void function).
+          # Mimics real startup: `package-activate-all` must make the packages'
+          # entry points autoloadable WITHOUT an explicit require. This is the
+          # failure mode when early-init.el disables package.el — every
+          # :init/:config call then hits a void function.
           # Runs on emacs-dotemacs-ci (no ghostel), so the ghostel native
           # module is deliberately not built or required here -- that would
           # trigger the network-flaky ghostty/Zig build.

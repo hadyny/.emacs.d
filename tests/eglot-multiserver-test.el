@@ -18,7 +18,7 @@
 ;; manually with `M-x eglot'.  The predicate of `eglot-check' requires
 ;; `eglot-managed-p'.  In a TS buffer without a connection, Flycheck therefore
 ;; selects the CLI checker.  This is the fallback path.  For the
-;; `flycheck-eglot-exclusive' half, see flycheck-migration-test.el.  That
+;; `flycheck-eglot-exclusive' half, see flycheck-test.el.  That
 ;; variable stops the two sources from reporting each result twice.
 ;;
 ;; The fallback path also gets a check-trigger limit.  Flycheck starts a check

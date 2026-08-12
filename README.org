@@ -15,12 +15,12 @@ tangles and loads it via =org-babel-load-file=.
 
 * First run
 
-Emacs packages are provided by Nix (not [[https://github.com/radian-software/straight.el][straight.el]]) — the flake builds Emacs
-with every =use-package= dependency on =load-path=. On startup =emacs= only:
+Emacs packages are provided by Nix — the flake builds Emacs with every
+=use-package= dependency on =load-path=. On startup =emacs= only:
 
 1. Tangles =config.org= → =config.el=
 2. Loads it; =use-package= forms =require= packages already provided by Nix
-   (they carry no =:ensure=/=:straight= and install nothing)
+   (they carry no =:ensure= and install nothing)
 
 To add a package, add it to the =withPackages= list in [[file:flake.nix][=flake.nix=]] and rebuild.
 
@@ -50,9 +50,9 @@ module.
 
 =packages.<system>.emacs= (and =overlays.default='s =emacs-dotemacs=) is one
 Emacs for Linux and Darwin, built with every =use-package= dependency on
-=load-path= (see the =withPackages= list in [[file:flake.nix][=flake.nix=]]). There is no straight.el:
-=use-package= forms carry no =:ensure=/=:straight= and install nothing. Adding a
-package means adding it to that list and rebuilding. Native modules come from
+=load-path= (see the =withPackages= list in [[file:flake.nix][=flake.nix=]]). =use-package= forms carry no
+=:ensure= and install nothing; adding a package means adding it to that list and
+rebuilding. Native modules come from
 Nix rather than at runtime: =ghostel='s prebuilt =libghostty= binary is bundled
 (so its usual first-run download never happens).
 
