@@ -6,11 +6,11 @@
 ;; `:height' and `mixed-pitch' needs no fudge factor.
 ;;
 ;; With one family for code, no face needs its own: an unspecified family falls
-;; through to `default' at render time.  Only two things fail to survive
-;; `catppuccin-reload' and must be re-applied from the flavour hook, the same
-;; reason `my/apply-diff-hl-faces' exists:
+;; through to `default' at render time.  Only two things fail to survive the
+;; `load-theme' of a Tokyo Night variant and must be re-applied from the
+;; appearance hook, the same reason `my/apply-diff-hl-faces' exists:
 ;;
-;;   * `default' is themed by catppuccin, so a reload strips family/height/weight;
+;;   * `default' is themed, so loading a variant strips family/height/weight;
 ;;   * `italic', comment and keyword lose their *slant*, so a light/dark switch
 ;;     (or auto-dark's startup re-apply) would drop italics everywhere.
 ;;
@@ -28,8 +28,8 @@
 
 (ert-deftest font-faces/reapplies-base-default-font ()
   "The helper re-applies the base default font size and weight.
-`catppuccin-reload' re-specs the (themed) `default' face and strips these, so
-they must be re-applied from the flavour hook, not just once at top level."
+`load-theme' re-specs the (themed) `default' face and strips these, so they must
+be re-applied from the appearance hook, not just once at top level."
   ;; Arrange
   (cfg-test-load-defun 'my/apply-font-faces)
   ;; Simulate a post-reload `default' face with height/weight stripped.
@@ -41,10 +41,10 @@ they must be re-applied from the flavour hook, not just once at top level."
   (should (eq (face-attribute 'default :weight) 'medium)))
 
 (ert-deftest font-faces/reapplies-italic-slant ()
-  "The italic faces keep their slant across a flavour reload.
+  "The italic faces keep their slant across a variant switch.
 They are theme-restyled, so setting the slant once at top level is not enough:
-`catppuccin-reload' drops it and italics vanish everywhere.  Family is
-deliberately *not* set -- it falls through to `default'."
+`load-theme' drops it and italics vanish everywhere.  Family is deliberately
+*not* set -- it falls through to `default'."
   ;; Arrange
   (cfg-test-load-defun 'my/apply-font-faces)
   (dolist (face '(italic font-lock-comment-face font-lock-keyword-face))
@@ -94,15 +94,15 @@ found and changed again next time the font moves."
   "No top-level form reads a realised face value.
 `(face-attribute ...)' at load time is answered before the theme has been
 applied -- and in a daemon before any frame exists at all -- so anything derived
-from it is pinned to the wrong colour until the next flavour switch re-specs the
+from it is pinned to the wrong colour until the next variant switch re-specs the
 face.  Faces the theme owns must be left to the theme; anything that genuinely
-needs to read one belongs in a function called from the flavour hook, like
+needs to read one belongs in a function called from the appearance hook, like
 `my/apply-diff-hl-faces'.
 
 This caught `(set-face-background \='fringe (face-attribute \='default
 :background))', which produced a mis-coloured fringe in the first client frame
-of an Emacs daemon.  It was redundant too: catppuccin already specifies
-`(fringe :background ctp-base)', the same base as `default'."
+of an Emacs daemon.  It was redundant too: the theme already gives `fringe' the
+same background as `default'."
   ;; Arrange / Act
   (let (offenders)
     (dolist (form (cfg-test-read-forms))

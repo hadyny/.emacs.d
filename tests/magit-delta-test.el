@@ -8,13 +8,17 @@
 ;; bare "delta", so an absent binary is a runtime failure rather than a load
 ;; error.
 ;;
-;; The syntax theme must match the active Catppuccin flavor.  `magit-delta'
-;; chooses between `magit-delta-default-light-theme' and
-;; `magit-delta-default-dark-theme' from the frame's `background-mode'.  Its own
-;; defaults are "GitHub" and "Monokai Extended", which clash with Catppuccin.
-;; delta 0.19.2 has "Catppuccin Latte" and "Catppuccin Mocha" built in, and those
-;; are the same two flavors `my/catppuccin-flavor-for' selects, so the tests
-;; below tie the two together and stop them drifting apart.
+;; The syntax theme must not clash with the Emacs theme.  `magit-delta' chooses
+;; between `magit-delta-default-light-theme' and `magit-delta-default-dark-theme'
+;; from the frame's `background-mode'.  Its own defaults are "GitHub" and
+;; "Monokai Extended", which clash with anything.
+;;
+;; delta 0.19.2 has *no* Tokyo Night syntax theme -- `delta --list-syntax-themes'
+;; lists 28, four Catppuccin and no Tokyo.  So the Catppuccin pair stays as the
+;; nearest built-in stand-in: Mocha (#1e1e2e) sits close to Tokyo Night
+;; (#1a1b26), and Latte to Tokyo Night Day.  The tests below pin that deliberate
+;; choice, including the light/dark orientation -- getting it backwards gives a
+;; light Emacs frame a dark diff.
 ;;
 ;; Structural only: these parse the tangled config.el and flake.nix, so they run
 ;; anywhere.
@@ -66,23 +70,20 @@
     (should (string-match-p "magit-mode" printed))
     (should (string-match-p "magit-delta-mode" printed))))
 
-(ert-deftest magit-delta/syntax-themes-track-the-catppuccin-flavors ()
-  "The delta themes are the Catppuccin ones, and match `my/catppuccin-flavor-for'.
-Both are built into delta 0.19.2.  The light/dark split has to agree with the
-flavor function, or a light Emacs frame gets a dark diff."
-  ;; Arrange
-  (cfg-test-load-defun 'my/catppuccin-flavor-for)
-  ;; Act
+(ert-deftest magit-delta/syntax-themes-are-the-nearest-built-in-pair ()
+  "The delta themes stay on the Catppuccin pair, oriented light/dark correctly.
+Both are built into delta 0.19.2; Tokyo Night is not, so naming it here would
+make delta fall back to its own default and un-highlight every diff.  The
+Emacs-side variant map lives in `my/tokyo-night-variant-for' and is deliberately
+*not* coupled to these strings."
+  ;; Arrange / Act
   (let ((light (md-test--custom-value 'magit-delta-default-light-theme))
         (dark (md-test--custom-value 'magit-delta-default-dark-theme)))
     ;; Assert
     (should (equal light "Catppuccin Latte"))
     (should (equal dark "Catppuccin Mocha"))
-    ;; The flavor function must agree about which is which.
-    (should (string-match-p (symbol-name (my/catppuccin-flavor-for 'light))
-                            (downcase light)))
-    (should (string-match-p (symbol-name (my/catppuccin-flavor-for 'dark))
-                            (downcase dark)))))
+    ;; Guard the tempting "fix": delta has no Tokyo Night theme to name.
+    (should-not (string-match-p "[Tt]okyo" (concat light " " dark)))))
 
 (provide 'magit-delta-test)
 ;;; magit-delta-test.el ends here
