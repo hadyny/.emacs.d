@@ -142,12 +142,17 @@ the provider accepts NZ spelling rather than flagging it."
     (skip-unless (fboundp 'jinx--mod-dict))
     ;; Act
     (let ((dict (jinx--mod-dict jinx-languages)))
-      ;; Assert
-      (should dict)
-      ;; AppleSpell needs the macOS spell service, which the Nix build sandbox
-      ;; cannot reach; there it resolves a dictionary that then accepts every
-      ;; word.  Skip on an inert backend rather than fail, so this still
-      ;; asserts something real in a normal Emacs.
+      ;; Assert -- two ways a host can have no usable backend, both skipped
+      ;; rather than failed so this still asserts something real where one
+      ;; exists:
+      ;;   * no dictionary at all.  macOS gets en_GB from AppleSpell for free;
+      ;;     elsewhere enchant needs a hunspell dictionary on its search path,
+      ;;     which the home-manager module installs on Linux and the
+      ;;     integration-tests check provides for CI.
+      ;;   * a dictionary that resolves but answers nothing.  AppleSpell needs
+      ;;     the macOS spell service, which the Nix build sandbox cannot reach,
+      ;;     so there it accepts every word including a misspelt one.
+      (skip-unless dict)
       (skip-unless (not (jinx--mod-check dict "mispelled")))
       (should (jinx--mod-check dict "sentence"))
       ;; NZ spelling must not be flagged -- see the repo's own conventions.
@@ -208,6 +213,30 @@ cannot disagree."
     ;; Apheleia knows nix already; a local override would be dead weight.
     (should-not (string-match-p "apheleia-formatters" code))
     (should-not (string-match-p "apheleia-mode-alist" code))))
+
+(ert-deftest dev-tooling/github-client-is-wired ()
+  "consult-gh is installed with its Embark integration, and `gh' is on PATH.
+consult-gh drives the `gh' CLI, so an absent binary is a runtime failure rather
+than a load error -- the same shape as magit-delta and `delta'.  The Embark
+package is separate from the main one and is what gives the consult-gh
+candidates an `embark-act' menu."
+  ;; Arrange / Act
+  (let ((packages (cfg-test-nix-list "dotemacsPackageList"))
+        (tools (cfg-test-nix-list "emacsToolsFor"))
+        (configured (dt-test--use-package-names)))
+    ;; Assert
+    (should (member "consult-gh" packages))
+    (should (member "consult-gh-embark" packages))
+    (should (member "gh" tools))
+    (should (memq 'consult-gh configured))
+    (should (memq 'consult-gh-embark configured))))
+
+(ert-deftest dev-tooling/github-client-has-an-entry-point ()
+  "At least one consult-gh command is on the leader map."
+  ;; Arrange / Act
+  (let ((code (mapconcat #'identity (dt-test--bindings) " ")))
+    ;; Assert
+    (should (string-match-p "consult-gh" code))))
 
 (provide 'dev-tooling-test)
 ;;; dev-tooling-test.el ends here

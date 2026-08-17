@@ -31,6 +31,7 @@
         pkgs: with pkgs; [
           coreutils-prefixed
           delta
+          gh
           github-copilot-cli
           marksman
           nixd
@@ -156,32 +157,6 @@
                 };
               });
 
-              # org: GNU ELPA has deleted the uncompressed org-9.8.7.tar that
-              # nixpkgs still pins (only the .lz remains), so the fixed-output
-              # fetch falls back to the .lz whose hash differs from the pinned
-              # .tar hash -- breaking every build that fetches org fresh (CI). It
-              # passes locally only because org is substituted from the binary
-              # cache. nixpkgs master is equally stale (still 9.8.7 -> the dead
-              # .tar), so bumping the input does not help. Rebuild org against
-              # ELPA's current release 9.8.8, whose plain tarball is still
-              # served, mirroring nixpkgs' own elpa-generated.nix definition.
-              # Propagates to org-modern and the other org dependents in scope.
-              # Revisit once nixpkgs regenerates elpa-generated.nix past 9.8.7.
-              org = _efinal.elpaBuild {
-                pname = "org";
-                ename = "org";
-                version = "9.8.8";
-                src = final.fetchurl {
-                  url = "https://elpa.gnu.org/packages/org-9.8.8.tar";
-                  hash = "sha256-oF8gH3O9mj+SeiF1DJSlregspzEDlNO99f2h2dhwt2Y=";
-                };
-                packageRequires = [ ];
-                meta = {
-                  homepage = "https://elpa.gnu.org/packages/org.html";
-                  license = final.lib.licenses.free;
-                };
-              };
-
               # zk4e: Emacs interface for the zk-org CLI (config.org uses it for
               # note browsing/creation). Not in nixpkgs, so build from source.
               # The Citar integration file is dropped so tomlparse is the only
@@ -221,6 +196,8 @@
               catppuccin-theme
               consult
               consult-flycheck
+              consult-gh
+              consult-gh-embark
               corfu
               corfu-prescient
               diff-hl
@@ -310,6 +287,7 @@
         # eglot-server-programs / executable-find references in config.org:
         #   coreutils-prefixed            -> gls                                (config.org: dired setup)
         #   delta                         -> syntax-highlighted Magit diffs      (magit-delta-delta-executable)
+        #   gh                            -> GitHub CLI consult-gh drives        (consult-gh)
         #   github-copilot-cli            -> agent-shell Copilot ACP agent (bin: copilot) (agent-shell-github-acp-command)
         #   marksman                      -> Markdown LSP                        (eglot-server-programs)
         #   nixd                          -> Nix LSP                             (eglot's own nix-mode alternatives)
@@ -476,6 +454,18 @@
             cp -r ${self}/. work
             chmod -R u+w work
             cd work
+
+            # jinx needs a libenchant backend or its test can only skip. macOS
+            # has AppleSpell, but the sandbox cannot reach the spell service and
+            # Linux has no dictionary at all, so supply a hunspell one here.
+            # `ENCHANT_CONFIG_DIR' rather than `XDG_CONFIG_HOME': enchant
+            # searches both, and this one cannot disturb Emacs' own XDG lookups.
+            # en_GB must match `jinx-languages' in config.org.
+            export ENCHANT_CONFIG_DIR=$PWD/.enchant
+            mkdir -p "$ENCHANT_CONFIG_DIR/hunspell"
+            cp ${pkgs.hunspellDicts.en_GB-ise}/share/hunspell/en_GB.aff \
+               ${pkgs.hunspellDicts.en_GB-ise}/share/hunspell/en_GB.dic \
+               "$ENCHANT_CONFIG_DIR/hunspell/"
             ${pkgs.emacs-dotemacs-ci}/bin/emacs --batch \
               --eval "(require 'org)" \
               --eval '(org-babel-tangle-file "config.org" "config.el")'
@@ -589,6 +579,12 @@
                   default = [ ];
                 };
                 options.home.file = pkgs.lib.mkOption {
+                  type = pkgs.lib.types.attrs;
+                  default = { };
+                };
+                # The module places an enchant dictionary here on Linux, so jinx
+                # has a backend; see nix/hm-module.nix.
+                options.xdg.configFile = pkgs.lib.mkOption {
                   type = pkgs.lib.types.attrs;
                   default = { };
                 };

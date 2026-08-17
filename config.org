@@ -1466,6 +1466,35 @@ double up.
   (magit-delta-default-dark-theme "Catppuccin Mocha"))
 #+end_src
 
+** GitHub (consult-gh)
+
+[[https://github.com/armindarvish/consult-gh][=consult-gh=]] is a Consult front
+end for the =gh= CLI: repositories, issues, pull requests and notifications come
+back as completion candidates with previews, and the usual Consult narrowing and
+Embark actions apply. =gh= is in the tool closure, but it must be *authenticated*
+-- =gh auth login= -- or every command returns nothing.
+
+=consult-gh-embark= is a separate package and is what puts the candidates on
+=embark-act=, so it is worth having given [[*Actions (Embark)][Embark]] is
+already here.
+
+Previews are off by default upstream (=consult-gh-show-preview= is nil) because
+each one is an API call; they are enabled here with the same debounce as the rest
+of [[*Consult][Consult]], so scrolling a result list does not fetch every item.
+
+#+begin_src emacs-lisp
+(use-package consult-gh
+  :after consult
+  :custom
+  (consult-gh-show-preview t)
+  (consult-gh-preview-key consult-preview-key))
+
+(use-package consult-gh-embark
+  :after (consult-gh embark)
+  :config
+  (consult-gh-embark-mode 1))
+#+end_src
+
 ** TODO items (magit-todos)
 
 [[https://github.com/alphapapa/magit-todos][=magit-todos=]] scans the repo's
@@ -1643,6 +1672,11 @@ backend) or =agent-shell-github-start-copilot= directly.
   (evil-define-key 'normal 'global (kbd "<leader> g d") 'magit-diff-buffer-file)
   (evil-define-key 'normal 'global (kbd "<leader> g D") 'diff-hl-show-hunk)
   (evil-define-key 'normal 'global (kbd "<leader> g t") 'magit-todos-list)
+  ;; GitHub, via consult-gh. `h' for the dashboard (everything assigned to or
+  ;; mentioning you), then issues and pull requests for the current repo.
+  (evil-define-key 'normal 'global (kbd "<leader> g h") 'consult-gh-dashboard)
+  (evil-define-key 'normal 'global (kbd "<leader> g i") 'consult-gh-issue-list)
+  (evil-define-key 'normal 'global (kbd "<leader> g p") 'consult-gh-pr-list)
   (evil-define-key 'normal 'global (kbd "<leader> g b") 'vc-annotate)
 
   ;; Buffers

@@ -78,6 +78,28 @@ in
   config = lib.mkIf cfg.enable {
     home.packages = cfg.tools ++ lib.optional (cfg.package != null) cfg.package;
 
+    # jinx spell-checks through libenchant, which picks a backend at runtime.
+    # macOS gets `enchant_applespell.so' and uses the system dictionary with
+    # nothing installed; elsewhere enchant needs a hunspell dictionary on its own
+    # search path, and finds none by default under Nix -- jinx then warns once
+    # and silently checks nothing. `DICPATH' does not help: that is hunspell's
+    # variable, not enchant's. `$XDG_CONFIG_HOME/enchant/hunspell' is one of the
+    # directories enchant does search, verified with `enchant-lsmod-2
+    # -list-dicts' reporting `en_GB (hunspell)'.
+    #
+    # en_GB rather than en_NZ: no backend provides en_NZ, and en_GB takes NZ
+    # spelling. It must match `jinx-languages' in config.org.
+    xdg.configFile = lib.mkIf pkgs.stdenv.hostPlatform.isLinux (
+      lib.genAttrs
+        [
+          "enchant/hunspell/en_GB.aff"
+          "enchant/hunspell/en_GB.dic"
+        ]
+        (name: {
+          source = "${pkgs.hunspellDicts.en_GB-ise}/share/hunspell/${baseNameOf name}";
+        })
+    );
+
     home.file.".emacs.d".source =
       if cfg.configPath != null then config.lib.file.mkOutOfStoreSymlink cfg.configPath else self;
   };
