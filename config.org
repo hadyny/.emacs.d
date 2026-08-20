@@ -1578,6 +1578,8 @@ downloaded at runtime. Launch with =<leader> o t= (or =M-x ghostel=).
          :map project-prefix-map
          ("t" . ghostel-project)
          ("T" . ghostel-project-list-buffers))
+    :init
+    (setq ghostel-line-spacing 4)
     :config
     (add-to-list 'project-switch-commands '(ghostel-project "Ghostel") t)
     (add-to-list 'project-switch-commands '(ghostel-project-list-buffers "Ghostel buffers") t)
