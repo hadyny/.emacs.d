@@ -470,12 +470,19 @@ Mono)
 once per known recipe (around 190 checks), each a filesystem probe for that
 language's shared library. That is the single biggest cost in opening any file
 here: profiling a plain file open showed ~0.9s of a ~1.1s =normal-mode= inside
-this one rebuild, repeated identically on the next file and the one after that,
-since nothing caches it.
+this one rebuild. Once the OS page cache is warm for those ~190 shared
+libraries the probes are cheap, which is why the delay seemed to go away after
+the first file or two -- but it comes straight back for the first file opened
+after a restart, which is exactly what "switch to a project, then open a file"
+usually is.
 
 The grammars on disk barely change once installed, so the fix is a cache:
-build the remap alist once and reuse it, and only rebuild after
-=treesit-auto--maybe-install-grammar= actually installs something new.
+build the remap alist once, eagerly, right here at startup rather than
+lazily on the first file, so the one-time cost lands during Emacs' own
+startup instead of during a later interactive file open. It only needs
+rebuilding when =treesit-auto--maybe-install-grammar= is about to actually
+attempt an install (i.e. the recipe is not yet ready) -- not every time it
+merely runs, which is on every file whose language it already recognises.
 
 #+begin_src emacs-lisp
 (use-package treesit-auto
@@ -497,10 +504,21 @@ does not change between one file and the next.")
                 (or my/treesit-auto-remap-alist-cache
                     (setq my/treesit-auto-remap-alist-cache (apply orig args)))))
 
-  ;; Invalidate once a grammar is actually (re)installed, so a language that
-  ;; was missing at the last rebuild gets picked up on the next file open.
-  (advice-add #'treesit-auto--maybe-install-grammar :after
-              (lambda (&rest _) (setq my/treesit-auto-remap-alist-cache nil))))
+  ;; Only invalidate when a grammar recipe is not yet ready, i.e. right
+  ;; before `treesit-auto--maybe-install-grammar' might actually install one
+  ;; -- not on every call, which happens on every file whose language is
+  ;; already installed and would otherwise throw the cache away each time.
+  (advice-add #'treesit-auto--maybe-install-grammar :before
+              (lambda (&rest _)
+                (when-let* ((recipe (treesit-auto--get-mode-recipe))
+                            (ts-mode (treesit-auto-recipe-ts-mode recipe))
+                            ((not (treesit-auto--ready-p ts-mode))))
+                  (setq my/treesit-auto-remap-alist-cache nil))))
+
+  ;; Prime the cache now, during startup, rather than paying for it on
+  ;; whichever file happens to be opened first.
+  (setq my/treesit-auto-remap-alist-cache
+        (treesit-auto--build-major-mode-remap-alist)))
 #+end_src
 
 * Mode-line
