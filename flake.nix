@@ -31,7 +31,6 @@
         pkgs: with pkgs; [
           coreutils-prefixed
           delta
-          gh
           github-copilot-cli
           marksman
           nixd
@@ -194,10 +193,6 @@
               auto-dark
               cape
               catppuccin-theme
-              consult
-              consult-flycheck
-              consult-gh
-              consult-gh-embark
               corfu
               corfu-prescient
               diff-hl
@@ -211,34 +206,31 @@
               # load-path ahead of the bundled copies.
               eglot
               eldoc-box
-              embark
-              embark-consult
               evil
               evil-collection
               evil-surround
               exec-path-from-shell
               flycheck
               gcmh
+              helm
+              helm-flycheck
+              helm-xref
               helpful
               jinx
               magit
               magit-delta
               magit-todos
-              marginalia
               markdown-mode
               mixed-pitch
               mood-line
               nerd-icons
               nerd-icons-corfu
               nix-mode
-              orderless
               org-modern
               org-super-agenda
               prescient
               smartparens
               treesit-auto
-              vertico
-              vertico-prescient
               wgrep
               which-key
               yasnippet
@@ -287,13 +279,12 @@
         # eglot-server-programs / executable-find references in config.org:
         #   coreutils-prefixed            -> gls                                (config.org: dired setup)
         #   delta                         -> syntax-highlighted Magit diffs      (magit-delta-delta-executable)
-        #   gh                            -> GitHub CLI consult-gh drives        (consult-gh)
         #   github-copilot-cli            -> agent-shell Copilot ACP agent (bin: copilot) (agent-shell-github-acp-command)
         #   marksman                      -> Markdown LSP                        (eglot-server-programs)
         #   nixd                          -> Nix LSP                             (eglot's own nix-mode alternatives)
         #   nixfmt                        -> .nix formatting                     (apheleia's built-in nixfmt)
         #   rassumfrassum                 -> rass, the LSP multiplexer for TS/TSX (eglot-server-programs)
-        #   ripgrep                       -> rg for consult-ripgrep + magit-todos' scanner (magit-todos--choose-scanner)
+        #   ripgrep                       -> rg for helm-do-grep-ag + magit-todos' scanner (magit-todos--choose-scanner)
         #   roslyn-ls                     -> Microsoft.CodeAnalysis.LanguageServer (eglot-server-programs)
         #   tailwindcss-language-server   -> Tailwind class completion in TS/TSX   (rass tslint -- ...)
         #   typescript-language-server    -> TypeScript/TSX LSP                    (rass tslint preset)
@@ -491,13 +482,13 @@
             ${pkgs.emacs-dotemacs-ci}/bin/emacs --batch \
               --eval "(progn \
                         (package-activate-all) \
-                        (dolist (fn '(gcmh-mode marginalia-mode exec-path-from-shell-initialize \
-                                      corfu-mode corfu-history-mode vertico-mode evil-mode \
+                        (dolist (fn '(gcmh-mode helm-mode exec-path-from-shell-initialize \
+                                      corfu-mode corfu-history-mode evil-mode \
                                       doom-themes-visual-bell-config which-key-mode \
                                       apheleia-global-mode agent-shell \
                                       magit-todos-mode magit-todos-list \
                                       mixed-pitch-mode dirvish-override-dired-mode \
-                                      org-super-agenda-mode consult-flycheck \
+                                      org-super-agenda-mode helm-flycheck \
                                       flycheck-mode global-flycheck-annotate-mode \
                                       global-flycheck-eglot-mode)) \
                           (unless (fboundp fn) \

@@ -1,28 +1,23 @@
 ;;; file-open-cost-test.el --- Tests for the cost of opening a file -*- lexical-binding: t; -*-
 
-;; Consult previews a candidate by opening the real file.  Every previewed file
-;; therefore runs `find-file-hook' and the mode hooks.  Navigation through a
-;; result list opens many files in a short time, so anything costly on that path
-;; is felt as lag.  These tests pin the three limits that keep the path cheap.
+;; `find-file-hook' and the mode hooks run on every file a command opens, and
+;; some commands (project switching, wgrep sessions, Magit) open many files in
+;; a short time, so anything costly on that path is felt as lag. These tests
+;; pin the two limits that keep the path cheap.
 ;;
-;; 1. `consult-preview-key' is not the eager default.  The default is `any', so
-;;    Consult moves the preview on each keystroke and opens each candidate in
-;;    turn.  A debounce lets fast scrolling pass over a candidate without an
-;;    open.
-;;
-;; 2. The diff-hl *global* modes are enabled once, not for each file.
+;; 1. The diff-hl *global* modes are enabled once, not for each file.
 ;;    `global-diff-hl-mode' is a globalized minor mode, so each enable walks
 ;;    `buffer-list' and turns `diff-hl-mode' on in every buffer.  Enabling it
 ;;    from `find-file-hook' repeated that walk for each file, over a buffer list
-;;    that the previews themselves make longer.  The trigger stays on
+;;    that opening many files at once makes longer.  The trigger stays on
 ;;    `find-file-hook' to keep the package deferred, but it must remove itself
 ;;    after the first file.
 ;;
-;; 3. Flycheck does not start a check when a buffer opens.  In a TS buffer
+;; 2. Flycheck does not start a check when a buffer opens.  In a TS buffer
 ;;    without an Eglot connection the checker is `javascript-eslint', and one run
 ;;    takes approximately 6 seconds.  See eglot-multiserver-test.el.
 ;;
-;; All three tests are structural: they read the tangled config.el, so they run
+;; Both tests are structural: they read the tangled config.el, so they run
 ;; anywhere.
 
 ;;; Code:
@@ -69,21 +64,7 @@ keeps this independent of the many shapes a `:hook' entry can take."
             (push printed hits)))))
     hits))
 
-;;; 1 -- Consult preview
-
-(ert-deftest file-open-cost/consult-preview-is-not-eager ()
-  "Consult does not open a candidate on each keystroke.
-The `consult-preview-key' default is `any'.  Any other value is acceptable
-here: what matters is that the eager default is not left in place."
-  ;; Arrange / Act
-  (let* ((form (foc-test--use-package-form 'consult))
-         (value (foc-test--custom-value form 'consult-preview-key)))
-    ;; Assert
-    (should form)
-    (should-not (eq value 'unset))
-    (should-not (eq value 'any))))
-
-;;; 2 -- diff-hl global modes
+;;; 1 -- diff-hl global modes
 
 (ert-deftest file-open-cost/diff-hl-globals-live-in-a-named-function ()
   "No inline lambda enables a diff-hl global mode.
@@ -119,12 +100,12 @@ default that work repeats while you type."
     (should (numberp value))
     (should (>= value 1))))
 
-;;; 3 -- Flycheck on open
+;;; 2 -- Flycheck on open
 
 (ert-deftest file-open-cost/flycheck-does-not-check-on-open ()
   "Opening a TS buffer does not start a check.
 `mode-enabled' would start the approximately 6 second ESLint CLI run for each
-file that Consult previews."
+TS buffer a command opens."
   ;; Arrange / Act -- the value is set with `setq-local' on the TS mode hooks.
   (let (triggers)
     (dolist (form (cfg-test-read-forms))

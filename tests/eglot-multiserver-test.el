@@ -299,7 +299,7 @@ diagnostic immediately, and the limit throttles only the CLI checker."
       ;; A typing trigger is refused, which is the point of the limit.
       (should-not (flycheck-may-check-automatically 'idle-change))
       (should-not (flycheck-may-check-automatically 'new-line))
-      ;; `mode-enabled' is refused too, so a Consult preview costs nothing.
+      ;; `mode-enabled' is refused too, so opening a buffer costs nothing.
       (should-not (flycheck-may-check-automatically 'mode-enabled))
       (should (flycheck-may-check-automatically 'save)))))
 

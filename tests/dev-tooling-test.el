@@ -12,7 +12,7 @@
 ;;   Emacs and `next-error' has a compilation buffer to walk.
 ;;
 ;; * evil-surround, wgrep, jinx, editorconfig.  See the config for each.  `wgrep'
-;;   is what makes an `embark-export'ed grep buffer editable, which is the
+;;   is what makes a saved Helm grep buffer editable, which is the
 ;;   project-wide refactor path this config was one package short of.
 ;;
 ;; `envrc' is deliberately absent, and asserted so: it shells out to direnv
@@ -213,30 +213,6 @@ cannot disagree."
     ;; Apheleia knows nix already; a local override would be dead weight.
     (should-not (string-match-p "apheleia-formatters" code))
     (should-not (string-match-p "apheleia-mode-alist" code))))
-
-(ert-deftest dev-tooling/github-client-is-wired ()
-  "consult-gh is installed with its Embark integration, and `gh' is on PATH.
-consult-gh drives the `gh' CLI, so an absent binary is a runtime failure rather
-than a load error -- the same shape as magit-delta and `delta'.  The Embark
-package is separate from the main one and is what gives the consult-gh
-candidates an `embark-act' menu."
-  ;; Arrange / Act
-  (let ((packages (cfg-test-nix-list "dotemacsPackageList"))
-        (tools (cfg-test-nix-list "emacsToolsFor"))
-        (configured (dt-test--use-package-names)))
-    ;; Assert
-    (should (member "consult-gh" packages))
-    (should (member "consult-gh-embark" packages))
-    (should (member "gh" tools))
-    (should (memq 'consult-gh configured))
-    (should (memq 'consult-gh-embark configured))))
-
-(ert-deftest dev-tooling/github-client-has-an-entry-point ()
-  "At least one consult-gh command is on the leader map."
-  ;; Arrange / Act
-  (let ((code (mapconcat #'identity (dt-test--bindings) " ")))
-    ;; Assert
-    (should (string-match-p "consult-gh" code))))
 
 (provide 'dev-tooling-test)
 ;;; dev-tooling-test.el ends here

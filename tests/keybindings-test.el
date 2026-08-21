@@ -70,7 +70,7 @@ Each entry is (:state S :map M :key KEY-STRING :cmd SYMBOL-or-nil)."
 ;; best-effort before checking so the test flags only genuinely undefined
 ;; commands (typos, or packages absent from the Nix closure) rather than
 ;; merely-unloaded ones. Deliberately minimal: packages whose bound commands
-;; are already autoloaded (consult, magit, embark, ...) are omitted -- notably
+;; are already autoloaded (helm, magit, ...) are omitted -- notably
 ;; `magit', whose load shells out to `git', absent in the Nix build sandbox.
 (defconst kb-test--command-features
   '(flycheck diff-hl eglot)

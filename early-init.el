@@ -7,7 +7,7 @@
 ;; Keep package.el enabled: Nix installs Emacs packages into an `elpa'
 ;; directory on `package-directory-list', and `package-activate-all' (run at
 ;; startup only when this is non-nil) is what loads their autoloads. Disabling
-;; it leaves every package function void (e.g. gcmh-mode, marginalia-mode).
+;; it leaves every package function void (e.g. gcmh-mode, helm-mode).
 (setq package-enable-at-startup t)
 
 ;; Increase garbage collection threshold for faster startup. `gcmh' (configured
