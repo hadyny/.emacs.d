@@ -464,13 +464,43 @@ Mono)
 
 * Tree-sitter
 
+=global-treesit-auto-mode= advises =set-auto-mode-0= to rebuild
+=major-mode-remap-alist= from scratch on /every/ file opened --
+=treesit-auto--build-major-mode-remap-alist= calls =treesit-language-available-p=
+once per known recipe (around 190 checks), each a filesystem probe for that
+language's shared library. That is the single biggest cost in opening any file
+here: profiling a plain file open showed ~0.9s of a ~1.1s =normal-mode= inside
+this one rebuild, repeated identically on the next file and the one after that,
+since nothing caches it.
+
+The grammars on disk barely change once installed, so the fix is a cache:
+build the remap alist once and reuse it, and only rebuild after
+=treesit-auto--maybe-install-grammar= actually installs something new.
+
 #+begin_src emacs-lisp
 (use-package treesit-auto
   :custom
   (treesit-auto-install 'prompt)
   :config
   (treesit-auto-add-to-auto-mode-alist 'all)
-  (global-treesit-auto-mode t))
+  (global-treesit-auto-mode t)
+
+  (defvar my/treesit-auto-remap-alist-cache nil
+    "Cached result of `treesit-auto--build-major-mode-remap-alist'.
+`global-treesit-auto-mode' rebuilds that alist -- one
+`treesit-language-available-p' filesystem probe per known recipe -- on every
+file opened, which costs the better part of a second even though the answer
+does not change between one file and the next.")
+
+  (advice-add #'treesit-auto--build-major-mode-remap-alist :around
+              (lambda (orig &rest args)
+                (or my/treesit-auto-remap-alist-cache
+                    (setq my/treesit-auto-remap-alist-cache (apply orig args)))))
+
+  ;; Invalidate once a grammar is actually (re)installed, so a language that
+  ;; was missing at the last rebuild gets picked up on the next file open.
+  (advice-add #'treesit-auto--maybe-install-grammar :after
+              (lambda (&rest _) (setq my/treesit-auto-remap-alist-cache nil))))
 #+end_src
 
 * Mode-line
