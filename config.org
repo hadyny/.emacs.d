@@ -452,6 +452,39 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
 ;; italic slant are re-applied from the flavour hook, which is enough.
 #+end_src
 
+** Ligatures
+
+Maple Mono ships the same Fira Code/Cascadia-style ligature set (arrows,
+comparisons, punctuation runs) via its `calt' table, which is meant to draw
+each ligature as independent partial glyphs with nothing composed -- but that
+did not render here in practice. =ligature.el= composes the pair explicitly
+instead. It works by rewriting =composition-function-table=, which is plain
+character-table manipulation with no window-system dependency, so it is
+harmless (just invisible) on a terminal-only build.
+
+#+begin_src emacs-lisp
+(use-package ligature
+  :config
+  ;; The standard Cascadia Code / Fira Code superset from ligature.el's own
+  ;; README. Emacs skips whichever glyphs the active font does not shape, so
+  ;; listing more than Maple Mono supports is harmless.
+  (ligature-set-ligatures 'prog-mode
+                          '("|||>" "<|||" "<==>" "<!--" "####" "~~>" "***" "||=" "||>"
+                            ":::" "::=" "=:=" "===" "==>" "=!=" "=>>" "=<<" "=/=" "!=="
+                            "!!." ">=>" ">>=" ">>>" ">>-" ">->" "->>" "-->" "---" "-<<"
+                            "<~~" "<~>" "<*>" "<||" "<|>" "<$>" "<==" "<=>" "<=<" "<->"
+                            "<--" "<-<" "<<=" "<<-" "<<<" "<+>" "</>" "###" "#_(" "..<"
+                            "..." "+++" "/==" "///" "_|_" "www" "&&" "^=" "~~" "~@" "~="
+                            "~>" "~-" "**" "*>" "*/" "||" "|}" "|]" "|=" "|>" "|-" "{|"
+                            "[|" "]#" "::" ":=" ":>" ":<" "$>" "==" "=>" "!=" "!!" ">:"
+                            ">=" ">>" ">-" "-~" "-|" "->" "--" "-<" "<~" "<*" "<|" "<:"
+                            "<$" "<=" "<>" "<-" "<<" "<+" "</" "#{" "#[" "#:" "#=" "#!"
+                            "##" "#(" "#?" "#_" "%%" ".=" ".-" ".." ".?" "+>" "++" "?:"
+                            "?=" "?." "??" ";;" "/*" "/=" "/>" "//" "__" "(*" "*)"
+                            "\\\\" "://"))
+  (global-ligature-mode t))
+#+end_src
+
 ** Mixed pitch (prose)
 
 [[https://gitlab.com/jabranham/mixed-pitch][=mixed-pitch=]] renders body text in the =variable-pitch= face (Inter) while

@@ -217,6 +217,7 @@
               helm-xref
               helpful
               jinx
+              ligature
               magit
               magit-delta
               magit-todos
@@ -490,7 +491,7 @@
                                       mixed-pitch-mode dirvish-override-dired-mode \
                                       org-super-agenda-mode helm-flycheck \
                                       flycheck-mode global-flycheck-annotate-mode \
-                                      global-flycheck-eglot-mode)) \
+                                      global-flycheck-eglot-mode global-ligature-mode)) \
                           (unless (fboundp fn) \
                             (error \"not autoloaded (package activation broken?): %s\" fn))) \
                         (message \"package activation + custom packages OK\"))"

@@ -14,10 +14,9 @@
 ;;   * `italic', comment and keyword lose their *slant*, so a light/dark switch
 ;;     (or auto-dark's startup re-apply) would drop italics everywhere.
 ;;
-;; Ligatures need no package: Maple Mono's `calt' holds chaining lookups that
-;; swap each character for a partial glyph, so `->' reads as an arrow across two
-;; cells with nothing composed.  Adding `ligature' would compose the pair and
-;; fight the font, so its absence is asserted.
+;; Ligatures: Maple Mono's `calt' can draw its arrows without composition, but
+;; in practice that did not render here, so `ligature.el' composes the pair
+;; instead -- see the Ligatures section in config.org.
 
 ;;; Code:
 
@@ -81,14 +80,20 @@ found and changed again next time the font moves."
     (should (string-match-p ":font \"Maple Mono NF\"" printed))
     (should-not (string-match-p ":family" printed))))
 
-(ert-deftest font-faces/ligature-package-is-not-wired ()
-  "`ligature' stays out: Maple Mono draws its arrows without composition."
+(ert-deftest font-faces/ligature-package-is-wired ()
+  "`ligature' is installed and configured for `prog-mode'.
+Maple Mono's `calt' did not render its ligatures here in practice, so
+`ligature.el' composes them instead."
   ;; Arrange / Act
   (let ((packages (cfg-test-nix-list "dotemacsPackageList"))
-        (code (prin1-to-string (cfg-test-read-forms))))
+        (configured (let (names)
+                      (dolist (form (cfg-test-read-forms))
+                        (dolist (up (cfg-test-find-all form 'use-package))
+                          (push (nth 1 up) names)))
+                      names)))
     ;; Assert
-    (should-not (member "ligature" packages))
-    (should-not (string-match-p "ligature" code))))
+    (should (member "ligature" packages))
+    (should (memq 'ligature configured))))
 
 (ert-deftest font-faces/no-top-level-face-reads ()
   "No top-level form reads a realised face value.
