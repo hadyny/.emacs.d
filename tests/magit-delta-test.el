@@ -13,12 +13,12 @@
 ;; from the frame's `background-mode'.  Its own defaults are "GitHub" and
 ;; "Monokai Extended", which clash with anything.
 ;;
-;; delta 0.19.2 has *no* Tokyo Night syntax theme -- `delta --list-syntax-themes'
-;; lists 28, four Catppuccin and no Tokyo.  So the Catppuccin pair stays as the
-;; nearest built-in stand-in: Mocha (#1e1e2e) sits close to Tokyo Night
-;; (#1a1b26), and Latte to Tokyo Night Day.  The tests below pin that deliberate
-;; choice, including the light/dark orientation -- getting it backwards gives a
-;; light Emacs frame a dark diff.
+;; delta 0.19.2 has *no* Modus Themes syntax theme -- `delta --list-syntax-themes'
+;; lists 28, four Catppuccin and no Modus.  So the Catppuccin pair stays as the
+;; nearest built-in stand-in: Mocha (#1e1e2e) sits close to Modus Vivendi Tinted
+;; (#0d0e1c), and Latte to Modus Operandi Tinted (#fbf7f0).  The tests below pin
+;; that deliberate choice, including the light/dark orientation -- getting it
+;; backwards gives a light Emacs frame a dark diff.
 ;;
 ;; Structural only: these parse the tangled config.el and flake.nix, so they run
 ;; anywhere.
@@ -72,9 +72,9 @@
 
 (ert-deftest magit-delta/syntax-themes-are-the-nearest-built-in-pair ()
   "The delta themes stay on the Catppuccin pair, oriented light/dark correctly.
-Both are built into delta 0.19.2; Tokyo Night is not, so naming it here would
+Both are built into delta 0.19.2; Modus Themes is not, so naming it here would
 make delta fall back to its own default and un-highlight every diff.  The
-Emacs-side variant map lives in `my/tokyo-night-variant-for' and is deliberately
+Emacs-side variant map lives in `my/modus-variant-for' and is deliberately
 *not* coupled to these strings."
   ;; Arrange / Act
   (let ((light (md-test--custom-value 'magit-delta-default-light-theme))
@@ -82,8 +82,8 @@ Emacs-side variant map lives in `my/tokyo-night-variant-for' and is deliberately
     ;; Assert
     (should (equal light "Catppuccin Latte"))
     (should (equal dark "Catppuccin Mocha"))
-    ;; Guard the tempting "fix": delta has no Tokyo Night theme to name.
-    (should-not (string-match-p "[Tt]okyo" (concat light " " dark)))))
+    ;; Guard the tempting "fix": delta has no Modus Themes theme to name.
+    (should-not (string-match-p "[Mm]odus" (concat light " " dark)))))
 
 (provide 'magit-delta-test)
 ;;; magit-delta-test.el ends here

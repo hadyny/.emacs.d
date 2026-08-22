@@ -7,7 +7,7 @@
 ;;
 ;; With one family for code, no face needs its own: an unspecified family falls
 ;; through to `default' at render time.  Only two things fail to survive the
-;; `load-theme' of a Tokyo Night variant and must be re-applied from the
+;; `load-theme' of a Modus Themes variant and must be re-applied from the
 ;; appearance hook, the same reason `my/apply-diff-hl-faces' exists:
 ;;
 ;;   * `default' is themed, so loading a variant strips family/height/weight;

@@ -89,12 +89,39 @@ while idle, moving collection out of interactive work.
 (add-to-list 'default-frame-alist '(height                 . 45))
 (add-to-list 'default-frame-alist '(min-width              . 1))
 (add-to-list 'default-frame-alist '(width                  . 100))
-(add-to-list 'default-frame-alist '(internal-border-width  . 18))
-;; Left fringe wide enough for diff-hl's fringe bitmaps (GUI); right fringe
-;; stays minimal. In the terminal diff-hl falls back to margin indicators.
-(add-to-list 'default-frame-alist '(left-fringe            . 8))
-(add-to-list 'default-frame-alist '(right-fringe           . 1))
 (setq-default line-spacing 0.2)
+#+end_src
+
+** Spacious padding
+
+[[https://github.com/protesilaos/spacious-padding][=spacious-padding=]] owns the internal border, fringes and window dividers --
+one place instead of the =default-frame-alist= entries this used to be spread
+across.
+
+=:left-fringe-width= / =:right-fringe-width= keep the previous asymmetry: wide
+enough on the left for diff-hl's fringe bitmaps (GUI only; the terminal falls
+back to margin indicators), minimal on the right. =:internal-border-width=
+keeps the previous value; header line, tab and divider widths are left at
+spacious-padding's own defaults.
+
+=:mode-line-width= is 0 -- spacious-padding adds no box of its own to the mode
+line at all. [[*Mode-line][Moody]]'s tabs/ribbons need the mode line free of
+any box (its own README says a box "conflicts with Moody"), and
+=my/apply-modus-variant= (see [[*Themes][Themes]]) already strips Modus
+Themes' own box while keeping the background contrast Moody needs -- a
+second, spacious-padding-added box here would reintroduce the same conflict
+from a different source.
+
+#+begin_src emacs-lisp
+(use-package spacious-padding
+  :custom
+  (spacious-padding-widths
+   '( :internal-border-width 18
+      :left-fringe-width 8
+      :right-fringe-width 1
+      :mode-line-width 0))
+  :config
+  (spacious-padding-mode 1))
 #+end_src
 
 ** Fallback glyphs
@@ -267,84 +294,151 @@ keybindings section), which toggles it.
 
 ** Themes
 
-Auto-switches Catppuccin between Latte (light) and Mocha (dark) following the
-system appearance. [[https://github.com/LionyxML/auto-dark-emacs][=auto-dark=]] provides the detection cross-platform (D-Bus on
-Linux, =ns-system-appearance=/AppleScript/=osascript= on macOS), so this works
-the same on Linux and Darwin, in GUI and terminal frames. When no detection
-mechanism exists (e.g. a Linux TTY with no D-Bus session bus) it falls back to a
-fixed dark flavor rather than warning at startup.
+Auto-switches [[https://github.com/protesilaos/modus-themes][Modus Themes]] between Operandi Tinted (light) and Vivendi
+Tinted (dark) following the system appearance. [[https://github.com/LionyxML/auto-dark-emacs][=auto-dark=]] provides the
+detection cross-platform (D-Bus on Linux, =ns-system-appearance=/AppleScript/
+=osascript= on macOS), so this works the same on Linux and Darwin, in GUI and
+terminal frames. When no detection mechanism exists (e.g. a Linux TTY with no
+D-Bus session bus) it falls back to a fixed dark variant rather than warning
+at startup.
+
+Modus Themes comes from GNU ELPA rather than the copy bundled with Emacs 30.2,
+which is 4.4.0 -- a full major version behind the =5.3.0= this configuration
+otherwise tracks. It arrives through the Nix package set like every other
+package, so there is no =:ensure nil= here.
+
+=modus-themes-load-theme= is used instead of a plain =load-theme=: it already
+disables every other Modus variant before loading the new one (=load-theme=
+stacks rather than replaces, so a lingering variant would leave faces neither
+theme specifies showing through with the wrong colours), and it passes
+=:no-confirm= to =load-theme= itself, so nothing needs to go in
+=custom-safe-themes= for either variant to load without a prompt.
+
+Modus Themes still boxes =mode-line=/=mode-line-active=/=mode-line-inactive=
+when the display supports it, and unlike Tokyo Night it has no
+user option to turn that off -- the box is stripped by hand instead, every
+switch. [[*Mode-line][Moody]]'s tabs/ribbons draw the mode line's background
+as the "outer" colour around an "inner" fill taken from =default='s background
+(=moody-ribbon-background=, =moody-wrap=); a box around the mode line
+interrupts that slant graphic at the exact edge where a tab/ribbon would sit
+(the same reason [[*Spacious padding][Spacious padding]]'s own
+=:mode-line-width= is 0 here). Stripping the box does not touch the
+background itself -- Modus Themes already gives =mode-line-active=/
+=mode-line-inactive= their own =bg-mode-line-active=/=bg-mode-line-inactive=,
+distinct from =default='s =bg-main=, which is exactly the contrast Moody needs.
 
 #+begin_src emacs-lisp
-(use-package catppuccin-theme
+(use-package modus-themes
   :config
-  (defun my/catppuccin-flavor-for (appearance)
-    "Return the catppuccin flavor symbol for system APPEARANCE.
+  (defun my/modus-variant-for (appearance)
+    "Return the Modus Themes variant symbol for system APPEARANCE.
 APPEARANCE is `light' or `dark'.  Pure: no side effects, so it can be
 unit-tested without loading a theme."
-    (if (eq appearance 'light) 'latte 'mocha))
+    (if (eq appearance 'light) 'modus-operandi-tinted 'modus-vivendi-tinted))
   (defun my/apply-diff-hl-faces ()
-    "Colour the diff-hl faces from the active catppuccin flavor.
-Called on every flavor switch (and when diff-hl loads) so the fringe/margin
-indicators track Latte/Mocha instead of being pinned to one palette.
-No-op until diff-hl has loaded and defined its faces: the initial flavor is
+    "Colour the diff-hl faces from the active Modus Themes variant.
+Called on every variant switch (and when diff-hl loads) so the fringe/margin
+indicators track Operandi/Vivendi instead of being pinned to one palette.
+No-op until diff-hl has loaded and defined its faces: the initial variant is
 applied by the auto-dark block at startup, before the `:defer'red diff-hl
 package exists, and `set-face-attribute' on an undefined face errors.  The
 diff-hl block re-invokes this once its deffaces have run."
     (when (facep 'diff-hl-change)
       (set-face-attribute 'diff-hl-change nil :background 'unspecified
-                          :foreground (catppuccin-color 'blue))
+                          :foreground (modus-themes-get-color-value 'fg-changed))
       (set-face-attribute 'diff-hl-delete nil :background 'unspecified
-                          :foreground (catppuccin-color 'red))
+                          :foreground (modus-themes-get-color-value 'fg-removed))
       (set-face-attribute 'diff-hl-insert nil :background 'unspecified
-                          :foreground (catppuccin-color 'green))))
+                          :foreground (modus-themes-get-color-value 'fg-added))))
   (defun my/apply-font-faces ()
-    "Re-apply the font attributes `catppuccin-reload' strips.
+    "Re-apply the font attributes `load-theme' strips.
 Everything is Maple Mono NF now, so no face needs its own family: an
 unspecified family falls through to `default' at render time.  Two things do
-not survive a reload and must be re-applied from the flavour hook -- the same
-reason `my/apply-diff-hl-faces' exists:
+not survive a reload and must be re-applied from the appearance hook -- the
+same reason `my/apply-diff-hl-faces' exists:
 
-  * `default' is themed by catppuccin (fg/bg), so re-specifying it strips the
-    family, height and weight;
+  * `default' is themed by Modus Themes (fg/bg), so re-specifying it strips
+    the family, height and weight;
   * `italic', comment and keyword lose their *slant* entirely, so a light/dark
     switch (or auto-dark's startup re-apply) would drop italics everywhere."
     (set-face-attribute 'default nil :font "Maple Mono NF"
                         :height 140 :weight 'medium)
     (dolist (face '(italic font-lock-comment-face font-lock-keyword-face))
       (set-face-attribute face nil :slant 'italic)))
-  (defun my/apply-catppuccin-flavor (appearance)
-    "Set and reload the catppuccin flavor for system APPEARANCE (`light'/`dark')."
-    (setq catppuccin-flavor (my/catppuccin-flavor-for appearance))
-    (catppuccin-reload)
-    (let ((bg (face-attribute 'mode-line :background)))
-      (set-face-attribute 'mode-line nil :box `(:line-width 6 :color ,bg))
-      (set-face-attribute 'mode-line-inactive nil :box `(:line-width 6 :color ,bg)))
+  (defun my/apply-helm-faces ()
+    "Colour Helm's faces from the active Modus Themes variant.
+Modus Themes has no Helm support at all (nothing in its faces file even
+mentions Helm), so Helm otherwise keeps its own upstream defaults, which were
+never designed against this palette and clash with it.  Called on every
+variant switch, the same way `my/apply-diff-hl-faces' is; the
+`helm-files'/`helm-grep' faces are additionally covered from
+`with-eval-after-load' below, since those submodules load lazily, well after
+`helm' itself and its core faces.
+
+Every face is set through a `facep' guard rather than assumed present:
+Helm's own face list has already moved between versions once here
+(`helm-selection-line' does not exist in the version this was written
+against), and a version bump elsewhere is not a good reason for this to
+start erroring."
+    (when (facep 'helm-selection)
+      (cl-flet ((set-if-exists (face &rest attrs)
+                  (when (facep face)
+                    (apply #'set-face-attribute face nil attrs))))
+        (let ((bg-dim (modus-themes-get-color-value 'bg-dim))
+              (bg-completion (modus-themes-get-color-value 'bg-completion))
+              (bg-hover (modus-themes-get-color-value 'bg-hover))
+              (fg-dim (modus-themes-get-color-value 'fg-dim))
+              (blue (modus-themes-get-color-value 'blue))
+              (cyan (modus-themes-get-color-value 'cyan))
+              (green (modus-themes-get-color-value 'green))
+              (yellow (modus-themes-get-color-value 'yellow))
+              (magenta (modus-themes-get-color-value 'magenta)))
+          (set-if-exists 'helm-source-header
+                         :background bg-dim :foreground blue :weight 'bold :box nil)
+          (set-if-exists 'helm-header :background bg-dim :foreground blue)
+          (set-if-exists 'helm-selection :background bg-completion)
+          (set-if-exists 'helm-selection-line :background bg-completion)
+          (set-if-exists 'helm-visible-mark :background bg-hover :foreground green)
+          (set-if-exists 'helm-match :foreground magenta :weight 'bold)
+          (set-if-exists 'helm-match-item :foreground magenta :weight 'bold)
+          (set-if-exists 'helm-candidate-number :foreground cyan :weight 'bold)
+          (set-if-exists 'helm-separator :foreground fg-dim)
+          (set-if-exists 'helm-buffer-directory :foreground blue)
+          (set-if-exists 'helm-buffer-process :foreground magenta)
+          (set-if-exists 'helm-ff-directory :foreground blue :weight 'bold)
+          (set-if-exists 'helm-ff-executable :foreground green)
+          (set-if-exists 'helm-ff-symlink :foreground cyan)
+          (set-if-exists 'helm-grep-match :foreground magenta :weight 'bold)
+          (set-if-exists 'helm-grep-file :foreground blue)
+          (set-if-exists 'helm-grep-lineno :foreground yellow)))))
+  (defun my/apply-modus-variant (appearance)
+    "Load the Modus Themes variant for system APPEARANCE (`light'/`dark').
+`modus-themes-load-theme' disables every other Modus variant first, so there
+is no lingering variant leaving faces it does not specify with the wrong
+colours."
+    (modus-themes-load-theme (my/modus-variant-for appearance))
+    ;; See the box/Moody note above.
+    (set-face-attribute 'mode-line-active nil :box 'unspecified)
+    (set-face-attribute 'mode-line-inactive nil :box 'unspecified)
     (my/apply-diff-hl-faces)
-    (my/apply-font-faces)))
+    (my/apply-font-faces)
+    (when (fboundp 'my/apply-helm-faces)
+      (my/apply-helm-faces))))
 
 (use-package doom-themes
   :custom
   (doom-themes-enable-bold t)
   (doom-themes-enable-italic t)
   :config
-  (load-theme 'catppuccin t)
   (doom-themes-visual-bell-config)
   (doom-themes-treemacs-config)
   (doom-themes-org-config))
 
-(setq custom-safe-themes
-      '("87fa3605a6501f9b90d337ed4d832213155e3a2e36a512984f83e847102a42f4"
-        "4594d6b9753691142f02e67b8eb0fda7d12f6cc9f1299a49b819312d6addad1d"
-        "7771c8496c10162220af0ca7b7e61459cb42d18c35ce272a63461c0fc1336015"
-        "276228257774fa4811da55346b1e34130edb068898565ca07c2d83cfb67eb70a"
-        default))
-
-;; Drive the flavor switch off the system appearance, cross-platform. auto-dark
+;; Drive the variant switch off the system appearance, cross-platform. auto-dark
 ;; detects light/dark (D-Bus on Linux, ns-system-appearance/AppleScript on
-;; macOS) and runs the mode hooks; we keep catppuccin as the single loaded theme
-;; and only swap its flavor, so auto-dark must not load themes of its own
-;; (hence the nil theme vars). Loaded after doom-themes so catppuccin is active
-;; when `auto-dark-mode' applies the initial flavor.
+;; macOS) and runs the mode hooks; auto-dark must not load themes of its own
+;; here (hence the nil theme vars), since `my/apply-modus-variant' also
+;; has to re-run `my/apply-diff-hl-faces'/`my/apply-font-faces' on every switch.
 ;;
 ;; `auto-dark-allow-osascript' lets macOS detect appearance via the `osascript'
 ;; binary, which works in a terminal frame too (the AppleScript branch requires
@@ -355,9 +449,9 @@ reason `my/apply-diff-hl-faces' exists:
 ;; a viable theme detection mechanism!" at startup. `my/auto-dark-detectable-p'
 ;; mirrors auto-dark's own detection conditions without that warning side effect,
 ;; so we only enable the mode when it can work; otherwise we apply a fixed dark
-;; flavor and stay quiet.
+;; variant and stay quiet.
 (use-package auto-dark
-  :after catppuccin-theme
+  :after modus-themes
   :custom
   (auto-dark-dark-theme nil)
   (auto-dark-light-theme nil)
@@ -380,14 +474,14 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
      ((eq system-type 'windows-nt) t)
      (t nil)))
   (add-hook 'auto-dark-dark-mode-hook
-            (lambda () (my/apply-catppuccin-flavor 'dark)))
+            (lambda () (my/apply-modus-variant 'dark)))
   (add-hook 'auto-dark-light-mode-hook
-            (lambda () (my/apply-catppuccin-flavor 'light)))
+            (lambda () (my/apply-modus-variant 'light)))
   (if (my/auto-dark-detectable-p)
       (auto-dark-mode)
     ;; No detectable mechanism (e.g. Linux TTY/SSH). Skip the mode and its
-    ;; startup warning; apply a fixed dark flavor instead.
-    (my/apply-catppuccin-flavor 'dark)))
+    ;; startup warning; apply a fixed dark variant instead.
+    (my/apply-modus-variant 'dark)))
 #+end_src
 
 ** Icons and fonts
@@ -398,9 +492,10 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
   (nerd-icons-font-family "Maple Mono NF"))
 
 ;; The `default' face is applied in `my/apply-font-faces' (from the
-;; flavour hook), not here: catppuccin re-specs `default' on every reload, which
-;; would strip a top-level family/size/weight. variable-pitch and fixed-pitch
-;; below are not themed by catppuccin, so they are safe to set once here.
+;; appearance hook), not here: Modus Themes re-specs `default' on every reload,
+;; which would strip a top-level family/size/weight. variable-pitch and
+;; fixed-pitch below are not themed by Modus Themes, so they are safe to set
+;; once here.
 ;; Prose (variable-pitch) is Inter, the one face that is not the code font, so
 ;; `mixed-pitch-mode' (enabled in org/markdown below) has something to switch to.
 ;; Inter was chosen on x-height -- 0.546em against Maple Mono's 0.550em -- so both
@@ -417,16 +512,16 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
                     :weight 'medium)
 ;; Italics render in Maple Mono's own italic. `italic' is the base
 ;; face inherited by org/markdown emphasis; font-lock-comment/keyword-face slant
-;; themselves directly. These are all restyled by `catppuccin-reload', so they
-;; are applied in `my/apply-font-faces' (called from the flavour hook)
+;; themselves directly. These are all restyled on every `load-theme', so they
+;; are applied in `my/apply-font-faces' (called from the appearance hook)
 ;; rather than here -- otherwise the reload auto-dark runs at startup wipes them.
 
 (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
 (add-to-list 'default-frame-alist '(ns-appearance . dark))
 
-;; The fringe is left to catppuccin, which already gives it the same background
-;; as `default' -- `(fringe :background ctp-base)' against
-;; `(default :background ctp-base)'. Deriving it here with
+;; The fringe is left to Modus Themes, which gives it its own `fringe' colour --
+;; a shade apart from `default's `bg-main', by design, not something to match
+;; here. Deriving it here with
 ;; `(face-attribute 'default :background)' read the value at *load* time, before
 ;; the theme had been applied and, in a daemon, before any frame existed: the
 ;; first client frame got a mis-coloured fringe that only corrected itself on the
@@ -556,18 +651,69 @@ does not change between one file and the next.")
 
 * Mode-line
 
+[[https://github.com/tarsius/moody][=moody=]] does not replace the mode line the way =mood-line= (previously used
+here) did -- it only restyles a couple of built-in elements
+(=mode-line-buffer-identification=, =vc-mode=) as tab/ribbon shapes, via
+=moody-replace-mode-line-buffer-identification= and =moody-replace-vc-mode=.
+Everything else is a hand-built =mode-line-format=, built from stock Emacs and
+Flycheck constructs rather than mood-line's custom segments, so those two
+=moody-replace-*= calls have the exact elements they expect to find and
+substitute:
+
+- =mode-line-buffer-identification= and =(vc-mode vc-mode)= are included
+  verbatim -- =moody-replace-*= finds and replaces those exact sub-forms in
+  =mode-line-format= (=cl-subst= with an =equal= test), so they have to appear
+  as themselves, not pre-wrapped in anything.
+- =mode-line-format-right-align= (Emacs 30+) replaces the manual padding
+  math mood-line did internally to right-align its second half.
+- The Evil tag comes from =evil-generate-mode-line-tag= called directly,
+  rather than through =evil-mode-line-tag=/=evil-mode-line-format=: Evil
+  auto-inserts/removes that symbol from =mode-line-format= itself on every
+  state change, hunting for an anchor element (=mode-line-position= by
+  default) to insert around, which is one more moving part than a plain
+  =:eval= needs.
+- Flycheck's own =flycheck-mode-line= construct (its =:lighter=, normally only
+  seen via =minor-mode-alist=) stands in for mood-line's checker segment --
+  already colour-coded per severity, no custom hooks required.
+
+Moody draws its tab/ribbon slants as tiny XPM images built from three raw
+colour values. On macOS, Emacs' NS port does not interpret those the way
+X11/other platforms do -- colours come out wrong (a washed-out patch behind
+the slant, unrelated to any face) unless converted through Apple's RGB colour
+space first. =moody-slant-apple-rgb= does exactly that; =moody-slant= (the
+default) is correct everywhere else, hence the platform guard.
+
 #+begin_src emacs-lisp
-(use-package mood-line
-  :custom
-  (mood-line-glyph-alist mood-line-glyphs-fira-code)
+(defun my/mode-line-evil-tag ()
+  "Return the current Evil state tag (e.g. <N>, <I>), or nil outside Evil."
+  (when (bound-and-true-p evil-local-mode)
+    (evil-generate-mode-line-tag evil-state)))
+
+(defun my/mode-line-buffer-status ()
+  "Modified/read-only indicator for the current buffer."
+  (cond
+   ((buffer-modified-p) (propertize "●" 'face 'error))
+   (buffer-read-only (propertize "■" 'face 'shadow))
+   (t " ")))
+
+(setq-default mode-line-format
+              '("%e"
+                (:eval (my/mode-line-evil-tag)) " "
+                (:eval (my/mode-line-buffer-status)) " "
+                mode-line-buffer-identification
+                "  " mode-line-position
+                mode-line-format-right-align
+                (vc-mode vc-mode) "  "
+                (:eval (propertize (format-mode-line mode-name) 'face 'bold)) "  "
+                (:eval (when (bound-and-true-p flycheck-mode) flycheck-mode-line)) "  "
+                mode-line-misc-info))
+
+(use-package moody
   :config
-  (mood-line-mode)
-  (let ((bg (face-attribute 'mode-line :background)))
-    (set-face-attribute 'mode-line nil :box `(:line-width 8 :color ,bg))
-    (set-face-attribute 'mode-line-inactive nil :box `(:line-width 8 :color ,bg)))
-  (setq mood-line-format
-        (cons (append '("  ") (car mood-line-format))
-              (append (cdr mood-line-format) '("  ")))))
+  (when *is-a-mac*
+    (setq moody-slant-function #'moody-slant-apple-rgb))
+  (moody-replace-mode-line-buffer-identification)
+  (moody-replace-vc-mode))
 #+end_src
 
 * Completion
@@ -655,6 +801,13 @@ consult-gh (GitHub issues/PRs) has no Helm counterpart either, so it and the
 =gh= CLI it drove are dropped rather than kept alongside a completion framework
 that no longer needs them.
 
+Modus Themes has no Helm support at all, so =my/apply-helm-faces= (defined in
+[[*Themes][Themes]]) colours the faces itself. It runs once here, when Helm
+loads, and again from =with-eval-after-load= for =helm-files=/=helm-grep=:
+those two submodules (behind =helm-find-files=/=helm-do-grep-ag=) load lazily,
+well after Helm's own core faces exist, and define faces of their own that the
+first call cannot yet see.
+
 #+begin_src emacs-lisp
 (use-package helm
   :hook (after-init . helm-mode)
@@ -668,7 +821,12 @@ that no longer needs them.
   (("M-x" . helm-M-x)
    ("C-x C-f" . helm-find-files)
    ("C-x b" . helm-mini)
-   ("M-y" . helm-show-kill-ring)))
+   ("M-y" . helm-show-kill-ring))
+  :config
+  (when (fboundp 'my/apply-helm-faces)
+    (my/apply-helm-faces)
+    (with-eval-after-load 'helm-files (my/apply-helm-faces))
+    (with-eval-after-load 'helm-grep (my/apply-helm-faces))))
 
 (use-package helm-xref
   :after helm)
@@ -933,8 +1091,8 @@ package stays deferred until the first file, but one run is enough."
   (remove-hook 'find-file-hook #'my/diff-hl-setup)
   (global-diff-hl-mode)
   (diff-hl-flydiff-mode)
-  ;; GUI uses the graphical fringe bitmaps (need a left fringe -- see Frame
-  ;; defaults). Only the terminal, which has no fringe, falls back to the text
+  ;; GUI uses the graphical fringe bitmaps (need a left fringe -- see Spacious
+  ;; padding). Only the terminal, which has no fringe, falls back to the text
   ;; margin indicators.
   (unless (display-graphic-p)
     (diff-hl-margin-mode)))
@@ -961,9 +1119,9 @@ package stays deferred until the first file, but one run is enough."
                                   (unknown . "?")
                                   (ignored . "i")))
   :config
-  ;; Colour the faces from the current catppuccin flavor (defined in the
-  ;; catppuccin-theme block). Re-applied here because diff-hl's own deffaces run
-  ;; when it loads, after the initial flavor has been applied at startup.
+  ;; Colour the faces from the current Modus Themes variant (defined in the
+  ;; modus-themes block). Re-applied here because diff-hl's own deffaces run
+  ;; when it loads, after the initial variant has been applied at startup.
   (when (fboundp 'my/apply-diff-hl-faces)
     (my/apply-diff-hl-faces)))
 #+end_src
@@ -1508,10 +1666,14 @@ out to whatever =magit-delta-delta-executable= names -- a bare ~delta~ by defaul
 -- so the binary is in the Nix tool closure alongside the ELisp package.
 
 The syntax theme is chosen from the frame's =background-mode=, and the package's
-own defaults (~GitHub~ and ~Monokai Extended~) clash with Catppuccin. delta has
-"Catppuccin Latte" and "Catppuccin Mocha" built in, which are the same two
-flavors [[*Theme][=my/catppuccin-flavor-for=]] selects, so the diff follows the
-rest of the frame when =auto-dark= switches.
+own defaults (~GitHub~ and ~Monokai Extended~) clash with the frame. delta 0.19.2
+has no Modus Themes syntax theme -- =delta --list-syntax-themes= lists 28, four
+Catppuccin and no Modus -- so its Catppuccin pair stays as the nearest built-in
+stand-in: Mocha (=#1e1e2e=) sits close to Modus Vivendi Tinted (=#0d0e1c=), and
+Latte to Modus Operandi Tinted (=#fbf7f0=). This is deliberately *not* coupled
+to [[*Themes][=my/modus-variant-for=]]; it is delta's own theme name, picked
+once for its colour proximity, not because the two selections need to move
+together.
 
 =magit-delta-mode= turns =magit-diff-refine-hunk= off while it is on (restoring
 it on exit): delta does its own intra-line highlighting, and the two together

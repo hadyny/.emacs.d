@@ -193,7 +193,6 @@
               apheleia
               auto-dark
               cape
-              catppuccin-theme
               corfu
               corfu-prescient
               diff-hl
@@ -224,7 +223,8 @@
               magit-todos
               markdown-mode
               mixed-pitch
-              mood-line
+              modus-themes
+              moody
               nerd-icons
               nerd-icons-corfu
               nix-mode
@@ -232,6 +232,7 @@
               org-super-agenda
               prescient
               smartparens
+              spacious-padding
               treesit-auto
               wgrep
               which-key
@@ -425,7 +426,7 @@
           # lightweight emacs-nox. Each tests/*-test.el extracts a single defun
           # from the tangled config.el and exercises it in isolation (see
           # tests/config-test-helper.el), so the whole configuration need not
-          # load. Covers the auto-dark detection guard, the catppuccin flavour
+          # load. Covers the auto-dark detection guard, the Modus Themes variant
           # map, the node_modules/.bin resolver, the Roslyn workspace-open plan,
           # and duplicate-keybinding detection. Tests that need the real package
           # set (command existence, evil undo system) self-skip here and run in
@@ -500,7 +501,8 @@
                                       mixed-pitch-mode dirvish-override-dired-mode \
                                       org-super-agenda-mode helm-flycheck \
                                       flycheck-mode global-flycheck-annotate-mode \
-                                      global-flycheck-eglot-mode global-ligature-mode)) \
+                                      global-flycheck-eglot-mode global-ligature-mode \
+                                      spacious-padding-mode moody-replace-vc-mode)) \
                           (unless (fboundp fn) \
                             (error \"not autoloaded (package activation broken?): %s\" fn))) \
                         (message \"package activation + custom packages OK\"))"
