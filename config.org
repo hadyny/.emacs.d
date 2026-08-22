@@ -671,10 +671,7 @@ that no longer needs them.
    ("M-y" . helm-show-kill-ring)))
 
 (use-package helm-xref
-  :after helm
-  :config
-  (setq xref-show-xrefs-function #'helm-xref-show-xrefs-function
-        xref-show-definitions-function #'helm-xref-show-defs-function))
+  :after helm)
 
 (use-package helm-flycheck
   :after (helm flycheck)
