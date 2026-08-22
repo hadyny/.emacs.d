@@ -1632,27 +1632,61 @@ downloaded at runtime. Launch with =<leader> o t= (or =M-x ghostel=).
 [[https://github.com/xenodium/agent-shell][=agent-shell=]] is an Emacs frontend for coding agents that speak the Agent
 Client Protocol (ACP). It shells out to an external agent process per session;
 =acp= and =shell-maker= (its ELisp dependencies) come from Nix alongside it.
-agent-shell ships seventeen backends; one is wired here:
+agent-shell ships seventeen backends; two are wired here:
 
 - Copilot via =agent-shell-github-start-copilot=, which runs =copilot --acp=
   (the default of =agent-shell-github-acp-command=).
+- Claude Code via =agent-shell-anthropic-start-claude-code=, which runs
+  =claude-agent-acp= (the default of =agent-shell-anthropic-claude-acp-command=).
+  This is the =@agentclientprotocol/claude-agent-acp= adapter: it drives the
+  Claude Agent SDK, which in turn shells out to an actual =claude= executable --
+  nixpkgs' own build of it, by default, referenced via a =CLAUDE_CODE_EXECUTABLE=
+  env var that =wrapProgram= bakes into =claude-agent-acp= at build time (an
+  absolute store path, not a =PATH= lookup). =claude-agent-acp= is unfree only
+  because nixpkgs builds it against that =claude-code= package, hence the added
+  =config.allowUnfreePredicate= entry in [[file:flake.nix][=flake.nix=]].
 
-The Anthropic and Google backends are deliberately unwired: Claude Code is driven
-from the terminal here, so its =claude-agent-acp= binary is not in the tool
-closure and a bound-but-broken start command would be worse than an absent one.
+  The home-manager profile installs its own, separately-updated =claude= (via
+  =sadjow/claude-code-nix=), so =CLAUDE_CODE_EXECUTABLE= is overridden below to
+  point at whichever =claude= resolves on =PATH= at the time =agent-shell= loads,
+  rather than nixpkgs' bundled build -- one Claude Code binary, kept current in
+  one place, instead of two independent copies drifting apart.
 
-The =copilot= binary is on =PATH= via the Nix tool closure (=emacsToolsFor= in
-[[file:flake.nix][=flake.nix=]]), so the command defaults resolve without further configuration.
-Authentication is handled by the CLI itself (login/subscription or API-key env
-var via the backend's =…-authentication= / =…-environment= defcustoms), so no
-secrets live here. There is no keybinding; launch with =M-x agent-shell= (pick a
-backend) or =agent-shell-github-start-copilot= directly.
+The Google backend is deliberately unwired. Antigravity is what Google is
+migrating Gemini CLI's users to, but agent-shell has no dedicated Antigravity
+backend yet, and Antigravity CLI (=agy=) has no ACP support to wire against --
+confirmed directly: neither =agy --help= nor a =strings= scan of the binary
+shows an ACP flag or library reference (Antigravity CLI 1.1.13), and
+=agy --acp= itself just errors with "flags provided but not defined". A
+bound-but-broken start command is worse than an absent one. Revisit once
+Google ships ACP support.
+
+The =copilot= and =claude-agent-acp= binaries are on =PATH= via the Nix tool
+closure (=emacsToolsFor= in [[file:flake.nix][=flake.nix=]]), so both command
+defaults resolve without further configuration. Authentication is handled by
+each CLI/adapter itself (login/subscription or API-key env var via the
+backend's =…-authentication= / =…-environment= defcustoms), so no secrets live
+here. There is no keybinding; launch with =M-x agent-shell= (pick a backend) or
+=agent-shell-github-start-copilot= / =agent-shell-anthropic-start-claude-code=
+directly.
 
 #+begin_src emacs-lisp
 (use-package agent-shell
   :defer t
   :commands (agent-shell
-             agent-shell-github-start-copilot))
+             agent-shell-github-start-copilot
+             agent-shell-anthropic-start-claude-code)
+  :config
+  ;; Prefer the home-manager-managed `claude' on PATH over nixpkgs' own
+  ;; `claude-code' build that `claude-agent-acp' defaults to. `executable-find'
+  ;; runs once here, at load time (agent-shell is `:defer'red, so this is well
+  ;; after `exec-path-from-shell' has imported the shell PATH) -- if no `claude'
+  ;; is found, `agent-shell-anthropic-claude-environment' is left at its default
+  ;; and `claude-agent-acp' falls back to the store path it was built with.
+  (when-let* ((claude (executable-find "claude")))
+    (setq agent-shell-anthropic-claude-environment
+          (agent-shell-make-environment-variables
+           "CLAUDE_CODE_EXECUTABLE" claude))))
 #+end_src
 
 * Evil (Vim emulation)

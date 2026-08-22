@@ -29,6 +29,7 @@
       # the two can't drift.
       emacsToolsFor =
         pkgs: with pkgs; [
+          claude-agent-acp
           coreutils-prefixed
           delta
           github-copilot-cli
@@ -267,18 +268,26 @@
           # github-copilot-cli (the `copilot' binary agent-shell's Copilot
           # backend runs) is unfree, and evaluating an unfree package is a hard
           # error unless allowed -- which took down the whole devShell, since
-          # emacs-tools is one of its inputs. Allow exactly this package, here
+          # emacs-tools is one of its inputs. Allow exactly these packages, here
           # rather than via NIXPKGS_ALLOW_UNFREE, so the flake still evaluates
           # under pure eval (`nix flake check') and for anyone consuming it.
           # Consumers of homeModules.default need the same allowance in their
           # own nixpkgs config, or must set `programs.dotemacs.tools = [ ]'.
-          config.allowUnfreePredicate = pkg: builtins.elem (nixpkgs.lib.getName pkg) [ "github-copilot-cli" ];
+          # `claude-code' is pulled in as a dependency of `claude-agent-acp'
+          # (the Claude Agent ACP adapter itself is Apache-2.0).
+          config.allowUnfreePredicate =
+            pkg:
+            builtins.elem (nixpkgs.lib.getName pkg) [
+              "github-copilot-cli"
+              "claude-code"
+            ];
         };
 
         # External tools config.org shells out to (shared with the home-manager
         # module default via emacsToolsFor). Keep the list in sync with the
         # eglot-server-programs / executable-find references in config.org:
         #   coreutils-prefixed            -> gls                                (config.org: dired setup)
+        #   claude-agent-acp              -> agent-shell Claude Code ACP agent (bin: claude-agent-acp) (agent-shell-anthropic-claude-acp-command)
         #   delta                         -> syntax-highlighted Magit diffs      (magit-delta-delta-executable)
         #   github-copilot-cli            -> agent-shell Copilot ACP agent (bin: copilot) (agent-shell-github-acp-command)
         #   marksman                      -> Markdown LSP                        (eglot-server-programs)
