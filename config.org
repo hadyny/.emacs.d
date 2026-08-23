@@ -690,22 +690,61 @@ substitute:
 Moody draws its tab/ribbon slants as tiny XPM images built from three raw
 colour values. On macOS, Emacs' NS port does not interpret those the way
 X11/other platforms do -- colours come out wrong (a washed-out patch behind
-the slant, unrelated to any face) unless converted through Apple's RGB colour
-space first. =moody-slant-apple-rgb= does exactly that; =moody-slant= (the
-default) is correct everywhere else, hence the platform guard.
+the slant, unrelated to any face) unless converted through a colour-space
+correction first; =moody-slant= (the default) is correct everywhere else,
+hence the platform guard.
+
+Moody's own correction, =moody-slant-apple-rgb=, pre-compensates every slant
+colour by decoding it with a 1.8 gamma (chasing a legacy "Apple RGB" profile
+NS is assumed to reinterpret raw image pixels through) before handing it to
+`create-image'. On this build that over-corrects slightly: every slant
+colour comes out a touch darker than the face it is supposed to match,
+visible as the mode-line-adjacent half of the buffer-identification/vc-mode
+glyphs reading darker than =mode-line-active=/=mode-line-inactive= right next
+to them. Reworking the exponent into `color-srgb-to-xyz' plus the same
+inverse matrix shows *why*: decoding with a gamma of ~2.2 instead very nearly
+reconstructs the original colour (i.e. cancels the correction outright,
+which is exactly the washed-out failure mode the correction exists to avoid)
+-- so the true value NS needs sits somewhere between 1.8 and that, not at
+either end. =my/moody-slant-srgb= is the same conversion with the exponent
+pulled out into =my/moody-slant-gamma= so it can be tuned in one place
+without re-deriving the maths -- currently 2.1, after an initial 2.0 (still
+reported as slightly dark) nudged one step further from 1.8; everything else
+-- the sRGB -> XYZ step, the inverse matrix, `moody-slant' underneath -- is
+untouched. This has not been verified against a real display from here;
+if 2.0 is still off, nudge =my/moody-slant-gamma= up (lighter) or down
+(darker) a step at a time.
 
 Both tabs and ribbons fill their *inside* (as opposed to the slant itself)
-from =default='s background by default -- =moody-ribbon-background= only
-retargets ribbons, and the buffer identification tab has no such option at
-all, it is hard-coded in =moody-wrap=. That inner fill is meant to read as an
-accent against the surrounding =mode-line-active=/=mode-line-inactive=
-background, but in Modus Vivendi Tinted =default='s =bg-main= (near-black) is
-so much darker than =bg-mode-line-active= (a mid grey-blue) that it reads as a
-stray dark patch rather than a tab. =moody-ribbon-background= is repointed at
-the mode line's own background instead, and the buffer identification
-replacement below builds on =moody-ribbon= (which honours that variable)
-rather than =moody-tab= (which never did), so both segments fill with the
-same colour as the bar they sit in.
+from =default='s background -- =bg-main=, the same colour the buffer itself
+uses. That is Moody's own design, not something this config adds: the fill is
+meant to read as a piece of the buffer poking up into the bar, distinct from
+=mode-line-active='s/=mode-line-inactive='s own background by design (the
+whole reason a slant is worth drawing at all -- see the box/Moody note
+above). In Modus Vivendi Tinted =bg-main= (near-black) is a lot darker than
+=bg-mode-line-active= (a mid grey-blue), so the contrast is more pronounced
+than in most themes, but it is not a bug to fix -- softening or removing it
+was tried twice (recoloured =moody-ribbon-background= to a dedicated,
+in-between shade; matched it to the mode line exactly) and both attempts made
+it look worse: matching it exactly leaves the slant image with no contrast to
+draw at all, so the tab/ribbon silhouette disappears; anything in between
+still reads as an arbitrary, slightly-off colour rather than an intentional
+one. The stock two-tone look is the one that reads as deliberate.
+
+One real bug did come out of that detour, worth keeping in mind if this is
+revisited: rebuilding buffer identification from =moody-ribbon= instead of
+=moody-tab= (to make it consult =moody-ribbon-background= at all -- =moody-tab=
+never does, its fill is hard-coded to =default=) changes more than the fill
+colour. =moody-wrap='s tab/ribbon =pcase= draws the *right-hand* glyph with a
+different direction and colour order depending on =type= (see the source), so
+switching types mirrors that glyph -- the slant angles the wrong way relative
+to the left-hand one, breaking the tab illusion outright. Any future attempt
+to retarget the fill has to preserve =type= as-is (=moody-tab= for buffer
+identification, =moody-ribbon= for =vc-mode=) and change the colour at its
+actual source -- advising =moody-wrap= itself, since =inner= is a local
+binding inside one large =let*=, not something a =:filter-*=/=:around= advice
+could reach without re-deriving it anyway -- rather than switching which
+function builds the element.
 
 #+begin_src emacs-lisp
 (defun my/mode-line-evil-tag ()
@@ -734,23 +773,40 @@ same colour as the bar they sit in.
 
 (use-package moody
   :config
+  (defvar my/moody-slant-gamma 2.1
+    "Gamma this build's NS port needs to decode Moody's slant colours correctly.
+See the Mode-line prose above: `moody-slant-apple-rgb' uses a fixed 1.8 and
+over-corrects here (every slant colour comes out too dark); 2.2 turns out to
+cancel the correction outright (reproducing the washed-out colours the
+correction exists to avoid), so the right value is somewhere between the two
+and has to be found empirically. Adjust this one number to retune
+`my/moody-slant-srgb' without re-deriving the maths.")
+  (defun my/moody-slant-srgb (direction c1 c2 c3 &optional height)
+    "Like `moody-slant-apple-rgb', but decoded with `my/moody-slant-gamma'.
+Same conversion otherwise: sRGB -> XYZ via `color-srgb-to-xyz', the same
+inverse matrix back to linear RGB, `moody-slant' underneath."
+    (require 'color)
+    (cl-flet ((cnv (color)
+                (pcase-let*
+                    ((`(,r ,g ,b) (color-name-to-rgb color))
+                     (`(,x ,y ,z) (color-srgb-to-xyz r g b))
+                     (r (expt (+ (*  3.2404542 x)
+                                 (* -1.5371385 y)
+                                 (* -0.4985314 z))
+                              (/ my/moody-slant-gamma)))
+                     (g (expt (+ (* -0.9692660 x)
+                                 (*  1.8760108 y)
+                                 (*  0.0415560 z))
+                              (/ my/moody-slant-gamma)))
+                     (b (expt (+ (*  0.0556434 x)
+                                 (* -0.2040259 y)
+                                 (*  1.0572252 z))
+                              (/ my/moody-slant-gamma))))
+                  (color-rgb-to-hex r g b))))
+      (moody-slant direction (cnv c1) (cnv c2) (cnv c3) height)))
   (when *is-a-mac*
-    (setq moody-slant-function #'moody-slant-apple-rgb))
-  ;; See the Mode-line prose above: match the tab/ribbon fill to the mode
-  ;; line's own background (`mode-line-active'/`mode-line-inactive') rather
-  ;; than `default''s, on both segments.
-  (setq moody-ribbon-background '(base :background))
-  (defvar-local my/moody-mode-line-buffer-identification
-    '(:eval (moody-ribbon (car (propertized-buffer-identification
-                                (format-mode-line "%b")))
-                          20 'down))
-    "Like `moody-mode-line-buffer-identification', but a ribbon, not a tab.
-`moody-tab' hard-codes its fill to `default''s background, ignoring
-`moody-ribbon-background'; `moody-ribbon' does not, which is the only reason
-to use it here over the built-in variable.")
-  (put 'my/moody-mode-line-buffer-identification 'risky-local-variable t)
-  (moody-replace-element 'mode-line-buffer-identification
-                         'my/moody-mode-line-buffer-identification)
+    (setq moody-slant-function #'my/moody-slant-srgb))
+  (moody-replace-mode-line-buffer-identification)
   (moody-replace-vc-mode))
 #+end_src
 
