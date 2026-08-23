@@ -329,6 +329,14 @@ distinct from =default='s =bg-main=, which is exactly the contrast Moody needs.
 
 #+begin_src emacs-lisp
 (use-package modus-themes
+  :custom
+  ;; Comments already carry the theme's own italic slant via this option (they
+  ;; inherit `modus-themes-slant', which is part of the theme's own faces and
+  ;; therefore survives every `load-theme'). `font-lock-keyword-face' and the
+  ;; generic `italic' face are not covered by any Modus Themes option -- Modus
+  ;; only offers *bold* keywords, via `modus-themes-bold-constructs', not
+  ;; italic ones -- so those two still need the manual re-apply below.
+  (modus-themes-italic-constructs t)
   :config
   (defun my/modus-variant-for (appearance)
     "Return the Modus Themes variant symbol for system APPEARANCE.
@@ -359,11 +367,14 @@ same reason `my/apply-diff-hl-faces' exists:
 
   * `default' is themed by Modus Themes (fg/bg), so re-specifying it strips
     the family, height and weight;
-  * `italic', comment and keyword lose their *slant* entirely, so a light/dark
-    switch (or auto-dark's startup re-apply) would drop italics everywhere."
+  * `italic' and keyword lose their *slant* entirely, so a light/dark switch
+    (or auto-dark's startup re-apply) would drop italics everywhere.
+    `font-lock-comment-face' is not in this list: it inherits Modus Themes'
+    own `modus-themes-slant' face, so `modus-themes-italic-constructs' (set
+    above) keeps it italic across reloads without any help from here."
     (set-face-attribute 'default nil :font "Maple Mono NF"
                         :height 140 :weight 'medium)
-    (dolist (face '(italic font-lock-comment-face font-lock-keyword-face))
+    (dolist (face '(italic font-lock-keyword-face))
       (set-face-attribute face nil :slant 'italic)))
   (defun my/apply-helm-faces ()
     "Colour Helm's faces from the active Modus Themes variant.
@@ -683,6 +694,19 @@ the slant, unrelated to any face) unless converted through Apple's RGB colour
 space first. =moody-slant-apple-rgb= does exactly that; =moody-slant= (the
 default) is correct everywhere else, hence the platform guard.
 
+Both tabs and ribbons fill their *inside* (as opposed to the slant itself)
+from =default='s background by default -- =moody-ribbon-background= only
+retargets ribbons, and the buffer identification tab has no such option at
+all, it is hard-coded in =moody-wrap=. That inner fill is meant to read as an
+accent against the surrounding =mode-line-active=/=mode-line-inactive=
+background, but in Modus Vivendi Tinted =default='s =bg-main= (near-black) is
+so much darker than =bg-mode-line-active= (a mid grey-blue) that it reads as a
+stray dark patch rather than a tab. =moody-ribbon-background= is repointed at
+the mode line's own background instead, and the buffer identification
+replacement below builds on =moody-ribbon= (which honours that variable)
+rather than =moody-tab= (which never did), so both segments fill with the
+same colour as the bar they sit in.
+
 #+begin_src emacs-lisp
 (defun my/mode-line-evil-tag ()
   "Return the current Evil state tag (e.g. <N>, <I>), or nil outside Evil."
@@ -712,7 +736,21 @@ default) is correct everywhere else, hence the platform guard.
   :config
   (when *is-a-mac*
     (setq moody-slant-function #'moody-slant-apple-rgb))
-  (moody-replace-mode-line-buffer-identification)
+  ;; See the Mode-line prose above: match the tab/ribbon fill to the mode
+  ;; line's own background (`mode-line-active'/`mode-line-inactive') rather
+  ;; than `default''s, on both segments.
+  (setq moody-ribbon-background '(base :background))
+  (defvar-local my/moody-mode-line-buffer-identification
+    '(:eval (moody-ribbon (car (propertized-buffer-identification
+                                (format-mode-line "%b")))
+                          20 'down))
+    "Like `moody-mode-line-buffer-identification', but a ribbon, not a tab.
+`moody-tab' hard-codes its fill to `default''s background, ignoring
+`moody-ribbon-background'; `moody-ribbon' does not, which is the only reason
+to use it here over the built-in variable.")
+  (put 'my/moody-mode-line-buffer-identification 'risky-local-variable t)
+  (moody-replace-element 'mode-line-buffer-identification
+                         'my/moody-mode-line-buffer-identification)
   (moody-replace-vc-mode))
 #+end_src
 

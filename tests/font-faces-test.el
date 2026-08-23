@@ -11,8 +11,11 @@
 ;; appearance hook, the same reason `my/apply-diff-hl-faces' exists:
 ;;
 ;;   * `default' is themed, so loading a variant strips family/height/weight;
-;;   * `italic', comment and keyword lose their *slant*, so a light/dark switch
-;;     (or auto-dark's startup re-apply) would drop italics everywhere.
+;;   * `italic' and keyword lose their *slant*, so a light/dark switch (or
+;;     auto-dark's startup re-apply) would drop italics everywhere.
+;;     `font-lock-comment-face' is not among these: it inherits Modus Themes'
+;;     own `modus-themes-slant' face, so `modus-themes-italic-constructs'
+;;     keeps it italic across reloads without any help here.
 ;;
 ;; Ligatures: Maple Mono's `calt' can draw its arrows without composition, but
 ;; in practice that did not render here, so `ligature.el' composes the pair
@@ -43,15 +46,17 @@ be re-applied from the appearance hook, not just once at top level."
   "The italic faces keep their slant across a variant switch.
 They are theme-restyled, so setting the slant once at top level is not enough:
 `load-theme' drops it and italics vanish everywhere.  Family is deliberately
-*not* set -- it falls through to `default'."
+*not* set -- it falls through to `default'.  `font-lock-comment-face' is
+deliberately excluded: it is covered by `modus-themes-italic-constructs'
+instead, not this helper."
   ;; Arrange
   (cfg-test-load-defun 'my/apply-font-faces)
-  (dolist (face '(italic font-lock-comment-face font-lock-keyword-face))
+  (dolist (face '(italic font-lock-keyword-face))
     (set-face-attribute face nil :slant 'normal))
   ;; Act
   (my/apply-font-faces)
   ;; Assert
-  (dolist (face '(italic font-lock-comment-face font-lock-keyword-face))
+  (dolist (face '(italic font-lock-keyword-face))
     (should (eq (face-attribute face :slant) 'italic))))
 
 (ert-deftest font-faces/code-is-maple-mono-prose-is-inter ()
