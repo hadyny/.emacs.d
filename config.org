@@ -1751,6 +1751,19 @@ always the one picked.
   (magit-todos-mode))
 #+end_src
 
+* Docker
+
+[[https://github.com/Silex/docker.el][=docker=]] is a transient menu (like Magit's) over containers, images, volumes,
+networks and compose, driven entirely through the =docker= CLI -- no daemon
+socket access from Emacs itself, so it works the same whether Docker Desktop,
+Colima or a remote context is active. =:commands= defers loading to the one
+entry point, =M-x docker=, rather than =:defer t= with nothing to trigger it.
+
+#+begin_src emacs-lisp
+(use-package docker
+  :commands (docker))
+#+end_src
+
 * JavaScript/TypeScript
 
 The =add-node-modules-path= package defaults to running =npm bin= to locate the
@@ -1965,6 +1978,9 @@ directly.
 
   ;; Terminal
   (evil-define-key 'normal 'global (kbd "<leader> o t") 'ghostel)
+
+  ;; Docker
+  (evil-define-key 'normal 'global (kbd "<leader> o d") 'docker)
 
   ;; Kill ring
   (evil-define-key 'normal 'global (kbd "P") 'helm-show-kill-ring)

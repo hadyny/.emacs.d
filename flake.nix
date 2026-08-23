@@ -197,6 +197,7 @@
               corfu-prescient
               diff-hl
               dirvish
+              docker
               doom-themes
               # eglot from GNU ELPA, not the copy bundled with Emacs 30.2
               # (1.17.30). Roslyn reports diagnostics by pull only, and pull
