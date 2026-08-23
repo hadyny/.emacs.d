@@ -578,19 +578,23 @@
           hm-module-installs-tools =
             let
               stub = {
-                options.home.packages = pkgs.lib.mkOption {
-                  type = pkgs.lib.types.listOf pkgs.lib.types.package;
-                  default = [ ];
-                };
-                options.home.file = pkgs.lib.mkOption {
-                  type = pkgs.lib.types.attrs;
-                  default = { };
-                };
-                # The module places an enchant dictionary here on Linux, so jinx
-                # has a backend; see nix/hm-module.nix.
-                options.xdg.configFile = pkgs.lib.mkOption {
-                  type = pkgs.lib.types.attrs;
-                  default = { };
+                options = {
+                  home = {
+                    packages = pkgs.lib.mkOption {
+                      type = pkgs.lib.types.listOf pkgs.lib.types.package;
+                      default = [ ];
+                    };
+                    file = pkgs.lib.mkOption {
+                      type = pkgs.lib.types.attrs;
+                      default = { };
+                    };
+                  };
+                  # The module places an enchant dictionary here on Linux, so jinx
+                  # has a backend; see nix/hm-module.nix.
+                  xdg.configFile = pkgs.lib.mkOption {
+                    type = pkgs.lib.types.attrs;
+                    default = { };
+                  };
                 };
               };
               evalWith =
