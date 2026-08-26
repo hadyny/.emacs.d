@@ -1380,6 +1380,7 @@ package stays deferred until the first file, but one run is enough."
   :defer t
   :hook (org-mode . org-modern-mode)
   :config
+  (setq org-modern-tag nil)
   (setq org-modern-fold-stars
         '(("▶" . "▼")     ; L1
           ("▷" . "▽")     ; L2
