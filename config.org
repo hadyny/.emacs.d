@@ -174,7 +174,8 @@ from a different source.
   (savehist-mode 1)
   (global-prettify-symbols-mode 1)
   (global-font-lock-mode 1)
-  (pixel-scroll-precision-mode 1))
+  (pixel-scroll-precision-mode 1)
+  (tab-bar-mode 1))
 #+end_src
 
 ** Whitespace cleanup on save
