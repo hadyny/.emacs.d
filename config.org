@@ -377,52 +377,6 @@ same reason `my/apply-diff-hl-faces' exists:
                         :height 140 :weight 'medium)
     (dolist (face '(italic font-lock-keyword-face))
       (set-face-attribute face nil :slant 'italic)))
-  (defun my/apply-helm-faces ()
-    "Colour Helm's faces from the active Modus Themes variant.
-Modus Themes has no Helm support at all (nothing in its faces file even
-mentions Helm), so Helm otherwise keeps its own upstream defaults, which were
-never designed against this palette and clash with it.  Called on every
-variant switch, the same way `my/apply-diff-hl-faces' is; the
-`helm-files'/`helm-grep' faces are additionally covered from
-`with-eval-after-load' below, since those submodules load lazily, well after
-`helm' itself and its core faces.
-
-Every face is set through a `facep' guard rather than assumed present:
-Helm's own face list has already moved between versions once here
-(`helm-selection-line' does not exist in the version this was written
-against), and a version bump elsewhere is not a good reason for this to
-start erroring."
-    (when (facep 'helm-selection)
-      (cl-flet ((set-if-exists (face &rest attrs)
-                  (when (facep face)
-                    (apply #'set-face-attribute face nil attrs))))
-        (let ((bg-dim (modus-themes-get-color-value 'bg-dim))
-              (bg-completion (modus-themes-get-color-value 'bg-completion))
-              (bg-hover (modus-themes-get-color-value 'bg-hover))
-              (fg-dim (modus-themes-get-color-value 'fg-dim))
-              (blue (modus-themes-get-color-value 'blue))
-              (cyan (modus-themes-get-color-value 'cyan))
-              (green (modus-themes-get-color-value 'green))
-              (yellow (modus-themes-get-color-value 'yellow))
-              (magenta (modus-themes-get-color-value 'magenta)))
-          (set-if-exists 'helm-source-header
-                         :background bg-dim :foreground blue :weight 'bold :box nil)
-          (set-if-exists 'helm-header :background bg-dim :foreground blue)
-          (set-if-exists 'helm-selection :background bg-completion)
-          (set-if-exists 'helm-selection-line :background bg-completion)
-          (set-if-exists 'helm-visible-mark :background bg-hover :foreground green)
-          (set-if-exists 'helm-match :foreground magenta :weight 'bold)
-          (set-if-exists 'helm-match-item :foreground magenta :weight 'bold)
-          (set-if-exists 'helm-candidate-number :foreground cyan :weight 'bold)
-          (set-if-exists 'helm-separator :foreground fg-dim)
-          (set-if-exists 'helm-buffer-directory :foreground blue)
-          (set-if-exists 'helm-buffer-process :foreground magenta)
-          (set-if-exists 'helm-ff-directory :foreground blue :weight 'bold)
-          (set-if-exists 'helm-ff-executable :foreground green)
-          (set-if-exists 'helm-ff-symlink :foreground cyan)
-          (set-if-exists 'helm-grep-match :foreground magenta :weight 'bold)
-          (set-if-exists 'helm-grep-file :foreground blue)
-          (set-if-exists 'helm-grep-lineno :foreground yellow)))))
   (defun my/apply-modus-variant (appearance)
     "Load the Modus Themes variant for system APPEARANCE (`light'/`dark').
 `modus-themes-load-theme' disables every other Modus variant first, so there
@@ -433,9 +387,7 @@ colours."
     (set-face-attribute 'mode-line-active nil :box 'unspecified)
     (set-face-attribute 'mode-line-inactive nil :box 'unspecified)
     (my/apply-diff-hl-faces)
-    (my/apply-font-faces)
-    (when (fboundp 'my/apply-helm-faces)
-      (my/apply-helm-faces))))
+    (my/apply-font-faces)))
 
 (use-package doom-themes
   :custom
@@ -813,6 +765,29 @@ inverse matrix back to linear RGB, `moody-slant' underneath."
 
 * Completion
 
+** Vertico
+
+#+begin_src emacs-lisp
+(use-package vertico
+  :hook (after-init . vertico-mode)
+  :custom
+  (vertico-count 12)
+  (vertico-cycle t)
+  (vertico-resize nil)
+  (vertico-scroll-margin 0))
+#+end_src
+
+** Orderless
+
+#+begin_src emacs-lisp
+(use-package orderless
+  :after vertico
+  :custom
+  (completion-category-defaults nil)
+  (completion-styles '(orderless partial-completion))
+  (completion-category-overrides '((file (styles . (partial-completion))))))
+#+end_src
+
 ** Corfu
 
 #+begin_src emacs-lisp
@@ -864,14 +839,24 @@ inverse matrix back to linear RGB, `moody-slant' underneath."
 
 ** Prescient
 
-Only Corfu uses Prescient now: Helm sorts and narrows candidates itself (fuzzy
-matching plus its own history), so there is no Vertico side left to wire it
-into.
+Prescient's frecency-based sorting is wired into both completion UIs:
+=corfu-prescient= for in-buffer completion, =vertico-prescient= for the
+minibuffer. Filtering is a different story for each. Corfu is left on
+Prescient's own filtering (the default), but Vertico's filtering is Orderless's
+job -- =vertico-prescient-enable-filtering= is turned off so Prescient here only
+sorts, leaving =completion-styles= (set in [[*Orderless][Orderless]]) alone.
 
 #+begin_src emacs-lisp
 (use-package prescient
   :config
   (prescient-persist-mode 1))
+
+(use-package vertico-prescient
+  :after (vertico prescient)
+  :custom
+  (vertico-prescient-enable-filtering nil)
+  :config
+  (vertico-prescient-mode 1))
 
 (use-package corfu-prescient
   :after (corfu prescient)
@@ -879,74 +864,61 @@ into.
   (corfu-prescient-mode 1))
 #+end_src
 
-** Helm
+** Consult
 
-Helm replaces the Vertico/Orderless/Consult/Marginalia/Embark stack in one
-package: =helm-mode= globalizes =completing-read= and =completion-at-point= in
-the minibuffer, so every command that used to get Vertico's UI (fuzzy
-narrowing, annotations via Marginalia) gets Helm's instead, with no per-command
-wiring. The classic entry points below replace their plain Emacs/Consult
-equivalents outright rather than merely improving them.
-
-=helm-do-grep-ag= prefers =rg= automatically when it is on =PATH=
-(=helm-grep-ag-command='s default probes =executable-find "rg"= first), so it
-is the one ripgrep-backed search -- no separate =helm-rg= package needed, and
-no plain-=grep= fallback either, mirroring what Consult's =consult-ripgrep= and
-=consult-grep= collapsed to once ripgrep was the only backend installed.
-
-Where Helm has nothing to replace -- Embark's =embark-act= is a per-session
-action menu, not a global command; Helm's equivalent is built into every Helm
-session already, bound to =TAB= (persistent action) and =C-z=
-(=helm-select-action=) in =helm-map= by default -- nothing to bind globally.
-consult-gh (GitHub issues/PRs) has no Helm counterpart either, so it and the
-=gh= CLI it drove are dropped rather than kept alongside a completion framework
-that no longer needs them.
-
-Modus Themes has no Helm support at all, so =my/apply-helm-faces= (defined in
-[[*Themes][Themes]]) colours the faces itself. It runs once here, when Helm
-loads, and again from =with-eval-after-load= for =helm-files=/=helm-grep=:
-those two submodules (behind =helm-find-files=/=helm-do-grep-ag=) load lazily,
-well after Helm's own core faces exist, and define faces of their own that the
-first call cannot yet see.
+Consult previews a file candidate by opening the real file, so every previewed
+file runs =find-file-hook= and the mode hooks. At the =consult-preview-key=
+default of =any= that happens on each keystroke, which makes scrolling a result
+list open every file it passes over. A debounce keeps the preview automatic but
+lets fast movement skip the files in between.
 
 #+begin_src emacs-lisp
-(use-package helm
-  :hook (after-init . helm-mode)
+(use-package consult
+  :defer t
   :custom
-  (helm-M-x-fuzzy-match t)
-  (helm-buffers-fuzzy-matching t)
-  (helm-recentf-fuzzy-match t)
-  (helm-split-window-inside-p t)
-  (helm-move-to-line-cycle-in-source t)
-  ;; Helm ships its own icon support (`helm-x-icons'); no extra package
-  ;; needed. `nerd-icons' just has to be on load-path before Helm looks up
-  ;; the provider, which is already the case (loaded eagerly earlier in this
-  ;; file). `helm-buffers-show-icons' lives in `helm-buffers', loaded eagerly
-  ;; by `helm-mode' itself, so it can be set directly; `helm-bookmark-use-icon'
-  ;; and `helm-imenu-use-icon' live in their own lazily-loaded files, so they
-  ;; are set below via `with-eval-after-load' instead.
-  (helm-x-icons-provider 'nerd-icons)
-  (helm-buffers-show-icons t)
-  :bind
-  (("M-x" . helm-M-x)
-   ("C-x C-f" . helm-find-files)
-   ("C-x b" . helm-mini)
-   ("M-y" . helm-show-kill-ring))
+  ;; Preview after 0.3s of no input, rather than on every keystroke. Opening a
+  ;; file is not free here: see [[*Version Control (diff-hl)][diff-hl]] and
+  ;; [[*ESLint][ESLint]].
+  (consult-preview-key '(:debounce 0.3 any))
+  :init
+  (advice-add #'register-preview :override #'consult-register-window)
+  (setq xref-show-xrefs-function #'consult-xref
+        xref-show-definitions-function #'consult-xref))
+#+end_src
+
+** Marginalia
+
+Marginalia annotates minibuffer candidates (file sizes, mode line, docstrings);
+=nerd-icons-completion= adds an icon in front of each, keyed off the same
+completion category Marginalia already resolves, so the two are wired
+together via =nerd-icons-completion-marginalia-setup=.
+
+#+begin_src emacs-lisp
+(use-package marginalia
+  :defer t
+  :bind (:map minibuffer-local-map
+              ("M-A" . marginalia-cycle))
+  :init
+  (marginalia-mode))
+
+(use-package nerd-icons-completion
+  :after marginalia
   :config
-  (helm-ff-icon-mode 1)
-  (with-eval-after-load 'helm-bookmark (setq helm-bookmark-use-icon t))
-  (with-eval-after-load 'helm-imenu (setq helm-imenu-use-icon t))
-  (when (fboundp 'my/apply-helm-faces)
-    (my/apply-helm-faces)
-    (with-eval-after-load 'helm-files (my/apply-helm-faces))
-    (with-eval-after-load 'helm-grep (my/apply-helm-faces))))
+  (nerd-icons-completion-mode)
+  (add-hook 'marginalia-mode-hook #'nerd-icons-completion-marginalia-setup))
+#+end_src
 
-(use-package helm-xref
-  :after helm)
+* Actions (Embark)
 
-(use-package helm-flycheck
-  :after (helm flycheck)
-  :defer t)
+#+begin_src emacs-lisp
+(use-package embark
+  :defer t
+  :config
+  (setq prefix-help-command #'embark-prefix-help-command))
+
+(use-package embark-consult
+  :hook
+  (embark-collect-mode . consult-preview-at-point-mode))
 #+end_src
 
 * Help
@@ -1043,12 +1015,11 @@ enchant ignores it.
 
 ** Editable grep (wgrep)
 
-[[*Helm][=helm-do-grep-ag=]] can save its results to a persistent buffer (=C-c
-C-e= inside the Helm session, or the =Save results= action), which is a
-=grep-mode= buffer like any other; =wgrep= is what makes that buffer /editable/,
-so a project-wide rename is an ordinary editing session followed by =C-c C-c=.
-Without it the buffer is read-only and the results are only a list of places to
-visit.
+[[*Consult][=consult-ripgrep=]] plus [[*Actions (Embark)][=embark-export=]] gives
+a grep buffer of every match in the project; =wgrep= is what makes that buffer
+/editable/, so a project-wide rename is an ordinary editing session followed by
+=C-c C-c=. Without it the buffer is read-only and the results are only a list of
+places to visit.
 
 #+begin_src emacs-lisp
 (use-package wgrep
@@ -1180,10 +1151,11 @@ clip the trailing space the Flymake indicators used to carry.
 
 =global-diff-hl-mode= is a /globalized/ minor mode: each enable walks
 =buffer-list= and turns =diff-hl-mode= on in every buffer. Enabling it from a
-=find-file= hook therefore repeated that walk for every file opened, and the
-buffer list only grows over a session -- so the hook stays the trigger (the
-package still loads late rather than at startup), but the setup takes itself
-off =find-file-hook= after the first file.
+=find-file= hook therefore repeated that walk for every file opened, over a
+buffer list that [[*Consult][Consult]]'s previews keep making longer -- so
+scrolling a long result list got slower as it went. The hook stays the trigger,
+so the package still loads late rather than at startup, but the setup takes
+itself off =find-file-hook= after the first file.
 
 =diff-hl-flydiff-mode= is what shows indicators for /unsaved/ edits. It works by
 advice: =diff-hl-changes-buffer= is overridden so the reference blob is extracted
@@ -1199,8 +1171,9 @@ type, which is why =diff-hl-flydiff-delay= is raised to 1s.
 `global-diff-hl-mode' is a globalized minor mode, so each enable walks
 `buffer-list' and turns `diff-hl-mode' on in every buffer.  This used to
 run for every file opened, which repeated that walk over a buffer list
-that only grows over a session.  The hook is still the trigger, so the
-package stays deferred until the first file, but one run is enough."
+that Consult's previews keep making longer.  The hook is still the
+trigger, so the package stays deferred until the first file, but one run
+is enough."
   (remove-hook 'find-file-hook #'my/diff-hl-setup)
   (global-diff-hl-mode)
   (diff-hl-flydiff-mode)
@@ -1729,8 +1702,8 @@ connection. Eglot is started by hand, and the =eglot-check= predicate requires
 =eglot-managed-p=, so Flycheck falls through to =javascript-eslint= whenever no
 server is attached. That path keeps the six-second cost, so the TS mode hooks
 limit =flycheck-check-syntax-automatically= to =save= alone. =mode-enabled= is
-excluded on purpose: it would put a six-second run behind every TS buffer a
-command opens (=helm-find-files=, =project-switch-to-buffer=, ...). The
+excluded on purpose: [[*Consult][Consult]] previews a file candidate by opening
+it, which would put a six-second run behind every TS file scrolled past. The
 limit cannot delay LSP diagnostics: =flycheck-eglot--report= calls
 =flycheck-buffer-automatically= with no condition, and
 =flycheck-may-check-automatically= returns non-nil for any trigger list.
@@ -1743,11 +1716,10 @@ buffer as a single undo step, from whichever side supplied it.
 
 #+begin_src emacs-lisp
 ;; The fallback CLI checker costs ~6s per run, so do not start one while typing,
-;; and do not start one when the buffer opens either -- any command that opens
-;; a TS buffer (helm-find-files, project-switch-to-buffer, ...) would put a 6s
-;; run behind it if `mode-enabled' were in the trigger list. Buffer-local on
-;; purpose: the Nix and Elisp checkers are fast, and live results are worth
-;; having there.
+;; and do not start one when the buffer opens either -- Consult previews a file
+;; candidate by opening it, so `mode-enabled' put a 6s run behind every TS file
+;; scrolled past. Buffer-local on purpose: the Nix and Elisp checkers are fast,
+;; and live results are worth having there.
 (defun my/eslint-limit-check-triggers ()
   "Check on save only, so the slow ESLint CLI fallback does not thrash."
   (setq-local flycheck-check-syntax-automatically '(save)))
@@ -1893,7 +1865,7 @@ downloaded at runtime. Launch with =<leader> o t= (or =M-x ghostel=).
     :commands (ghostel)
     :bind (("C-x m" . ghostel)
          :map ghostel-semi-char-mode-map
-         ("C-s"  . helm-occur)
+         ("C-s"  . consult-line)
          ("C-k"  . my/ghostel-send-C-k-and-kill)
          :map project-prefix-map
          ("t" . ghostel-project)
@@ -1998,16 +1970,15 @@ directly.
   (evil-set-leader 'visual (kbd "SPC"))
 
   ;; Search / find
-  (evil-define-key 'normal 'global (kbd "<leader> s f") 'helm-find)
-  (evil-define-key 'normal 'global (kbd "<leader> s G") 'helm-grep-do-git-grep)
-  ;; Ripgrep-backed (helm-grep-ag-command defaults to `rg' when it is on PATH);
-  ;; no separate plain-grep binding, see Helm.
-  (evil-define-key 'normal 'global (kbd "<leader> s r") 'helm-do-grep-ag)
-  (evil-define-key 'normal 'global (kbd "<leader> s h") 'helm-info)
-  (evil-define-key 'normal 'global (kbd "<leader> /") 'helm-occur)
+  (evil-define-key 'normal 'global (kbd "<leader> s f") 'consult-find)
+  (evil-define-key 'normal 'global (kbd "<leader> s g") 'consult-grep)
+  (evil-define-key 'normal 'global (kbd "<leader> s G") 'consult-git-grep)
+  (evil-define-key 'normal 'global (kbd "<leader> s r") 'consult-ripgrep)
+  (evil-define-key 'normal 'global (kbd "<leader> s h") 'consult-info)
+  (evil-define-key 'normal 'global (kbd "<leader> /") 'consult-line)
 
   ;; Flycheck navigation
-  (evil-define-key 'normal 'global (kbd "<leader> x x") 'helm-flycheck)
+  (evil-define-key 'normal 'global (kbd "<leader> x x") 'consult-flycheck)
   (evil-define-key 'normal 'global (kbd "] d") 'flycheck-next-error)
   (evil-define-key 'normal 'global (kbd "[ d") 'flycheck-previous-error)
 
@@ -2034,14 +2005,14 @@ directly.
   ;; Buffers
   (evil-define-key 'normal 'global (kbd "] b") 'switch-to-next-buffer)
   (evil-define-key 'normal 'global (kbd "[ b") 'switch-to-prev-buffer)
-  (evil-define-key 'normal 'global (kbd "<leader> b b") 'helm-mini)
+  (evil-define-key 'normal 'global (kbd "<leader> b b") 'consult-buffer)
   (evil-define-key 'normal 'global (kbd "<leader> b i") 'ibuffer)
   (evil-define-key 'normal 'global (kbd "<leader> b d") 'kill-current-buffer)
   (evil-define-key 'normal 'global (kbd "<leader> b s") 'save-buffer)
-  (evil-define-key 'normal 'global (kbd "<leader>SPC") 'helm-mini)
+  (evil-define-key 'normal 'global (kbd "<leader>SPC") 'consult-buffer)
 
   ;; Projects
-  (evil-define-key 'normal 'global (kbd "<leader> p b") 'project-switch-to-buffer)
+  (evil-define-key 'normal 'global (kbd "<leader> p b") 'consult-project-buffer)
   (evil-define-key 'normal 'global (kbd "<leader> p p") 'project-switch-project)
   (evil-define-key 'normal 'global (kbd "<leader> p f") 'project-find-file)
   (evil-define-key 'normal 'global (kbd "<leader> p g") 'project-find-regexp)
@@ -2059,8 +2030,11 @@ directly.
   (evil-define-key 'normal 'global (kbd "<leader> o d") 'docker)
 
   ;; Kill ring
-  (evil-define-key 'normal 'global (kbd "P") 'helm-show-kill-ring)
-  (evil-define-key 'normal 'global (kbd "<leader> P") 'helm-show-kill-ring)
+  (evil-define-key 'normal 'global (kbd "P") 'consult-yank-from-kill-ring)
+  (evil-define-key 'normal 'global (kbd "<leader> P") 'consult-yank-from-kill-ring)
+
+  ;; Embark
+  (evil-define-key 'normal 'global (kbd "<leader> .") 'embark-act)
 
   ;; Help
   (evil-define-key 'normal 'global (kbd "<leader> h m") 'describe-mode)

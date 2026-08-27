@@ -12,7 +12,7 @@
 ;;   Emacs and `next-error' has a compilation buffer to walk.
 ;;
 ;; * evil-surround, wgrep, jinx, editorconfig.  See the config for each.  `wgrep'
-;;   is what makes a saved Helm grep buffer editable, which is the
+;;   is what makes an `embark-export'ed grep buffer editable, which is the
 ;;   project-wide refactor path this config was one package short of.
 ;;
 ;; `envrc' is deliberately absent, and asserted so: it shells out to direnv
