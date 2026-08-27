@@ -842,7 +842,13 @@ inverse matrix back to linear RGB, `moody-slant' underneath."
 (use-package nerd-icons-corfu
   :after corfu
   :config
-  (add-to-list 'corfu-margin-formatters #'nerd-icons-corfu-formatter))
+  ;; `nerd-icons-corfu-formatter' already pads the icon with a half-width
+  ;; space on each side; wrap it to add a couple of full spaces after, so the
+  ;; candidate text doesn't sit flush against the icon.
+  (defun my/nerd-icons-corfu-formatter (metadata)
+    (when-let ((fmt (nerd-icons-corfu-formatter metadata)))
+      (lambda (cand) (concat (funcall fmt cand) "  "))))
+  (add-to-list 'corfu-margin-formatters #'my/nerd-icons-corfu-formatter))
 #+end_src
 
 ** Cape
@@ -912,12 +918,24 @@ first call cannot yet see.
   (helm-recentf-fuzzy-match t)
   (helm-split-window-inside-p t)
   (helm-move-to-line-cycle-in-source t)
+  ;; Helm ships its own icon support (`helm-x-icons'); no extra package
+  ;; needed. `nerd-icons' just has to be on load-path before Helm looks up
+  ;; the provider, which is already the case (loaded eagerly earlier in this
+  ;; file). `helm-buffers-show-icons' lives in `helm-buffers', loaded eagerly
+  ;; by `helm-mode' itself, so it can be set directly; `helm-bookmark-use-icon'
+  ;; and `helm-imenu-use-icon' live in their own lazily-loaded files, so they
+  ;; are set below via `with-eval-after-load' instead.
+  (helm-x-icons-provider 'nerd-icons)
+  (helm-buffers-show-icons t)
   :bind
   (("M-x" . helm-M-x)
    ("C-x C-f" . helm-find-files)
    ("C-x b" . helm-mini)
    ("M-y" . helm-show-kill-ring))
   :config
+  (helm-ff-icon-mode 1)
+  (with-eval-after-load 'helm-bookmark (setq helm-bookmark-use-icon t))
+  (with-eval-after-load 'helm-imenu (setq helm-imenu-use-icon t))
   (when (fboundp 'my/apply-helm-faces)
     (my/apply-helm-faces)
     (with-eval-after-load 'helm-files (my/apply-helm-faces))
