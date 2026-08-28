@@ -1813,6 +1813,40 @@ always the one picked.
   (magit-todos-mode))
 #+end_src
 
+** Opening a pull request
+
+=my/browse-pull-request= (=<leader> g p=) takes the current branch straight to
+GitHub's "compare" view (=/pull/new/<branch>=), which offers to open a PR
+against the repository's default branch -- no need to switch to a browser tab
+and find the branch by hand. It shells out to =git= via Magit's own
+=magit-git-string=/=magit-get-current-branch= (autoloaded, so this does not
+force Magit to load until actually called) rather than adding a dependency on
+=forge= or the =gh= CLI, neither of which config.org otherwise needs.
+
+The =origin= remote is read whether it is the SSH or HTTPS form
+(=git@github.com:owner/repo.git= or =https://github.com/owner/repo.git=); a
+non-GitHub =origin= (a different forge, or none at all) is reported with
+=user-error= rather than silently opening a wrong URL.
+
+#+begin_src emacs-lisp
+(defun my/browse-pull-request ()
+  "Open a new pull request for the current branch on GitHub.
+Reads the `origin' remote and the current branch from Magit, and opens
+GitHub's compare view for that branch, which offers to open a PR against the
+repository's default branch."
+  (interactive)
+  (let* ((remote (magit-git-string "remote" "get-url" "origin"))
+         (branch (magit-get-current-branch)))
+    (unless remote
+      (user-error "No `origin' remote configured"))
+    (unless branch
+      (user-error "Not on a branch"))
+    (unless (string-match "github\\.com[:/]\\(.+?\\)\\(\\.git\\)?\\'" remote)
+      (user-error "`origin' is not a GitHub remote: %s" remote))
+    (browse-url (format "https://github.com/%s/pull/new/%s"
+                        (match-string 1 remote) branch))))
+#+end_src
+
 * Docker
 
 [[https://github.com/Silex/docker.el][=docker=]] is a transient menu (like Magit's) over containers, images, volumes,
@@ -2015,6 +2049,7 @@ directly.
   (evil-define-key 'normal 'global (kbd "<leader> g D") 'diff-hl-show-hunk)
   (evil-define-key 'normal 'global (kbd "<leader> g t") 'magit-todos-list)
   (evil-define-key 'normal 'global (kbd "<leader> g b") 'vc-annotate)
+  (evil-define-key 'normal 'global (kbd "<leader> g p") 'my/browse-pull-request)
 
   ;; Buffers
   (evil-define-key 'normal 'global (kbd "] b") 'switch-to-next-buffer)
