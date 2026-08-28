@@ -54,7 +54,7 @@
       emacs-appearance-overlay =
         final: prev:
         let
-          patchedEmacs = prev.emacs.overrideAttrs (old: {
+          patchedEmacs = prev.emacs31.overrideAttrs (old: {
             patches =
               (old.patches or [ ])
               ++ prev.lib.optionals prev.stdenv.hostPlatform.isDarwin [
@@ -62,8 +62,8 @@
                   # Pinned by content hash: if upstream rewrites the patch the
                   # build fails loudly (mismatch) rather than changing silently.
                   # For stricter reproducibility, pin the URL to a commit sha.
-                  url = "https://raw.githubusercontent.com/d12frosted/homebrew-emacs-plus/master/patches/emacs-30/system-appearance.patch";
-                  sha256 = "sha256-nrPOgGQAJb/5brrrWJNDARY2jWNJ9OsMtO+LPVhHfbY=";
+                  url = "https://raw.githubusercontent.com/d12frosted/homebrew-emacs-plus/master/patches/emacs-31/system-appearance.patch";
+                  sha256 = "sha256-Uyg1A9te0oh+nXM7qq+A8sgQ5mjngumIvaWFWgsevrQ=";
                 })
               ];
           });
