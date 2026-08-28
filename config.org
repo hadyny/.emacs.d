@@ -359,6 +359,18 @@ diff-hl block re-invokes this once its deffaces have run."
                           :foreground (modus-themes-get-color-value 'fg-removed))
       (set-face-attribute 'diff-hl-insert nil :background 'unspecified
                           :foreground (modus-themes-get-color-value 'fg-added))))
+  (defun my/apply-fringe-face ()
+  "Match `fringe's background to `default's `bg-main'.
+Modus Themes gives `fringe' its own colour, a shade apart from `bg-main' --
+that reads fine at the window edge, but Flycheck's indicators sit in the
+*margin*, immediately to the right of the fringe (see the Flycheck section),
+where the two backgrounds abut and the seam between them is exactly where the
+error/warning glyphs are read. Levelling `fringe' to `bg-main' here, not at
+top level, keeps this from reading the palette before the theme is loaded --
+see `my/apply-font-faces's docstring for why that broke the first client frame
+of a daemon."
+  (set-face-attribute 'fringe nil
+                      :background (modus-themes-get-color-value 'bg-main)))
   (defun my/apply-font-faces ()
     "Re-apply the font attributes `load-theme' strips.
 Everything is Maple Mono NF now, so no face needs its own family: an
@@ -387,6 +399,7 @@ colours."
     (set-face-attribute 'mode-line-active nil :box 'unspecified)
     (set-face-attribute 'mode-line-inactive nil :box 'unspecified)
     (my/apply-diff-hl-faces)
+    (my/apply-fringe-face)
     (my/apply-font-faces)))
 
 (use-package doom-themes
@@ -483,13 +496,14 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
 (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
 (add-to-list 'default-frame-alist '(ns-appearance . dark))
 
-;; The fringe is left to Modus Themes, which gives it its own `fringe' colour --
-;; a shade apart from `default's `bg-main', by design, not something to match
-;; here. Deriving it here with
-;; `(face-attribute 'default :background)' read the value at *load* time, before
-;; the theme had been applied and, in a daemon, before any frame existed: the
-;; first client frame got a mis-coloured fringe that only corrected itself on the
-;; next flavour switch, when the theme re-specified the face.
+;; The fringe's own colour (a shade apart from `default's `bg-main') left a
+;; visible seam right where Flycheck's margin indicators sit, just inside it --
+;; `my/apply-fringe-face' (called from the appearance hook, alongside
+;; `my/apply-diff-hl-faces') levels it to `bg-main' instead. That is not done
+;; here at top level: reading the palette this way once, at *load* time, is
+;; before the theme has been applied and, in a daemon, before any frame exists --
+;; the first client frame got a mis-coloured fringe that only corrected itself
+;; on the next flavour switch, when the theme re-specified the face.
 
 ;; Fallback for symbol glyphs the code/role fonts lack (Dingbats + Misc Symbols &
 ;; Arrows). Menlo is a monospace face that covers e.g. ✳ (U+2733). Note: the

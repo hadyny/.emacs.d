@@ -63,6 +63,7 @@ the Tokyo Night switch this replaced."
     (cl-letf (((symbol-function 'modus-themes-load-theme)
                (lambda (theme &rest _) (push theme calls)))
               ((symbol-function 'my/apply-diff-hl-faces) #'ignore)
+              ((symbol-function 'my/apply-fringe-face) #'ignore)
               ((symbol-function 'my/apply-font-faces) #'ignore))
       ;; Act
       (my/apply-modus-variant 'light)
@@ -80,12 +81,15 @@ on every switch -- the same contract the Catppuccin flavour hook had."
     (cl-letf (((symbol-function 'modus-themes-load-theme) #'ignore)
               ((symbol-function 'my/apply-diff-hl-faces)
                (lambda () (push 'diff-hl calls)))
+              ((symbol-function 'my/apply-fringe-face)
+               (lambda () (push 'fringe calls)))
               ((symbol-function 'my/apply-font-faces)
                (lambda () (push 'fonts calls))))
       ;; Act
       (my/apply-modus-variant 'dark)
       ;; Assert
       (should (memq 'diff-hl calls))
+      (should (memq 'fringe calls))
       (should (memq 'fonts calls)))))
 
 (ert-deftest modus-variant/package-is-in-the-closure ()
