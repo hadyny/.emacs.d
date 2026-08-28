@@ -34,7 +34,7 @@ package, add it to the =withPackages= list in =flake.nix= and rebuild.
 
 #+begin_src emacs-lisp
 (use-package exec-path-from-shell
-  :config (setq exec-path-from-shell-variables '("PATH"))
+  :config (setopt exec-path-from-shell-variables '("PATH"))
   :init
   ;; `daemonp' as well as `window-system': a launchd agent inherits a minimal
   ;; PATH, and a daemon has no frame until a client connects, so
@@ -89,7 +89,7 @@ while idle, moving collection out of interactive work.
 (add-to-list 'default-frame-alist '(height                 . 45))
 (add-to-list 'default-frame-alist '(min-width              . 1))
 (add-to-list 'default-frame-alist '(width                  . 100))
-(setq-default line-spacing 0.2)
+(setopt line-spacing 0.2)
 #+end_src
 
 ** Spacious padding
@@ -203,9 +203,9 @@ from a different source.
   (when (eq system-type 'darwin)
     (let ((gls (executable-find "gls")))
       (when gls
-        (setq insert-directory-program gls))))
-  (setq dired-listing-switches
-        "-l --almost-all --human-readable --group-directories-first --no-group")
+        (setopt insert-directory-program gls))))
+  (setopt dired-listing-switches
+          "-l --almost-all --human-readable --group-directories-first --no-group")
   (put 'dired-find-alternate-file 'disabled nil)
   (defun my/dired-find-file-reuse ()
     "Open a directory in place (reusing the dired buffer); open files normally.
@@ -274,9 +274,9 @@ keybindings section), which toggles it.
 (use-package eldoc
   :ensure nil
   :config
-  (setq eldoc-idle-delay 0)
-  (setq eldoc-echo-area-use-multiline-p nil)
-  (setq eldoc-echo-area-display-truncation-message nil)
+  (setopt eldoc-idle-delay 0)
+  (setopt eldoc-echo-area-use-multiline-p nil)
+  (setopt eldoc-echo-area-display-truncation-message nil)
   :init
   (global-eldoc-mode))
 
@@ -289,7 +289,7 @@ keybindings section), which toggles it.
 #+begin_src emacs-lisp
 (use-package which-key
   :config
-  (setq which-key-idle-delay 0.05)
+  (setopt which-key-idle-delay 0.05)
   (which-key-mode))
 #+end_src
 
@@ -360,17 +360,25 @@ diff-hl block re-invokes this once its deffaces have run."
       (set-face-attribute 'diff-hl-insert nil :background 'unspecified
                           :foreground (modus-themes-get-color-value 'fg-added))))
   (defun my/apply-fringe-face ()
-  "Match `fringe's background to `default's `bg-main'.
+    "Match `fringe' and `margin's backgrounds to `default's `bg-main'.
 Modus Themes gives `fringe' its own colour, a shade apart from `bg-main' --
 that reads fine at the window edge, but Flycheck's indicators sit in the
 *margin*, immediately to the right of the fringe (see the Flycheck section),
 where the two backgrounds abut and the seam between them is exactly where the
-error/warning glyphs are read. Levelling `fringe' to `bg-main' here, not at
-top level, keeps this from reading the palette before the theme is loaded --
-see `my/apply-font-faces's docstring for why that broke the first client frame
-of a daemon."
-  (set-face-attribute 'fringe nil
-                      :background (modus-themes-get-color-value 'bg-main)))
+error/warning glyphs are read. Levelling both to `bg-main' here, not at top
+level, keeps this from reading the palette before the theme is loaded -- see
+`my/apply-font-faces's docstring for why that broke the first client frame of
+a daemon.
+`margin' is Emacs 31's own basic face for margin display strings (Modus
+Themes colours it the same as `fringe', which is what caused the seam in the
+first place); it is guarded by `facep' the same way `my/apply-diff-hl-faces'
+guards diff-hl's faces, so this stays a no-op rather than an error on the
+Emacs 30 `emacs-nox' the CI checks still build tests against."
+    (set-face-attribute 'fringe nil
+                        :background (modus-themes-get-color-value 'bg-main))
+    (when (facep 'margin)
+      (set-face-attribute 'margin nil
+                          :background (modus-themes-get-color-value 'bg-main))))
   (defun my/apply-font-faces ()
     "Re-apply the font attributes `load-theme' strips.
 Everything is Maple Mono NF now, so no face needs its own family: an
@@ -565,7 +573,7 @@ keeping code, tables, verbatim and other structural faces in =fixed-pitch= (Mapl
 Mono)
 #+begin_src emacs-lisp
 (use-package mixed-pitch
-  :hook ((org-mode markdown-mode) . mixed-pitch-mode))
+  :hook ((org-mode markdown-mode markdown-ts-mode) . mixed-pitch-mode))
 #+end_src
 
 * Tree-sitter
@@ -726,17 +734,17 @@ function builds the element.
    (buffer-read-only (propertize "■" 'face 'shadow))
    (t " ")))
 
-(setq-default mode-line-format
-              '("%e"
-                (:eval (my/mode-line-evil-tag)) " "
-                (:eval (my/mode-line-buffer-status)) " "
-                mode-line-buffer-identification
-                "  " mode-line-position
-                mode-line-format-right-align
-                (vc-mode vc-mode) "  "
-                (:eval (propertize (format-mode-line mode-name) 'face 'bold)) "  "
-                (:eval (when (bound-and-true-p flycheck-mode) flycheck-mode-line)) "  "
-                mode-line-misc-info))
+(setopt mode-line-format
+        '("%e"
+          (:eval (my/mode-line-evil-tag)) " "
+          (:eval (my/mode-line-buffer-status)) " "
+          mode-line-buffer-identification
+          "  " mode-line-position
+          mode-line-format-right-align
+          (vc-mode vc-mode) "  "
+          (:eval (propertize (format-mode-line mode-name) 'face 'bold)) "  "
+          (:eval (when (bound-and-true-p flycheck-mode) flycheck-mode-line)) "  "
+          mode-line-misc-info))
 
 (use-package moody
   :config
@@ -772,7 +780,7 @@ inverse matrix back to linear RGB, `moody-slant' underneath."
                   (color-rgb-to-hex r g b))))
       (moody-slant direction (cnv c1) (cnv c2) (cnv c3) height)))
   (when *is-a-mac*
-    (setq moody-slant-function #'my/moody-slant-srgb))
+    (setopt moody-slant-function #'my/moody-slant-srgb))
   (moody-replace-mode-line-buffer-identification)
   (moody-replace-vc-mode))
 #+end_src
@@ -896,8 +904,8 @@ lets fast movement skip the files in between.
   (consult-preview-key '(:debounce 0.3 any))
   :init
   (advice-add #'register-preview :override #'consult-register-window)
-  (setq xref-show-xrefs-function #'consult-xref
-        xref-show-definitions-function #'consult-xref))
+  (setopt xref-show-xrefs-function #'consult-xref
+          xref-show-definitions-function #'consult-xref))
 #+end_src
 
 ** Marginalia
@@ -1043,12 +1051,39 @@ places to visit.
 
 ** Markdown
 
+=markdown-ts-mode= is Emacs 31's built-in tree-sitter Markdown mode. Once its
+grammars are installed, [[*Tree-sitter][=treesit-auto=]] remaps =.md= buffers to
+it automatically (its recipe covers the =markdown-mode= -> =markdown-ts-mode=
+swap the same way it does for JS/TS), falling back to =markdown-mode= itself
+when the grammars are absent -- e.g. =pkgs.emacs-nox= (Emacs 30.2) in CI, which
+predates =markdown-ts-mode= entirely.
+
+Unlike other built-in tree-sitter modes, =markdown-ts-mode= ships with no
+autoload -- its own commentary calls it experimental and says Emacs does not
+yet enable it by default. =treesit-auto= only ever checks =fboundp= on a
+recipe's ts-mode; it never ~require~s one itself, so without a =require=
+somewhere =markdown-ts-mode= would stay void and =treesit-auto= would never
+remap to it. Hence the ~require~ in =:init= below, which runs unconditionally
+at startup (well before =treesit-auto= builds its remap alist on the first
+file visit), guarded with =noerror= so Emacs 30.2 silently no-ops instead of
+erroring.
+
+=markdown-mode= (the package) stays regardless -- it is =treesit-auto='s
+fallback when the grammars are missing, and it is also where
+=markdown-command=/=markdown-do= live, neither of which =markdown-ts-mode=
+replaces. =C-c C-e= is therefore bound on both keymaps.
+
 #+begin_src emacs-lisp
 (use-package markdown-mode
   :defer t
-  :init (setq markdown-command "multimarkdown")
+  :init
+  (setopt markdown-command "multimarkdown")
+  (require 'markdown-ts-mode nil t)
   :bind (:map markdown-mode-map
-              ("C-c C-e" . markdown-do)))
+              ("C-c C-e" . markdown-do))
+  :config
+  (when (fboundp 'markdown-ts-mode)
+    (define-key markdown-ts-mode-map (kbd "C-c C-e") #'markdown-do)))
 #+end_src
 
 ** Notes (zk4e)
@@ -1235,21 +1270,21 @@ is enough."
   :ensure nil
   :defer t
   :config
-  (setq org-startup-indented t
-        org-log-done 'time
-        org-hide-emphasis-markers t
-        org-auto-align-tags nil
-        org-tags-column 0
-        org-fold-catch-invisible-edits 'show-and-error
-        org-special-ctrl-a/e t
-        org-insert-heading-respect-content t
-        org-pretty-entities t
-        org-agenda-tags-column 0
-        org-ellipsis "…"
-        ;; Top-level files only (non-recursive). The notes subdirectories
-        ;; (0-inbox, 1-notes, 2-maps, 3-sources) hold no agenda items, so
-        ;; scanning them recursively just slowed the agenda down.
-        org-agenda-files '("~/notes/org/"))
+  (setopt org-startup-indented t
+          org-log-done 'time
+          org-hide-emphasis-markers t
+          org-auto-align-tags nil
+          org-tags-column 0
+          org-fold-catch-invisible-edits 'show-and-error
+          org-special-ctrl-a/e t
+          org-insert-heading-respect-content t
+          org-pretty-entities t
+          org-agenda-tags-column 0
+          org-ellipsis "…"
+          ;; Top-level files only (non-recursive). The notes subdirectories
+          ;; (0-inbox, 1-notes, 2-maps, 3-sources) hold no agenda items, so
+          ;; scanning them recursively just slowed the agenda down.
+          org-agenda-files '("~/notes/org/"))
 
   (setq +org-capture-projects-file "~/notes/org/projects.org"
         +org-capture-todo-file     "~/notes/org/todo.org"
@@ -1259,10 +1294,10 @@ is enough."
   ;; The (x) suffixes are fast-access keys, so C-c C-t pops up a single-keypress
   ;; selection menu instead of cycling. STARTED replaces IN-PROGRESS to match the
   ;; neovim config, whose agenda match parser can't filter hyphenated keywords.
-  (setq org-todo-keywords
-        '((sequence "TODO(t)" "STARTED(s)" "WAITING(w)" "|" "DONE(d)" "WONT-DO(x)")))
+  (setopt org-todo-keywords
+          '((sequence "TODO(t)" "STARTED(s)" "WAITING(w)" "|" "DONE(d)" "WONT-DO(x)")))
 
-  (setq org-capture-templates '(
+  (setopt org-capture-templates '(
                                 ("t" "Quick todo" entry
                                  (file+headline +org-capture-todo-file "Todos")
                                  "* TODO %?\n:Created: %T\n" :prepend t)
@@ -1284,21 +1319,21 @@ is enough."
                                  (file+headline "~/notes/org/notes.org" "Random Notes")
                                  "** %?" :empty-lines 0)))
 
-  (setq org-todo-keyword-faces
-        '(("TODO" . (:foreground "GoldenRod" :weight bold))
-          ("PLANNING" . (:foreground "DeepPink" :weight bold))
-          ("STARTED" . (:foreground "Cyan" :weight bold))
-          ("WAITING" . (:foreground "Red" :weight bold))
-          ("VERIFYING" . (:foreground "DarkOrange" :weight bold))
-          ("BLOCKED" . (:foreground "Red" :weight bold))
-          ("DONE" . (:foreground "LimeGreen" :weight bold))
-          ("OBE" . (:foreground "LimeGreen" :weight bold))
-          ("WONT-DO" . (:foreground "LimeGreen" :weight bold))))
+  (setopt org-todo-keyword-faces
+          '(("TODO" . (:foreground "GoldenRod" :weight bold))
+            ("PLANNING" . (:foreground "DeepPink" :weight bold))
+            ("STARTED" . (:foreground "Cyan" :weight bold))
+            ("WAITING" . (:foreground "Red" :weight bold))
+            ("VERIFYING" . (:foreground "DarkOrange" :weight bold))
+            ("BLOCKED" . (:foreground "Red" :weight bold))
+            ("DONE" . (:foreground "LimeGreen" :weight bold))
+            ("OBE" . (:foreground "LimeGreen" :weight bold))
+            ("WONT-DO" . (:foreground "LimeGreen" :weight bold))))
 
-  (setq org-tag-faces
-        '(("work"      . (:foreground "mediumPurple1" :weight bold))
-          ("config"    . (:foreground "royalblue1"    :weight bold))
-          ("personal"  . (:foreground "forest green"  :weight bold))))
+  (setopt org-tag-faces
+          '(("work"      . (:foreground "mediumPurple1" :weight bold))
+            ("config"    . (:foreground "royalblue1"    :weight bold))
+            ("personal"  . (:foreground "forest green"  :weight bold))))
 
   (defun air-org-skip-subtree-if-priority (priority)
     "Skip an agenda subtree if it has a priority of PRIORITY.
@@ -1311,9 +1346,9 @@ is enough."
           subtree-end
         nil)))
 
-  (setq org-agenda-skip-deadline-if-done t)
+  (setopt org-agenda-skip-deadline-if-done t)
 
-  (setq org-agenda-custom-commands
+  (setopt org-agenda-custom-commands
         '(("c" "Current Work"
            ((tags "PRIORITY=\"A\""
                   ((org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))
@@ -1385,13 +1420,13 @@ is enough."
   :defer t
   :hook (org-mode . org-modern-mode)
   :config
-  (setq org-modern-tag nil)
-  (setq org-modern-fold-stars
-        '(("▶" . "▼")     ; L1
-          ("▷" . "▽")     ; L2
-          ("▶" . "▼")     ; L3
-          ("▹" . "▿")     ; L4
-          ("▸" . "▾"))))  ; L5
+  (setopt org-modern-tag nil)
+  (setopt org-modern-fold-stars
+          '(("▶" . "▼")     ; L1
+            ("▷" . "▽")     ; L2
+            ("▶" . "▼")     ; L3
+            ("▹" . "▿")     ; L4
+            ("▸" . "▾"))))  ; L5
 #+end_src
 
 ** Super agenda
@@ -1407,13 +1442,13 @@ fill it in to organise the view, e.g.:
   ;; Group items in the standard agenda/todo views (and, being global, the
   ;; custom `c'/`S' commands too). Edit to taste; ungrouped items fall through
   ;; to a catch-all at the bottom.
-  (setq org-super-agenda-groups
-        '((:name "Today"       :time-grid t :scheduled today)
-          (:name "Overdue"     :deadline past)
-          (:name "Due today"   :deadline today)
-          (:name "Important"   :priority "A")
-          (:name "In progress" :todo "STARTED")
-          (:name "Waiting"     :todo "WAITING")))
+  (setopt org-super-agenda-groups
+          '((:name "Today"       :time-grid t :scheduled today)
+            (:name "Overdue"     :deadline past)
+            (:name "Due today"   :deadline today)
+            (:name "Important"   :priority "A")
+            (:name "In progress" :todo "STARTED")
+            (:name "Waiting"     :todo "WAITING")))
   ;; evil gotcha: `org-super-agenda' binds j/k/RET/TAB on group-header lines via
   ;; `org-super-agenda-header-map', which hijacks evil navigation when point is
   ;; on a header. Blank it so evil's j/k work throughout the agenda.
@@ -1443,11 +1478,11 @@ other package, so there is no =:ensure nil= here.
   ;; `exec-path' and PATH by the time you connect, and `rass' resolves each
   ;; server itself from the PATH it inherits.
   :config
-  (setq eglot-code-action-indications '(mode-line))
+  (setopt eglot-code-action-indications '(mode-line))
   ;; `eglot-confirm-server-initiated-edits' has been an obsolete alias for this
   ;; since Eglot 1.16. Same value, so the behaviour is unchanged: any non-nil
   ;; symbol means "summarise the edit and prompt".
-  (setq eglot-confirm-server-edits t)
+  (setopt eglot-confirm-server-edits t)
   (add-to-list 'eglot-server-programs
                '((csharp-ts-mode csharp-mode) . ("Microsoft.CodeAnalysis.LanguageServer" "--logLevel" "Debug" "--extensionLogDirectory" "~/.dotnet/logs" "--stdio")))
   ;; TS/TSX: three servers behind the `rass' multiplexer. Eglot connects one
@@ -1919,7 +1954,7 @@ downloaded at runtime. Launch with =<leader> o t= (or =M-x ghostel=).
          ("t" . ghostel-project)
          ("T" . ghostel-project-list-buffers))
     :init
-    (setq ghostel-line-spacing 4)
+    (setopt ghostel-line-spacing 4)
     :config
     (add-to-list 'project-switch-commands '(ghostel-project "Ghostel") t)
     (add-to-list 'project-switch-commands '(ghostel-project-list-buffers "Ghostel buffers") t)
@@ -1990,9 +2025,9 @@ directly.
   ;; is found, `agent-shell-anthropic-claude-environment' is left at its default
   ;; and `claude-agent-acp' falls back to the store path it was built with.
   (when-let* ((claude (executable-find "claude")))
-    (setq agent-shell-anthropic-claude-environment
-          (agent-shell-make-environment-variables
-           "CLAUDE_CODE_EXECUTABLE" claude))))
+    (setopt agent-shell-anthropic-claude-environment
+            (agent-shell-make-environment-variables
+             "CLAUDE_CODE_EXECUTABLE" claude))))
 #+end_src
 
 * Evil (Vim emulation)
@@ -2003,15 +2038,15 @@ directly.
   :hook
   (after-init . evil-mode)
   :init
-  (setq evil-want-integration t)
-  (setq evil-want-keybinding nil)
-  (setq evil-want-C-u-scroll t)
-  (setq evil-want-C-u-delete t)
+  (setopt evil-want-integration t)
+  (setopt evil-want-keybinding nil)
+  (setopt evil-want-C-u-scroll t)
+  (setopt evil-want-C-u-delete t)
   :config
   (evil-set-undo-system 'undo-redo)
 
   (setq evil-leader/in-all-states t)
-  (setq evil-want-fine-undo t)
+  (setopt evil-want-fine-undo t)
 
   ;; Space as leader
   (evil-set-leader 'normal (kbd "SPC"))
