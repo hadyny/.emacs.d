@@ -1429,33 +1429,6 @@ is enough."
             ("▸" . "▾"))))  ; L5
 #+end_src
 
-** Super agenda
-
-[[https://github.com/alphapapa/org-super-agenda][=org-super-agenda=]] groups agenda items into sections. The mode is enabled
-here, but the agenda renders unchanged until =org-super-agenda-groups= is set;
-fill it in to organise the view, e.g.:
-
-#+begin_src emacs-lisp
-(use-package org-super-agenda
-  :after org
-  :config
-  ;; Group items in the standard agenda/todo views (and, being global, the
-  ;; custom `c'/`S' commands too). Edit to taste; ungrouped items fall through
-  ;; to a catch-all at the bottom.
-  (setopt org-super-agenda-groups
-          '((:name "Today"       :time-grid t :scheduled today)
-            (:name "Overdue"     :deadline past)
-            (:name "Due today"   :deadline today)
-            (:name "Important"   :priority "A")
-            (:name "In progress" :todo "STARTED")
-            (:name "Waiting"     :todo "WAITING")))
-  ;; evil gotcha: `org-super-agenda' binds j/k/RET/TAB on group-header lines via
-  ;; `org-super-agenda-header-map', which hijacks evil navigation when point is
-  ;; on a header. Blank it so evil's j/k work throughout the agenda.
-  (setq org-super-agenda-header-map (make-sparse-keymap))
-  (org-super-agenda-mode))
-#+end_src
-
 * LSP
 
 ** Eglot
