@@ -13,9 +13,10 @@
 ;; that half needs no "not yet loaded" lifecycle path. `margin' is Emacs 31's
 ;; new basic face for margin display strings -- Modus Themes colours it the
 ;; same as `fringe', which is what caused the seam in the first place -- and
-;; does not exist yet on the Emacs 30 `emacs-nox' the CI checks still build
-;; tests against, so that half is guarded by `facep' and does need the
-;; lifecycle treatment, the same reason `my/apply-diff-hl-faces' has one.
+;; is guarded by `facep' in `my/apply-fringe-face' for Emacs <31, where it
+;; does not exist yet. The CI checks' `emacs-nox' has since moved to Emacs 31,
+;; where `margin' is built in and already present at startup, so the "not yet
+;; loaded" half of the test below is skipped rather than run against a stub.
 
 ;;; Code:
 
@@ -40,22 +41,27 @@
 
 (ert-deftest fringe-face/margin-tracks-emacs-31-availability ()
   "`margin' is coloured once it exists (Emacs 31+); a no-op before that.
-Faces are global to the process and cannot be un-defined, so this is a single
-lifecycle test rather than two -- it exercises the \"does not exist yet\" path
-(real absence: batch `emacs -Q' on Emacs 30 never defines it) before creating
-the face, the same reason `apply-diff-hl-faces/tracks-diff-hl-load-lifecycle'
-is structured this way."
+Faces are global to the process and cannot be un-defined, so the \"does not
+exist yet\" path (real absence: batch `emacs -Q' on Emacs 30 never defines it)
+only gets exercised on an Emacs old enough to lack `margin' -- the CI checks'
+`emacs-nox' has moved to Emacs 31, where the face is built in and already
+present at startup, so that half is skipped rather than run against a stub;
+the same reason `apply-diff-hl-faces/tracks-diff-hl-load-lifecycle' guards
+its \"not yet loaded\" half on package state instead of a version check."
   ;; Arrange
   (cfg-test-load-defun 'my/apply-fringe-face)
   (cl-letf (((symbol-function 'modus-themes-get-color-value)
              (lambda (name &optional _with-overrides _theme)
                (should (eq name 'bg-main))
                "#1a1a1a")))
-    ;; Act / Assert -- startup: `margin' genuinely does not exist (Emacs 30).
-    (should-not (facep 'margin))
-    (should (progn (my/apply-fringe-face) t))
+    ;; Act / Assert -- startup: `margin' does not exist yet (Emacs <31 only).
+    (if (facep 'margin)
+        (ert-skip "`margin' is already defined on this Emacs (31+)")
+      (progn
+        (should-not (facep 'margin))
+        (should (progn (my/apply-fringe-face) t))))
     ;; Arrange -- Emacs 31 defines the basic `margin' face.
-    (make-face 'margin)
+    (unless (facep 'margin) (make-face 'margin))
     ;; Act
     (my/apply-fringe-face)
     ;; Assert
