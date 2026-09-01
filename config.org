@@ -105,10 +105,10 @@ keeps the previous value; header line, tab and divider widths are left at
 spacious-padding's own defaults.
 
 =:mode-line-width= is 0 -- spacious-padding adds no box of its own to the mode
-line at all. [[*Mode-line][Moody]]'s tabs/ribbons need the mode line free of
-any box (its own README says a box "conflicts with Moody"), and
+line at all. The [[*Mode-line][svg-line]] image that now renders the mode line
+draws its own background and needs no Emacs-drawn box framing it, and
 =my/apply-modus-variant= (see [[*Themes][Themes]]) already strips Modus
-Themes' own box while keeping the background contrast Moody needs -- a
+Themes' own box while keeping the background contrast svg-line needs -- a
 second, spacious-padding-added box here would reintroduce the same conflict
 from a different source.
 
@@ -318,15 +318,15 @@ theme specifies showing through with the wrong colours), and it passes
 Modus Themes still boxes =mode-line=/=mode-line-active=/=mode-line-inactive=
 when the display supports it, and unlike Tokyo Night it has no
 user option to turn that off -- the box is stripped by hand instead, every
-switch. [[*Mode-line][Moody]]'s tabs/ribbons draw the mode line's background
-as the "outer" colour around an "inner" fill taken from =default='s background
-(=moody-ribbon-background=, =moody-wrap=); a box around the mode line
-interrupts that slant graphic at the exact edge where a tab/ribbon would sit
-(the same reason [[*Spacious padding][Spacious padding]]'s own
-=:mode-line-width= is 0 here). Stripping the box does not touch the
-background itself -- Modus Themes already gives =mode-line-active=/
-=mode-line-inactive= their own =bg-mode-line-active=/=bg-mode-line-inactive=,
-distinct from =default='s =bg-main=, which is exactly the contrast Moody needs.
+switch. [[*Mode-line][svg-line]] renders the mode line as an SVG image that
+draws its own background; a box around the mode line would frame that image
+in a colour the SVG itself does not control (the same reason
+[[*Spacious padding][Spacious padding]]'s own =:mode-line-width= is 0 here).
+Stripping the box does not touch the background itself -- Modus Themes
+already gives =mode-line-active=/=mode-line-inactive= their own
+=bg-mode-line-active=/=bg-mode-line-inactive=, distinct from =default='s
+=bg-main=, which is exactly what svg-line's =:background=/
+=:inactive-background= read.
 
 #+begin_src emacs-lisp
 (use-package modus-themes
@@ -403,7 +403,7 @@ same reason `my/apply-diff-hl-faces' exists:
 is no lingering variant leaving faces it does not specify with the wrong
 colours."
     (modus-themes-load-theme (my/modus-variant-for appearance))
-    ;; See the box/Moody note above.
+    ;; See the box/svg-line note above.
     (set-face-attribute 'mode-line-active nil :box 'unspecified)
     (set-face-attribute 'mode-line-inactive nil :box 'unspecified)
     (my/apply-diff-hl-faces)
@@ -637,89 +637,48 @@ does not change between one file and the next.")
 
 * Mode-line
 
-[[https://github.com/tarsius/moody][=moody=]] does not replace the mode line the way =mood-line= (previously used
-here) did -- it only restyles a couple of built-in elements
-(=mode-line-buffer-identification=, =vc-mode=) as tab/ribbon shapes, via
-=moody-replace-mode-line-buffer-identification= and =moody-replace-vc-mode=.
-Everything else is a hand-built =mode-line-format=, built from stock Emacs and
-Flycheck constructs rather than mood-line's custom segments, so those two
-=moody-replace-*= calls have the exact elements they expect to find and
-substitute:
+[[https://github.com/chiply/svg-line][=svg-line=]] renders the mode line as an SVG image instead of laid-out text.
+It replaces both the previous hand-built =mode-line-format= *and*
+[[https://github.com/tarsius/moody][Moody]] (which only restyled
+=mode-line-buffer-identification=/=vc-mode= as tab/ribbon shapes on top of
+that format) -- the two cannot coexist: =svg-line='s =:target 'mode-line=
+install (=svg-line--install=) replaces the whole of =mode-line-format= with a
+single =(:eval ...)= form, leaving Moody's =moody-replace-*= (a =cl-subst=
+over the old =mode-line-format= structure, looking for
+=mode-line-buffer-identification= and =(vc-mode vc-mode)= as themselves)
+nothing left to substitute into. Moody's macOS-only slant colour-space
+correction (=my/moody-slant-srgb=, tuned via =my/moody-slant-gamma=) is gone
+with it -- there is no slant to colour any more.
 
-- =mode-line-buffer-identification= and =(vc-mode vc-mode)= are included
-  verbatim -- =moody-replace-*= finds and replaces those exact sub-forms in
-  =mode-line-format= (=cl-subst= with an =equal= test), so they have to appear
-  as themselves, not pre-wrapped in anything.
-- =mode-line-format-right-align= (Emacs 30+) replaces the manual padding
-  math mood-line did internally to right-align its second half.
-- The Evil tag comes from =evil-generate-mode-line-tag= called directly,
-  rather than through =evil-mode-line-tag=/=evil-mode-line-format=: Evil
-  auto-inserts/removes that symbol from =mode-line-format= itself on every
-  state change, hunting for an anchor element (=mode-line-position= by
-  default) to insert around, which is one more moving part than a plain
-  =:eval= needs.
-- Flycheck's own =flycheck-mode-line= construct (its =:lighter=, normally only
-  seen via =minor-mode-alist=) stands in for mood-line's checker segment --
-  already colour-coded per severity, no custom hooks required.
+=my/mode-line-rows= is the =:content= function: one row, split into a left
+group (Evil state tag, modified/read-only indicator, buffer name, point
+position) and a right group (VC branch, major mode in bold, Flycheck's own
+=flycheck-mode-line= construct for severity-coloured diagnostics, misc info).
+Each element is plain =format-mode-line= output rather than the propertized
+constructs =mode-line-format= used directly -- =svg-line= draws its own text
+into the SVG, so what matters is the string each element expands to, not any
+face/keymap properties riding along with it (=svg-line-segs-from-string=
+exists for content whose *interactivity* needs preserving; nothing here
+needs a click action).
 
-Moody draws its tab/ribbon slants as tiny XPM images built from three raw
-colour values. On macOS, Emacs' NS port does not interpret those the way
-X11/other platforms do -- colours come out wrong (a washed-out patch behind
-the slant, unrelated to any face) unless converted through a colour-space
-correction first; =moody-slant= (the default) is correct everywhere else,
-hence the platform guard.
+=:background=/=:foreground= are zero-argument functions rather than literal
+colours, calling `modus-themes-get-color-value' directly at render time. This
+is why =svg-line= needs no counterpart to =my/apply-fringe-face=/
+=my/apply-diff-hl-faces=: those mutate a face's attributes in place via
+`set-face-attribute', a one-shot change that only a fresh call after
+`load-theme' can undo, so each needs to be re-invoked from the appearance
+hook. A colour *function* is instead called fresh on every render, so it
+picks up whichever variant is loaded automatically -- no reapply hook, no
+lifecycle to track. =:active= is the built-in `mode-line-window-selected-p',
+so the unfocused-window variant (=bg-mode-line-inactive=/
+=fg-mode-line-inactive=) applies without a separate predicate here.
 
-Moody's own correction, =moody-slant-apple-rgb=, pre-compensates every slant
-colour by decoding it with a 1.8 gamma (chasing a legacy "Apple RGB" profile
-NS is assumed to reinterpret raw image pixels through) before handing it to
-`create-image'. On this build that over-corrects slightly: every slant
-colour comes out a touch darker than the face it is supposed to match,
-visible as the mode-line-adjacent half of the buffer-identification/vc-mode
-glyphs reading darker than =mode-line-active=/=mode-line-inactive= right next
-to them. Reworking the exponent into `color-srgb-to-xyz' plus the same
-inverse matrix shows *why*: decoding with a gamma of ~2.2 instead very nearly
-reconstructs the original colour (i.e. cancels the correction outright,
-which is exactly the washed-out failure mode the correction exists to avoid)
--- so the true value NS needs sits somewhere between 1.8 and that, not at
-either end. =my/moody-slant-srgb= is the same conversion with the exponent
-pulled out into =my/moody-slant-gamma= so it can be tuned in one place
-without re-deriving the maths -- currently 2.1, after an initial 2.0 (still
-reported as slightly dark) nudged one step further from 1.8; everything else
--- the sRGB -> XYZ step, the inverse matrix, `moody-slant' underneath -- is
-untouched. This has not been verified against a real display from here;
-if 2.0 is still off, nudge =my/moody-slant-gamma= up (lighter) or down
-(darker) a step at a time.
-
-Both tabs and ribbons fill their *inside* (as opposed to the slant itself)
-from =default='s background -- =bg-main=, the same colour the buffer itself
-uses. That is Moody's own design, not something this config adds: the fill is
-meant to read as a piece of the buffer poking up into the bar, distinct from
-=mode-line-active='s/=mode-line-inactive='s own background by design (the
-whole reason a slant is worth drawing at all -- see the box/Moody note
-above). In Modus Vivendi Tinted =bg-main= (near-black) is a lot darker than
-=bg-mode-line-active= (a mid grey-blue), so the contrast is more pronounced
-than in most themes, but it is not a bug to fix -- softening or removing it
-was tried twice (recoloured =moody-ribbon-background= to a dedicated,
-in-between shade; matched it to the mode line exactly) and both attempts made
-it look worse: matching it exactly leaves the slant image with no contrast to
-draw at all, so the tab/ribbon silhouette disappears; anything in between
-still reads as an arbitrary, slightly-off colour rather than an intentional
-one. The stock two-tone look is the one that reads as deliberate.
-
-One real bug did come out of that detour, worth keeping in mind if this is
-revisited: rebuilding buffer identification from =moody-ribbon= instead of
-=moody-tab= (to make it consult =moody-ribbon-background= at all -- =moody-tab=
-never does, its fill is hard-coded to =default=) changes more than the fill
-colour. =moody-wrap='s tab/ribbon =pcase= draws the *right-hand* glyph with a
-different direction and colour order depending on =type= (see the source), so
-switching types mirrors that glyph -- the slant angles the wrong way relative
-to the left-hand one, breaking the tab illusion outright. Any future attempt
-to retarget the fill has to preserve =type= as-is (=moody-tab= for buffer
-identification, =moody-ribbon= for =vc-mode=) and change the colour at its
-actual source -- advising =moody-wrap= itself, since =inner= is a local
-binding inside one large =let*=, not something a =:filter-*=/=:around= advice
-could reach without re-deriving it anyway -- rather than switching which
-function builds the element.
+Modus Themes still boxes =mode-line=/=mode-line-active=/=mode-line-inactive=
+when the display supports it; `my/apply-modus-variant' (see [[*Themes][Themes]])
+still strips it by hand for the same reason it used to matter for Moody --
+the box is an Emacs-drawn border around the *whole* mode-line area,
+=svg-line='s image included, so it would frame the SVG in a colour the SVG
+itself does not control.
 
 #+begin_src emacs-lisp
 (defun my/mode-line-evil-tag ()
@@ -734,55 +693,30 @@ function builds the element.
    (buffer-read-only (propertize "■" 'face 'shadow))
    (t " ")))
 
-(setopt mode-line-format
-        '("%e"
-          (:eval (my/mode-line-evil-tag)) " "
-          (:eval (my/mode-line-buffer-status)) " "
-          mode-line-buffer-identification
-          "  " mode-line-position
-          mode-line-format-right-align
-          (vc-mode vc-mode) "  "
-          (:eval (propertize (format-mode-line mode-name) 'face 'bold)) "  "
-          (:eval (when (bound-and-true-p flycheck-mode) flycheck-mode-line)) "  "
-          mode-line-misc-info))
+(defun my/mode-line-rows ()
+  "Return `svg-line''s single-row mode-line content: (LEFT . RIGHT) segments."
+  (list
+   (cons
+    (list #'my/mode-line-evil-tag " "
+          #'my/mode-line-buffer-status " "
+          (buffer-name) "  "
+          (format-mode-line mode-line-position))
+    (list (format-mode-line '(vc-mode vc-mode)) "  "
+          (propertize (format-mode-line mode-name) 'face 'bold) "  "
+          (when (bound-and-true-p flycheck-mode) (format-mode-line flycheck-mode-line)) "  "
+          (format-mode-line mode-line-misc-info)))))
 
-(use-package moody
+(use-package svg-line
   :config
-  (defvar my/moody-slant-gamma 2.1
-    "Gamma this build's NS port needs to decode Moody's slant colours correctly.
-See the Mode-line prose above: `moody-slant-apple-rgb' uses a fixed 1.8 and
-over-corrects here (every slant colour comes out too dark); 2.2 turns out to
-cancel the correction outright (reproducing the washed-out colours the
-correction exists to avoid), so the right value is somewhere between the two
-and has to be found empirically. Adjust this one number to retune
-`my/moody-slant-srgb' without re-deriving the maths.")
-  (defun my/moody-slant-srgb (direction c1 c2 c3 &optional height)
-    "Like `moody-slant-apple-rgb', but decoded with `my/moody-slant-gamma'.
-Same conversion otherwise: sRGB -> XYZ via `color-srgb-to-xyz', the same
-inverse matrix back to linear RGB, `moody-slant' underneath."
-    (require 'color)
-    (cl-flet ((cnv (color)
-                (pcase-let*
-                    ((`(,r ,g ,b) (color-name-to-rgb color))
-                     (`(,x ,y ,z) (color-srgb-to-xyz r g b))
-                     (r (expt (+ (*  3.2404542 x)
-                                 (* -1.5371385 y)
-                                 (* -0.4985314 z))
-                              (/ my/moody-slant-gamma)))
-                     (g (expt (+ (* -0.9692660 x)
-                                 (*  1.8760108 y)
-                                 (*  0.0415560 z))
-                              (/ my/moody-slant-gamma)))
-                     (b (expt (+ (*  0.0556434 x)
-                                 (* -0.2040259 y)
-                                 (*  1.0572252 z))
-                              (/ my/moody-slant-gamma))))
-                  (color-rgb-to-hex r g b))))
-      (moody-slant direction (cnv c1) (cnv c2) (cnv c3) height)))
-  (when *is-a-mac*
-    (setopt moody-slant-function #'my/moody-slant-srgb))
-  (moody-replace-mode-line-buffer-identification)
-  (moody-replace-vc-mode))
+  (svg-line-define 'my/mode-line
+    :target 'mode-line
+    :content #'my/mode-line-rows
+    :active #'mode-line-window-selected-p
+    :foreground (lambda () (modus-themes-get-color-value 'fg-mode-line-active))
+    :background (lambda () (modus-themes-get-color-value 'bg-mode-line-active))
+    :inactive-foreground (lambda () (modus-themes-get-color-value 'fg-mode-line-inactive))
+    :inactive-background (lambda () (modus-themes-get-color-value 'bg-mode-line-inactive)))
+  (svg-line-activate 'my/mode-line))
 #+end_src
 
 * Completion
