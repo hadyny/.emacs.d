@@ -1,11 +1,11 @@
 ;;; diff-hl-faces-test.el --- Tests for my/apply-diff-hl-faces -*- lexical-binding: t; -*-
 
 ;; `my/apply-diff-hl-faces' recolours diff-hl's fringe/margin faces from the
-;; active Modus Themes variant, via the package's `modus-themes-get-color-value'
-;; palette lookup.  It is called on every variant switch, including the initial
-;; one applied at startup by the `auto-dark' block -- which runs *before* the
-;; `:defer'red diff-hl package has loaded and defined its faces.  So the function
-;; must be safe to call when `diff-hl-change' et al. do not yet exist, and must
+;; active Doom Themes variant, via the package's `doom-color' palette lookup.
+;; It is called on every variant switch, including the initial one applied at
+;; startup by the `auto-dark' block -- which runs *before* the `:defer'red
+;; diff-hl package has loaded and defined its faces.  So the function must be
+;; safe to call when `diff-hl-change' et al. do not yet exist, and must
 ;; actually colour them once they do.
 ;;
 ;; Faces are global to the Emacs process and cannot be un-defined, so this is a
@@ -14,10 +14,10 @@
 ;; faces, then the "loaded" path.  That keeps it independent of ERT's test
 ;; ordering.
 ;;
-;; `modus-themes-get-color-value' takes a *symbol* palette key (`fg-added'),
-;; unlike `tokyo-night-get-color', which took a string.  The stub below holds
-;; the call to that contract: a string argument would return nil against the
-;; real package and the faces would silently lose their colour.
+;; `doom-color' takes a *symbol* palette key (`vc-added'), unlike
+;; `tokyo-night-get-color', which took a string.  The stub below holds the
+;; call to that contract: a string argument would return nil against the real
+;; package and the faces would silently lose their colour.
 
 ;;; Code:
 
@@ -31,16 +31,15 @@
   "No-op before diff-hl defines its faces; colours them once it has.
 The startup path (auto-dark applies the variant before the deferred diff-hl
 loads) must not signal \"Invalid face\", and once the faces exist each takes its
-Modus Themes foreground."
-  ;; Arrange -- the real Vivendi Tinted palette, keyed as
-  ;; `modus-themes-get-color-value' keys it.
+Doom Themes foreground."
+  ;; Arrange -- a stub palette, keyed as `doom-color' keys it.
   (cfg-test-load-defun 'my/apply-diff-hl-faces)
-  (cl-letf (((symbol-function 'modus-themes-get-color-value)
-             (lambda (name &optional _with-overrides _theme)
+  (cl-letf (((symbol-function 'doom-color)
+             (lambda (name &optional _type)
                (should (symbolp name))
-               (cdr (assq name '((fg-added   . "#a0e0a0")
-                                 (fg-changed . "#efef80")
-                                 (fg-removed . "#ffbfbf")))))))
+               (cdr (assq name '((vc-added    . "#a0e0a0")
+                                 (vc-modified . "#efef80")
+                                 (vc-deleted  . "#ffbfbf")))))))
     ;; Act / Assert -- startup: diff-hl not loaded, faces genuinely absent.
     (should-not (facep 'diff-hl-change))
     (should (progn (my/apply-diff-hl-faces) t))
@@ -50,7 +49,7 @@ Modus Themes foreground."
     (make-face 'diff-hl-insert)
     ;; Act
     (my/apply-diff-hl-faces)
-    ;; Assert -- each face now carries the Modus Themes foreground.
+    ;; Assert -- each face now carries the Doom Themes foreground.
     (should (equal (face-attribute 'diff-hl-change :foreground) "#efef80"))
     (should (equal (face-attribute 'diff-hl-delete :foreground) "#ffbfbf"))
     (should (equal (face-attribute 'diff-hl-insert :foreground) "#a0e0a0"))))

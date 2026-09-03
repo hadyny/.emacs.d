@@ -245,7 +245,6 @@
               marginalia
               markdown-mode
               mixed-pitch
-              modus-themes
               nerd-icons
               nerd-icons-completion
               nerd-icons-corfu
@@ -458,7 +457,7 @@
           # lightweight emacs-nox. Each tests/*-test.el extracts a single defun
           # from the tangled config.el and exercises it in isolation (see
           # tests/config-test-helper.el), so the whole configuration need not
-          # load. Covers the auto-dark detection guard, the Modus Themes variant
+          # load. Covers the auto-dark detection guard, the Doom Themes variant
           # map, the node_modules/.bin resolver, the Roslyn workspace-open plan,
           # and duplicate-keybinding detection. Tests that need the real package
           # set (command existence, evil undo system) self-skip here and run in

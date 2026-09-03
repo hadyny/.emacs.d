@@ -1,17 +1,17 @@
 ;;; fringe-face-test.el --- Tests for my/apply-fringe-face -*- lexical-binding: t; -*-
 
-;; Modus Themes gives `fringe' its own colour, a shade apart from `default's
-;; `bg-main' -- fine at the window edge, but Flycheck's indicators sit in the
+;; Doom Themes gives `fringe' its own colour, a shade apart from `default's
+;; `bg' -- fine at the window edge, but Flycheck's indicators sit in the
 ;; *margin*, immediately to the right of the fringe (see the Flycheck
 ;; section), where the two backgrounds abutted and the seam fell right where
 ;; the error/warning glyphs are read. `my/apply-fringe-face' levels `fringe'
-;; to `bg-main' instead, called from the appearance hook alongside
-;; `my/apply-diff-hl-faces' so it tracks Operandi/Vivendi rather than being
-;; pinned to one palette.
+;; to `bg' instead, called from the appearance hook alongside
+;; `my/apply-diff-hl-faces' so it tracks Dracula/Solarized Light rather than
+;; being pinned to one palette.
 ;;
 ;; `fringe' is a built-in face that always exists, unlike diff-hl's faces, so
 ;; that half needs no "not yet loaded" lifecycle path. `margin' is Emacs 31's
-;; new basic face for margin display strings -- Modus Themes colours it the
+;; new basic face for margin display strings -- Doom Themes colours it the
 ;; same as `fringe', which is what caused the seam in the first place -- and
 ;; is guarded by `facep' in `my/apply-fringe-face' for Emacs <31, where it
 ;; does not exist yet. The CI checks' `emacs-nox' has since moved to Emacs 31,
@@ -26,13 +26,13 @@
                                                (file-name-directory
                                                 (or load-file-name buffer-file-name))))
 
-(ert-deftest fringe-face/matches-bg-main ()
-  "`fringe's background is levelled to the palette's `bg-main'."
+(ert-deftest fringe-face/matches-bg ()
+  "`fringe's background is levelled to the palette's `bg'."
   ;; Arrange
   (cfg-test-load-defun 'my/apply-fringe-face)
-  (cl-letf (((symbol-function 'modus-themes-get-color-value)
-             (lambda (name &optional _with-overrides _theme)
-               (should (eq name 'bg-main))
+  (cl-letf (((symbol-function 'doom-color)
+             (lambda (name &optional _type)
+               (should (eq name 'bg))
                "#1a1a1a")))
     ;; Act
     (my/apply-fringe-face)
@@ -50,9 +50,9 @@ the same reason `apply-diff-hl-faces/tracks-diff-hl-load-lifecycle' guards
 its \"not yet loaded\" half on package state instead of a version check."
   ;; Arrange
   (cfg-test-load-defun 'my/apply-fringe-face)
-  (cl-letf (((symbol-function 'modus-themes-get-color-value)
-             (lambda (name &optional _with-overrides _theme)
-               (should (eq name 'bg-main))
+  (cl-letf (((symbol-function 'doom-color)
+             (lambda (name &optional _type)
+               (should (eq name 'bg))
                "#1a1a1a")))
     ;; Act / Assert -- startup: `margin' does not exist yet (Emacs <31 only).
     (if (facep 'margin)

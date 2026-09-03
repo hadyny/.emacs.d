@@ -28,7 +28,7 @@ To add a package, add it to the =withPackages= list in [[file:flake.nix][=flake.
 
 - Evil-mode with =SPC= leader
 - Vertico / Orderless / Corfu / Consult / Embark / Marginalia completion stack
-- Catppuccin theme, auto-switches Latte/Mocha with system appearance (via =auto-dark=, cross-platform)
+- Doom Themes, auto-switches Solarized Light/Dracula with system appearance (via =auto-dark=, cross-platform)
 - Maple Mono NF throughout (code, UI, icons), with Inter as the =variable-pitch= prose face via =mixed-pitch=. Inter was chosen on x-height — 0.546em against Maple Mono's 0.550em — so prose and code look the same size at one =:height=. Ligatures need no package: Maple Mono's =calt= swaps each character for a partial glyph rather than composing a ligature
 - Eglot for C#, Markdown (marksman), and TypeScript/TSX, started manually via =M-x eglot=
 - TS/TSX runs three servers behind the =rass= multiplexer (=rassumfrassum=), since Eglot connects one server per (major-mode, project): =typescript-language-server= + =vscode-eslint-language-server= (the bundled =tslint= preset) + =tailwindcss-language-server=. Flycheck's =javascript-eslint= checker stays as the fallback when no server is attached

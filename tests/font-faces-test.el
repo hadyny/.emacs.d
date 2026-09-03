@@ -6,16 +6,18 @@
 ;; `:height' and `mixed-pitch' needs no fudge factor.
 ;;
 ;; With one family for code, no face needs its own: an unspecified family falls
-;; through to `default' at render time.  Only two things fail to survive the
-;; `load-theme' of a Modus Themes variant and must be re-applied from the
+;; through to `default' at render time.  Two things do not survive/exist after
+;; the `load-theme' of a Doom Themes variant and must be (re-)applied from the
 ;; appearance hook, the same reason `my/apply-diff-hl-faces' exists:
 ;;
-;;   * `default' is themed, so loading a variant strips family/height/weight;
-;;   * `italic' and keyword lose their *slant*, so a light/dark switch (or
-;;     auto-dark's startup re-apply) would drop italics everywhere.
-;;     `font-lock-comment-face' is not among these: it inherits Modus Themes'
-;;     own `modus-themes-slant' face, so `modus-themes-italic-constructs'
-;;     keeps it italic across reloads without any help here.
+;;   * `default' is themed (fg/bg), so a reload strips its family/height/weight;
+;;   * Doom Dracula and Doom Solarized Light disagree on which font-lock faces
+;;     get emphasis at all -- Solarized Light slants comments/types/builtins
+;;     and bolds keywords/constants, Dracula styles none of them.
+;;     `doom-themes-enable-bold'/`doom-themes-enable-italic' only *permit* a
+;;     variant's own emphasis, they do not add any where a variant specifies
+;;     none, so Solarized Light's choices are forced onto both here -- code
+;;     emphasis would otherwise vanish entirely under Dracula.
 ;;
 ;; Ligatures: Maple Mono's `calt' can draw its arrows without composition, but
 ;; in practice that did not render here, so `ligature.el' composes the pair
@@ -42,22 +44,26 @@ be re-applied from the appearance hook, not just once at top level."
   (should (eq (face-attribute 'default :height) 140))
   (should (eq (face-attribute 'default :weight) 'medium)))
 
-(ert-deftest font-faces/reapplies-italic-slant ()
-  "The italic faces keep their slant across a variant switch.
-They are theme-restyled, so setting the slant once at top level is not enough:
-`load-theme' drops it and italics vanish everywhere.  Family is deliberately
-*not* set -- it falls through to `default'.  `font-lock-comment-face' is
-deliberately excluded: it is covered by `modus-themes-italic-constructs'
-instead, not this helper."
+(ert-deftest font-faces/forces-solarized-lights-emphasis-on-both-variants ()
+  "Comment/type/builtin faces are italic; keyword/constant are bold.
+This must not depend on which variant is currently loaded -- Dracula
+specifies none of this itself, so the helper has to force it rather than
+merely permit it via `doom-themes-enable-bold'/`doom-themes-enable-italic'."
   ;; Arrange
   (cfg-test-load-defun 'my/apply-font-faces)
-  (dolist (face '(italic font-lock-keyword-face))
+  (dolist (face '(font-lock-comment-face font-lock-type-face
+                  font-lock-builtin-face))
     (set-face-attribute face nil :slant 'normal))
+  (dolist (face '(font-lock-keyword-face font-lock-constant-face))
+    (set-face-attribute face nil :weight 'normal))
   ;; Act
   (my/apply-font-faces)
   ;; Assert
-  (dolist (face '(italic font-lock-keyword-face))
-    (should (eq (face-attribute face :slant) 'italic))))
+  (dolist (face '(font-lock-comment-face font-lock-type-face
+                  font-lock-builtin-face))
+    (should (eq (face-attribute face :slant) 'italic)))
+  (dolist (face '(font-lock-keyword-face font-lock-constant-face))
+    (should (eq (face-attribute face :weight) 'bold))))
 
 (ert-deftest font-faces/code-is-maple-mono-prose-is-inter ()
   "Code faces are Maple Mono NF; `variable-pitch' is Inter."

@@ -106,11 +106,10 @@ spacious-padding's own defaults.
 
 =:mode-line-width= is 0 -- spacious-padding adds no box of its own to the mode
 line at all. The [[*Mode-line][svg-line]] image that now renders the mode line
-draws its own background and needs no Emacs-drawn box framing it, and
-=my/apply-modus-variant= (see [[*Themes][Themes]]) already strips Modus
-Themes' own box while keeping the background contrast svg-line needs -- a
-second, spacious-padding-added box here would reintroduce the same conflict
-from a different source.
+draws its own background and needs no Emacs-drawn box framing it -- Doom
+Themes' own padded-modeline box (see [[*Themes][Themes]]) is invisible to it
+for the same reason, so a spacious-padding-added box here would reintroduce
+a conflict from a different source.
 
 #+begin_src emacs-lisp
 (use-package spacious-padding
@@ -295,134 +294,127 @@ keybindings section), which toggles it.
 
 ** Themes
 
-Auto-switches [[https://github.com/protesilaos/modus-themes][Modus Themes]] between Operandi Tinted (light) and Vivendi
-Tinted (dark) following the system appearance. [[https://github.com/LionyxML/auto-dark-emacs][=auto-dark=]] provides the
+Auto-switches [[https://github.com/doomemacs/themes][Doom Themes]] between Solarized Light (light) and Dracula
+(dark) following the system appearance. [[https://github.com/LionyxML/auto-dark-emacs][=auto-dark=]] provides the
 detection cross-platform (D-Bus on Linux, =ns-system-appearance=/AppleScript/
 =osascript= on macOS), so this works the same on Linux and Darwin, in GUI and
 terminal frames. When no detection mechanism exists (e.g. a Linux TTY with no
 D-Bus session bus) it falls back to a fixed dark variant rather than warning
 at startup.
 
-Modus Themes comes from GNU ELPA rather than the copy bundled with Emacs 30.2,
-which is 4.4.0 -- a full major version behind the =5.3.0= this configuration
-otherwise tracks. It arrives through the Nix package set like every other
-package, so there is no =:ensure nil= here.
+Doom Themes ships each variant as its own theme rather than one theme with a
+flavour variable, so the switch loads the right one directly with
+=load-theme=, disabling whatever is currently enabled first --
+=custom-enabled-themes= tracks that, and =load-theme= stacks rather than
+replaces, so a lingering variant would leave faces neither theme specifies
+showing through with the wrong colours. =load-theme='s =NO-CONFIRM= argument
+is =t=, so nothing needs to go in =custom-safe-themes= for either variant to
+load without a prompt.
 
-=modus-themes-load-theme= is used instead of a plain =load-theme=: it already
-disables every other Modus variant before loading the new one (=load-theme=
-stacks rather than replaces, so a lingering variant would leave faces neither
-theme specifies showing through with the wrong colours), and it passes
-=:no-confirm= to =load-theme= itself, so nothing needs to go in
-=custom-safe-themes= for either variant to load without a prompt.
-
-Modus Themes still boxes =mode-line=/=mode-line-active=/=mode-line-inactive=
-when the display supports it, and unlike Tokyo Night it has no
-user option to turn that off -- the box is stripped by hand instead, every
-switch. [[*Mode-line][svg-line]] renders the mode line as an SVG image that
-draws its own background; a box around the mode line would frame that image
-in a colour the SVG itself does not control (the same reason
+Doom Themes' own =doom-themes-padded-modeline= gives =mode-line-active=/
+=mode-line-inactive= an invisible padding box (its colour matches the
+mode-line background, so it reads as breathing room rather than a border);
+[[*Mode-line][svg-line]] renders the mode line as its own SVG image and does
+not consult that face's =:box= at all, so enabling the padding here has no
+chance of framing the SVG in a colour it does not control (the same reason
 [[*Spacious padding][Spacious padding]]'s own =:mode-line-width= is 0 here).
-Stripping the box does not touch the background itself -- Modus Themes
-already gives =mode-line-active=/=mode-line-inactive= their own
-=bg-mode-line-active=/=bg-mode-line-inactive=, distinct from =default='s
-=bg-main=, which is exactly what svg-line's =:background=/
-=:inactive-background= read.
+
+=doom-themes-enable-bold=/=doom-themes-enable-italic= only *permit* a Doom
+Themes variant's own emphasis -- turning either off forces every face's
+slant/weight to =unspecified=, but turning them on (the default here) does
+not add emphasis a variant does not already specify. Dracula and Solarized
+Light disagree on which font-lock faces get any: Solarized Light slants
+comments/types/builtins and bolds keywords/constants, Dracula styles none of
+them. =my/apply-font-faces= (below) forces Solarized Light's choices onto
+both, so code emphasis does not disappear under Dracula.
 
 #+begin_src emacs-lisp
-(use-package modus-themes
-  :custom
-  ;; Comments already carry the theme's own italic slant via this option (they
-  ;; inherit `modus-themes-slant', which is part of the theme's own faces and
-  ;; therefore survives every `load-theme'). `font-lock-keyword-face' and the
-  ;; generic `italic' face are not covered by any Modus Themes option -- Modus
-  ;; only offers *bold* keywords, via `modus-themes-bold-constructs', not
-  ;; italic ones -- so those two still need the manual re-apply below.
-  (modus-themes-italic-constructs t)
-  :config
-  (defun my/modus-variant-for (appearance)
-    "Return the Modus Themes variant symbol for system APPEARANCE.
-APPEARANCE is `light' or `dark'.  Pure: no side effects, so it can be
-unit-tested without loading a theme."
-    (if (eq appearance 'light) 'modus-operandi-tinted 'modus-vivendi-tinted))
-  (defun my/apply-diff-hl-faces ()
-    "Colour the diff-hl faces from the active Modus Themes variant.
-Called on every variant switch (and when diff-hl loads) so the fringe/margin
-indicators track Operandi/Vivendi instead of being pinned to one palette.
-No-op until diff-hl has loaded and defined its faces: the initial variant is
-applied by the auto-dark block at startup, before the `:defer'red diff-hl
-package exists, and `set-face-attribute' on an undefined face errors.  The
-diff-hl block re-invokes this once its deffaces have run."
-    (when (facep 'diff-hl-change)
-      (set-face-attribute 'diff-hl-change nil :background 'unspecified
-                          :foreground (modus-themes-get-color-value 'fg-changed))
-      (set-face-attribute 'diff-hl-delete nil :background 'unspecified
-                          :foreground (modus-themes-get-color-value 'fg-removed))
-      (set-face-attribute 'diff-hl-insert nil :background 'unspecified
-                          :foreground (modus-themes-get-color-value 'fg-added))))
-  (defun my/apply-fringe-face ()
-    "Match `fringe' and `margin's backgrounds to `default's `bg-main'.
-Modus Themes gives `fringe' its own colour, a shade apart from `bg-main' --
-that reads fine at the window edge, but Flycheck's indicators sit in the
-*margin*, immediately to the right of the fringe (see the Flycheck section),
-where the two backgrounds abut and the seam between them is exactly where the
-error/warning glyphs are read. Levelling both to `bg-main' here, not at top
-level, keeps this from reading the palette before the theme is loaded -- see
-`my/apply-font-faces's docstring for why that broke the first client frame of
-a daemon.
-`margin' is Emacs 31's own basic face for margin display strings (Modus
-Themes colours it the same as `fringe', which is what caused the seam in the
-first place); it is guarded by `facep' the same way `my/apply-diff-hl-faces'
-guards diff-hl's faces, so this stays a no-op rather than an error on the
-Emacs 30 `emacs-nox' the CI checks still build tests against."
-    (set-face-attribute 'fringe nil
-                        :background (modus-themes-get-color-value 'bg-main))
-    (when (facep 'margin)
-      (set-face-attribute 'margin nil
-                          :background (modus-themes-get-color-value 'bg-main))))
-  (defun my/apply-font-faces ()
-    "Re-apply the font attributes `load-theme' strips.
-Everything is Maple Mono NF now, so no face needs its own family: an
-unspecified family falls through to `default' at render time.  Two things do
-not survive a reload and must be re-applied from the appearance hook -- the
-same reason `my/apply-diff-hl-faces' exists:
-
-  * `default' is themed by Modus Themes (fg/bg), so re-specifying it strips
-    the family, height and weight;
-  * `italic' and keyword lose their *slant* entirely, so a light/dark switch
-    (or auto-dark's startup re-apply) would drop italics everywhere.
-    `font-lock-comment-face' is not in this list: it inherits Modus Themes'
-    own `modus-themes-slant' face, so `modus-themes-italic-constructs' (set
-    above) keeps it italic across reloads without any help from here."
-    (set-face-attribute 'default nil :font "Maple Mono NF"
-                        :height 140 :weight 'medium)
-    (dolist (face '(italic font-lock-keyword-face))
-      (set-face-attribute face nil :slant 'italic)))
-  (defun my/apply-modus-variant (appearance)
-    "Load the Modus Themes variant for system APPEARANCE (`light'/`dark').
-`modus-themes-load-theme' disables every other Modus variant first, so there
-is no lingering variant leaving faces it does not specify with the wrong
-colours."
-    (modus-themes-load-theme (my/modus-variant-for appearance))
-    ;; See the box/svg-line note above.
-    (set-face-attribute 'mode-line-active nil :box 'unspecified)
-    (set-face-attribute 'mode-line-inactive nil :box 'unspecified)
-    (my/apply-diff-hl-faces)
-    (my/apply-fringe-face)
-    (my/apply-font-faces)))
-
 (use-package doom-themes
   :custom
   (doom-themes-enable-bold t)
   (doom-themes-enable-italic t)
+  (doom-themes-padded-modeline t)
   :config
   (doom-themes-visual-bell-config)
   (doom-themes-treemacs-config)
-  (doom-themes-org-config))
+  (doom-themes-org-config)
+  (defun my/theme-for-appearance (appearance)
+    "Return the Doom Themes variant symbol for system APPEARANCE.
+APPEARANCE is `light' or `dark'.  Pure: no side effects, so it can be
+unit-tested without loading a theme."
+    (if (eq appearance 'light) 'doom-solarized-light 'doom-dracula))
+  (defun my/apply-diff-hl-faces ()
+    "Colour the diff-hl faces from the active Doom Themes variant.
+Called on every variant switch (and when diff-hl loads) so the fringe/margin
+indicators track Dracula/Solarized Light instead of being pinned to one
+palette. No-op until diff-hl has loaded and defined its faces: the initial
+variant is applied by the auto-dark block at startup, before the
+`:defer'red diff-hl package exists, and `set-face-attribute' on an undefined
+face errors. The diff-hl block re-invokes this once its deffaces have run."
+    (when (facep 'diff-hl-change)
+      (set-face-attribute 'diff-hl-change nil :background 'unspecified
+                          :foreground (doom-color 'vc-modified))
+      (set-face-attribute 'diff-hl-delete nil :background 'unspecified
+                          :foreground (doom-color 'vc-deleted))
+      (set-face-attribute 'diff-hl-insert nil :background 'unspecified
+                          :foreground (doom-color 'vc-added))))
+  (defun my/apply-fringe-face ()
+    "Match `fringe' and `margin's backgrounds to `default's `bg'.
+Doom Themes gives `fringe' its own colour, a shade apart from `bg' -- that
+reads fine at the window edge, but Flycheck's indicators sit in the
+*margin*, immediately to the right of the fringe (see the Flycheck section),
+where the two backgrounds abut and the seam between them is exactly where the
+error/warning glyphs are read. Levelling both to `bg' here, not at top
+level, keeps this from reading the palette before the theme is loaded -- see
+`my/apply-font-faces's docstring for why that broke the first client frame of
+a daemon.
+`margin' is Emacs 31's own basic face for margin display strings; it is
+guarded by `facep' the same way `my/apply-diff-hl-faces' guards diff-hl's
+faces, so this stays a no-op rather than an error on the Emacs 30 `emacs-nox'
+the CI checks still build tests against."
+    (set-face-attribute 'fringe nil
+                        :background (doom-color 'bg))
+    (when (facep 'margin)
+      (set-face-attribute 'margin nil
+                          :background (doom-color 'bg))))
+  (defun my/apply-font-faces ()
+    "Re-apply the font/emphasis attributes `load-theme' strips or omits.
+Everything is Maple Mono NF now, so no face needs its own family: an
+unspecified family falls through to `default' at render time.  `default' is
+themed by Doom Themes (fg/bg), so re-specifying it on every `load-theme'
+strips the family, height and weight -- the same reason `my/apply-diff-hl-faces'
+exists.
+
+Doom Dracula and Doom Solarized Light do not agree on which font-lock faces
+get emphasis: Solarized Light slants comments/types/builtins and bolds
+keywords/constants, but Dracula leaves all five as plain colour with no
+slant or weight of its own. `doom-themes-enable-bold'/
+`doom-themes-enable-italic' only *permit* a theme's own emphasis, they do
+not add any where a theme specifies none, so this forces Solarized Light's
+choices onto both variants -- code emphasis would otherwise disappear
+entirely under Dracula."
+    (set-face-attribute 'default nil :font "Maple Mono NF"
+                        :height 140 :weight 'medium)
+    (dolist (face '(font-lock-comment-face font-lock-type-face
+                    font-lock-builtin-face))
+      (set-face-attribute face nil :slant 'italic))
+    (dolist (face '(font-lock-keyword-face font-lock-constant-face))
+      (set-face-attribute face nil :weight 'bold)))
+  (defun my/apply-theme-for-appearance (appearance)
+    "Load the Doom Themes variant for system APPEARANCE (`light'/`dark').
+Disables whatever theme is currently enabled first, so there is no lingering
+variant leaving faces it does not specify with the wrong colours -- plain
+`load-theme' stacks rather than replaces."
+    (mapc #'disable-theme custom-enabled-themes)
+    (load-theme (my/theme-for-appearance appearance) t)
+    (my/apply-diff-hl-faces)
+    (my/apply-fringe-face)
+    (my/apply-font-faces)))
 
 ;; Drive the variant switch off the system appearance, cross-platform. auto-dark
 ;; detects light/dark (D-Bus on Linux, ns-system-appearance/AppleScript on
 ;; macOS) and runs the mode hooks; auto-dark must not load themes of its own
-;; here (hence the nil theme vars), since `my/apply-modus-variant' also
+;; here (hence the nil theme vars), since `my/apply-theme-for-appearance' also
 ;; has to re-run `my/apply-diff-hl-faces'/`my/apply-font-faces' on every switch.
 ;;
 ;; `auto-dark-allow-osascript' lets macOS detect appearance via the `osascript'
@@ -436,7 +428,7 @@ colours."
 ;; so we only enable the mode when it can work; otherwise we apply a fixed dark
 ;; variant and stay quiet.
 (use-package auto-dark
-  :after modus-themes
+  :after doom-themes
   :custom
   (auto-dark-dark-theme nil)
   (auto-dark-light-theme nil)
@@ -459,14 +451,14 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
      ((eq system-type 'windows-nt) t)
      (t nil)))
   (add-hook 'auto-dark-dark-mode-hook
-            (lambda () (my/apply-modus-variant 'dark)))
+            (lambda () (my/apply-theme-for-appearance 'dark)))
   (add-hook 'auto-dark-light-mode-hook
-            (lambda () (my/apply-modus-variant 'light)))
+            (lambda () (my/apply-theme-for-appearance 'light)))
   (if (my/auto-dark-detectable-p)
       (auto-dark-mode)
     ;; No detectable mechanism (e.g. Linux TTY/SSH). Skip the mode and its
     ;; startup warning; apply a fixed dark variant instead.
-    (my/apply-modus-variant 'dark)))
+    (my/apply-theme-for-appearance 'dark)))
 #+end_src
 
 ** Icons and fonts
@@ -477,9 +469,9 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
   (nerd-icons-font-family "Maple Mono NF"))
 
 ;; The `default' face is applied in `my/apply-font-faces' (from the
-;; appearance hook), not here: Modus Themes re-specs `default' on every reload,
+;; appearance hook), not here: Doom Themes re-specs `default' on every reload,
 ;; which would strip a top-level family/size/weight. variable-pitch and
-;; fixed-pitch below are not themed by Modus Themes, so they are safe to set
+;; fixed-pitch below are not themed by Doom Themes, so they are safe to set
 ;; once here.
 ;; Prose (variable-pitch) is Inter, the one face that is not the code font, so
 ;; `mixed-pitch-mode' (enabled in org/markdown below) has something to switch to.
@@ -496,18 +488,20 @@ side effect, so we can decide whether to enable `auto-dark-mode'."
                     :height 140
                     :weight 'medium)
 ;; Italics render in Maple Mono's own italic. `italic' is the base
-;; face inherited by org/markdown emphasis; font-lock-comment/keyword-face slant
-;; themselves directly. These are all restyled on every `load-theme', so they
-;; are applied in `my/apply-font-faces' (called from the appearance hook)
-;; rather than here -- otherwise the reload auto-dark runs at startup wipes them.
+;; face inherited by org/markdown emphasis, always slanted regardless of
+;; variant. Doom Dracula and Doom Solarized Light disagree on which font-lock
+;; faces get emphasis of their own, though, so `my/apply-font-faces' (called
+;; from the appearance hook) forces Solarized Light's comment/type/builtin
+;; italics and keyword/constant bold onto both -- otherwise code emphasis
+;; vanishes entirely under Dracula.
 
 (add-to-list 'default-frame-alist '(ns-transparent-titlebar . t))
 (add-to-list 'default-frame-alist '(ns-appearance . dark))
 
-;; The fringe's own colour (a shade apart from `default's `bg-main') left a
+;; The fringe's own colour (a shade apart from `default's `bg') left a
 ;; visible seam right where Flycheck's margin indicators sit, just inside it --
 ;; `my/apply-fringe-face' (called from the appearance hook, alongside
-;; `my/apply-diff-hl-faces') levels it to `bg-main' instead. That is not done
+;; `my/apply-diff-hl-faces') levels it to `bg' instead. That is not done
 ;; here at top level: reading the palette this way once, at *load* time, is
 ;; before the theme has been applied and, in a daemon, before any frame exists --
 ;; the first client frame got a mis-coloured fringe that only corrected itself
@@ -662,23 +656,40 @@ exists for content whose *interactivity* needs preserving; nothing here
 needs a click action).
 
 =:background=/=:foreground= are zero-argument functions rather than literal
-colours, calling `modus-themes-get-color-value' directly at render time. This
-is why =svg-line= needs no counterpart to =my/apply-fringe-face=/
-=my/apply-diff-hl-faces=: those mutate a face's attributes in place via
-`set-face-attribute', a one-shot change that only a fresh call after
-`load-theme' can undo, so each needs to be re-invoked from the appearance
-hook. A colour *function* is instead called fresh on every render, so it
-picks up whichever variant is loaded automatically -- no reapply hook, no
-lifecycle to track. =:active= is the built-in `mode-line-window-selected-p',
-so the unfocused-window variant (=bg-mode-line-inactive=/
-=fg-mode-line-inactive=) applies without a separate predicate here.
+colours, calling `doom-color' directly at render time. This is why =svg-line=
+needs no counterpart to =my/apply-fringe-face=/=my/apply-diff-hl-faces=: those
+mutate a face's attributes in place via `set-face-attribute', a one-shot
+change that only a fresh call after `load-theme' can undo, so each needs to be
+re-invoked from the appearance hook. A colour *function* is instead called
+fresh on every render, so it picks up whichever variant is loaded
+automatically -- no reapply hook, no lifecycle to track. =:active= is the
+built-in `mode-line-window-selected-p', so the unfocused-window variant
+(=modeline-bg-inactive=/=modeline-fg-alt=) applies without a separate
+predicate here.
 
-Modus Themes still boxes =mode-line=/=mode-line-active=/=mode-line-inactive=
-when the display supports it; `my/apply-modus-variant' (see [[*Themes][Themes]])
-still strips it by hand for the same reason it used to matter for Moody --
-the box is an Emacs-drawn border around the *whole* mode-line area,
-=svg-line='s image included, so it would frame the SVG in a colour the SVG
-itself does not control.
+=doom-themes-padded-modeline= (see [[*Themes][Themes]]) does put a box on
+=mode-line=/=mode-line-active=/=mode-line-inactive=, but =svg-line= never
+reads it -- it renders its own SVG image over the mode-line area, so unlike
+Modus Themes and Moody before it, nothing here needs to strip a box: the
+SVG's own background is never framed in a colour it does not control.
+
+The tab bar is a second, independent =svg-line= install, =:target 'tab-bar=,
+so it replaces the frame-level =tab-bar-format= the same way the mode-line
+install replaces =mode-line-format= -- the two targets don't interact.
+=my/tab-bar-items= is its =:content= function, returning one =(LABEL . STATE)=
+pair per `tab-bar-tabs' entry rather than the =(LEFT . RIGHT)= rows the mode
+line uses: that shape is the =wrap= layout (=:layout 'wrap=), which -- unlike
+the mode line's default =lines= layout -- draws each item as its own rounded
+box and knows how to highlight one of them as "current", which is exactly the
+tab bar's shape (a run of same-kind items, one of which is active) and saves
+hand-rolling that highlight as a =lines= segment. Each item's =STATE= plist
+carries the bits =svg-line-wrap-image= renders (=:current= bolds it over
+=:current-background=) and the bits its built-in tab-bar click/hover wiring
+dispatches on: =:help= (the hover echo), =:action= (left/middle-click; run via
+=call-interactively=, so it must be a real interactive command, unlike the
+mode line's plain functions) and =:menu= (right-click; an alist of
+=(LABEL . COMMAND)= run through =funcall= for a plain closure, so no
+=(interactive)= is needed there) to select, rename or close that tab.
 
 #+begin_src emacs-lisp
 (defun my/mode-line-evil-tag ()
@@ -706,17 +717,50 @@ itself does not control.
           (when (bound-and-true-p flycheck-mode) (format-mode-line flycheck-mode-line)) "  "
           (format-mode-line mode-line-misc-info)))))
 
+(defun my/tab-bar-items ()
+  "Return `svg-line''s wrap-layout tab-bar content: a list of (LABEL . STATE)."
+  (cl-loop for tab in (tab-bar-tabs)
+           for i from 1
+           for name = (alist-get 'name tab)
+           collect
+           (cons (format " %s " name)
+                 (list :current (eq (car tab) 'current-tab)
+                       :id i
+                       :help (format "mouse-1: switch to %s" name)
+                       :action (let ((n i))
+                                 (lambda ()
+                                   (interactive)
+                                   (tab-bar-select-tab n)))
+                       :menu (let ((n i) (old name))
+                               (list
+                                (cons "Rename tab"
+                                      (lambda ()
+                                        (tab-bar-rename-tab
+                                         (read-string "New tab name: " old) n)))
+                                (cons "Close tab"
+                                      (lambda () (tab-bar-close-tab n)))))))))
+
 (use-package svg-line
   :config
   (svg-line-define 'my/mode-line
     :target 'mode-line
     :content #'my/mode-line-rows
     :active #'mode-line-window-selected-p
-    :foreground (lambda () (modus-themes-get-color-value 'fg-mode-line-active))
-    :background (lambda () (modus-themes-get-color-value 'bg-mode-line-active))
-    :inactive-foreground (lambda () (modus-themes-get-color-value 'fg-mode-line-inactive))
-    :inactive-background (lambda () (modus-themes-get-color-value 'bg-mode-line-inactive)))
-  (svg-line-activate 'my/mode-line))
+    :foreground (lambda () (doom-color 'fg))
+    :background (lambda () (doom-color 'modeline-bg))
+    :inactive-foreground (lambda () (doom-color 'modeline-fg-alt))
+    :inactive-background (lambda () (doom-color 'modeline-bg-inactive)))
+  (svg-line-activate 'my/mode-line)
+
+  (svg-line-define 'my/tab-bar
+    :target 'tab-bar
+    :layout 'wrap
+    :content #'my/tab-bar-items
+    :foreground (lambda () (doom-color 'modeline-fg-alt))
+    :background (lambda () (doom-color 'modeline-bg))
+    :current-foreground (lambda () (doom-color 'fg))
+    :current-background (lambda () (doom-color 'selection)))
+  (svg-line-activate 'my/tab-bar))
 #+end_src
 
 * Completion
@@ -1188,8 +1232,8 @@ is enough."
                                   (unknown . "?")
                                   (ignored . "i")))
   :config
-  ;; Colour the faces from the current Modus Themes variant (defined in the
-  ;; modus-themes block). Re-applied here because diff-hl's own deffaces run
+  ;; Colour the faces from the current Doom Themes variant (defined in the
+  ;; doom-themes block). Re-applied here because diff-hl's own deffaces run
   ;; when it loads, after the initial variant has been applied at startup.
   (when (fboundp 'my/apply-diff-hl-faces)
     (my/apply-diff-hl-faces)))
@@ -1709,12 +1753,12 @@ out to whatever =magit-delta-delta-executable= names -- a bare ~delta~ by defaul
 
 The syntax theme is chosen from the frame's =background-mode=, and the package's
 own defaults (~GitHub~ and ~Monokai Extended~) clash with the frame. delta 0.19.2
-has no Modus Themes syntax theme -- =delta --list-syntax-themes= lists 28, four
-Catppuccin and no Modus -- so its Catppuccin pair stays as the nearest built-in
-stand-in: Mocha (=#1e1e2e=) sits close to Modus Vivendi Tinted (=#0d0e1c=), and
-Latte to Modus Operandi Tinted (=#fbf7f0=). This is deliberately *not* coupled
-to [[*Themes][=my/modus-variant-for=]]; it is delta's own theme name, picked
-once for its colour proximity, not because the two selections need to move
+ships both Doom Themes variants directly -- =delta --list-syntax-themes= lists
+=Dracula= among the dark themes and =Solarized (light)= among the light ones --
+so, unlike the Catppuccin stand-in this replaced, no nearest-match compromise
+is needed. This is deliberately *not* coupled to
+[[*Themes][=my/theme-for-appearance=]]; it is delta's own theme name, picked
+because it names the same theme, not because the two selections need to move
 together.
 
 =magit-delta-mode= turns =magit-diff-refine-hunk= off while it is on (restoring
@@ -1726,8 +1770,8 @@ double up.
   :after magit
   :hook (magit-mode . magit-delta-mode)
   :custom
-  (magit-delta-default-light-theme "Catppuccin Latte")
-  (magit-delta-default-dark-theme "Catppuccin Mocha"))
+  (magit-delta-default-light-theme "Solarized (light)")
+  (magit-delta-default-dark-theme "Dracula"))
 #+end_src
 
 ** TODO items (magit-todos)
