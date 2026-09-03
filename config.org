@@ -328,6 +328,21 @@ comments/types/builtins and bolds keywords/constants, Dracula styles none of
 them. =my/apply-font-faces= (below) forces Solarized Light's choices onto
 both, so code emphasis does not disappear under Dracula.
 
+=my/apply-gnus-group-news-low-fix= works around a real face-inheritance cycle
+in the Doom Themes build nixpkgs currently pulls in: its
+=gnus-group-news-low-empty= points at =:inherit gnus-group-news-low=, which
+(via Gnus's own built-in spec, not yet overridden for a brand new child frame)
+can point straight back, and Corfu's popup -- itself a child frame -- hits
+exactly that path in ~x-create-frame-with-faces~ and errors instead of
+drawing. It re-registers the corrected spec on the variant theme itself with
+=custom-theme-set-faces= rather than patching the face's current value with
+=set-face-attribute=, because only the former survives the face recalculation
+every *new* child frame does against the enabled theme's own registered spec
+table -- a plain =set-face-attribute= fix looked like it worked once but the
+cycle came back for every later Corfu popup. Reapplied on every switch like
+=my/apply-diff-hl-faces=; drop it once nixpkgs has upstream's fix
+(=gnus-group-news-low-empty= inheriting =gnus-group-mail-1-empty= instead).
+
 #+begin_src emacs-lisp
 (use-package doom-themes
   :custom
@@ -377,6 +392,40 @@ the CI checks still build tests against."
     (when (facep 'margin)
       (set-face-attribute 'margin nil
                           :background (doom-color 'bg))))
+  (defun my/apply-gnus-group-news-low-fix (theme)
+    "Repoint THEME's own registered spec for one buggy Doom Themes Gnus face.
+THEME is the Doom Themes variant symbol just loaded (see
+`my/apply-theme-for-appearance'). The Doom Themes build this flake currently
+pulls from nixpkgs points `gnus-group-news-low-empty' at `:inherit
+gnus-group-news-low' -- but Gnus's own built-in spec for `gnus-group-news-low'
+itself inherits `gnus-group-news-low-empty'. Doom's own face list also
+overrides `gnus-group-news-low' (to inherit `gnus-group-mail-1' instead),
+which would normally break the cycle, except a brand new child frame --
+Corfu's popup, via `x-create-frame-with-faces' -- can recalculate one of the
+pair before the other and briefly see Gnus's built-in spec for the one not
+yet recalculated, completing a real two-face cycle and erroring instead of
+drawing the popup.
+
+A plain `set-face-attribute' only patches the face's current display value;
+it does not survive the next time some frame's faces are recalculated from
+the enabled themes (`enable-theme'/`face-spec-recalc' read each theme's own
+*registered* spec, not that transient override) -- which is exactly what a
+new child frame does, so the cycle would keep coming back for every later
+Corfu popup even though the very first application looked like it had
+worked. `custom-theme-set-faces' instead re-registers the corrected spec
+*under THEME itself*, at the same priority slot Doom's own (buggy) entry
+occupies, so any later frame recalculation reads this fix, not Doom's.
+
+Upstream has since fixed this (`gnus-group-news-low-empty' now inherits
+`gnus-group-mail-1-empty', which carries no such cycle); reapplied here on
+every variant switch until nixpkgs catches up, the same reason
+`my/apply-diff-hl-faces' reapplies its own faces every switch. Guarded by
+`facep': the face only exists once some Doom Themes variant (or Gnus itself)
+has defined it, same guard as `my/apply-diff-hl-faces'."
+    (when (facep 'gnus-group-news-low-empty)
+      (custom-theme-set-faces
+       theme
+       '(gnus-group-news-low-empty ((t (:inherit gnus-group-mail-1-empty)))))))
   (defun my/apply-font-faces ()
     "Re-apply the font/emphasis attributes `load-theme' strips or omits.
 Everything is Maple Mono NF now, so no face needs its own family: an
@@ -406,10 +455,12 @@ Disables whatever theme is currently enabled first, so there is no lingering
 variant leaving faces it does not specify with the wrong colours -- plain
 `load-theme' stacks rather than replaces."
     (mapc #'disable-theme custom-enabled-themes)
-    (load-theme (my/theme-for-appearance appearance) t)
-    (my/apply-diff-hl-faces)
-    (my/apply-fringe-face)
-    (my/apply-font-faces)))
+    (let ((theme (my/theme-for-appearance appearance)))
+      (load-theme theme t)
+      (my/apply-diff-hl-faces)
+      (my/apply-fringe-face)
+      (my/apply-font-faces)
+      (my/apply-gnus-group-news-low-fix theme))))
 
 ;; Drive the variant switch off the system appearance, cross-platform. auto-dark
 ;; detects light/dark (D-Bus on Linux, ns-system-appearance/AppleScript on
@@ -1345,7 +1396,7 @@ is enough."
                                  (file+olp +org-capture-journal-file "Events")
                                  "** EVENT %?\n%i\n" :heading "One-off Events" :prepend nil)
                                 ("w" "Work Log Entry" entry
-                                 (file+datetree "~/notes/org/work-log.org")
+                                 (file+olp+datetree "~/notes/org/work-log.org")
                                  "* %?" :empty-lines 0)
                                 ("n" "Note" entry
                                  (file+headline "~/notes/org/notes.org" "Random Notes")
@@ -1485,9 +1536,13 @@ other package, so there is no =:ensure nil= here.
   :config
   (setopt eglot-code-action-indications '(mode-line))
   ;; `eglot-confirm-server-initiated-edits' has been an obsolete alias for this
-  ;; since Eglot 1.16. Same value, so the behaviour is unchanged: any non-nil
-  ;; symbol means "summarise the edit and prompt".
-  (setopt eglot-confirm-server-edits t)
+  ;; since Eglot 1.16. `t' used to work here (its docstring's "or any other
+  ;; non-nil value" catch-all still honours it at the call site), but the
+  ;; `defcustom' `:type' choice does not list a bare `t' among its options, so
+  ;; `setopt' -- which validates against that type -- warned on startup.
+  ;; `summary' is the literal choice with the same meaning ("summarise the
+  ;; edit and prompt"), so this is a no-op behaviour change, warning gone.
+  (setopt eglot-confirm-server-edits 'summary)
   (add-to-list 'eglot-server-programs
                '((csharp-ts-mode csharp-mode) . ("Microsoft.CodeAnalysis.LanguageServer" "--logLevel" "Debug" "--extensionLogDirectory" "~/.dotnet/logs" "--stdio")))
   ;; TS/TSX: three servers behind the `rass' multiplexer. Eglot connects one
@@ -1739,6 +1794,73 @@ same shape ORIG would have returned for BYTE-COMPILE."
 
 (with-eval-after-load 'eglot
   (advice-add 'eglot--glob-compile :around #'my/eglot-glob-compile-tolerantly))
+#+end_src
+
+** File watch descriptor budget
+
+=Error running timer: (file-notify-error "File watching not possible, no file
+descriptor left" ...)= after a while (never at startup). One Roslyn solution
+alone registers ~140 file watches (measured above); its own =handle-event=
+adds *more* for the lifetime of the connection, not just at registration time
+-- every newly created directory matching a watched glob gets its own
+follow-up call to =file-notify-add-watch=, with no gitignore awareness the way
+the initial registration's =project-files= lookup has. A =dotnet build=
+recreating nested =obj/Debug/net10.0/...= directories, or an =npm install=
+unpacking =node_modules=, keeps growing that count for as long as the server
+stays connected, on top of whatever other projects/tabs already have their own
+servers and watches open.
+
+=eglot-max-file-watches= defaults to 10000 -- effectively no cap for one Emacs
+process that also needs descriptors for Corfu's child frames, every
+LSP/Flycheck/Magit subprocess pipe, and D-Bus (=auto-dark=). Watches are by far
+the most unbounded consumer of the three, so left alone they are what actually
+exhausts the process's OS-level descriptor limit -- and the resulting
+=file-notify-error= surfaces wherever *something else* next needed a
+descriptor (here, a timer callback), not from the watch call that finally
+tipped it over.
+
+Capping the budget makes Eglot's own bookkeeping (=eglot--count-file-watches=)
+refuse new watches with one =eglot--warn= per registration once the budget is
+spent, well before the process actually runs out. A fixed guess is the wrong
+shape for this, though: 500 turned out lower than this machine's real
+per-process descriptor limit can actually support, so it started rejecting
+watches Eglot could safely have created. There is no =getrlimit= binding in
+Emacs Lisp, but a child process inherits the same =RLIMIT_NOFILE= via
+fork/exec, so shelling out to =ulimit -n= reports this process's real limit
+accurately. The cap is then that limit minus a fixed headroom for everything
+else needing a descriptor -- Corfu's child frames, every LSP/Flycheck/Magit
+subprocess pipe, D-Bus -- rather than a number guessed without knowing what
+the machine can actually give Eglot.
+
+#+begin_src emacs-lisp
+(defun my/parse-file-descriptor-limit (raw)
+  "Parse RAW, the output of \"ulimit -n\", into a number or nil.
+nil covers both \"unlimited\" and anything else unparseable. Pure: no
+side effects, so the numeric and unlimited cases are unit-tested without
+shelling out."
+  (let ((s (string-trim raw)))
+    (and (string-match-p "\\`[0-9]+\\'" s) (string-to-number s))))
+
+(defun my/system-file-descriptor-limit ()
+  "Return this process's open-file soft limit (RLIMIT_NOFILE), or nil.
+See `my/parse-file-descriptor-limit' for why a subprocess's `ulimit -n' is an
+accurate stand-in for a `getrlimit' Emacs Lisp does not have."
+  (my/parse-file-descriptor-limit (shell-command-to-string "ulimit -n")))
+
+(defun my/eglot-max-file-watches-for-limit (limit)
+  "Return a safe `eglot-max-file-watches' value for a descriptor LIMIT.
+LIMIT is this process's `RLIMIT_NOFILE' (or nil for unlimited/unknown, from
+`my/system-file-descriptor-limit'). Reserves 512 descriptors for everything
+else needing one, and never returns less than 500 -- covering a couple of
+Roslyn-sized solutions even on a machine with a genuinely low limit, so this
+degrades gracefully instead of capping below what one project alone needs.
+Pure: takes the limit as an argument so the arithmetic is unit-tested without
+shelling out."
+  (if limit (max 500 (- limit 512)) 4000))
+
+(with-eval-after-load 'eglot
+  (setq eglot-max-file-watches
+        (my/eglot-max-file-watches-for-limit (my/system-file-descriptor-limit))))
 #+end_src
 
 ** ESLint

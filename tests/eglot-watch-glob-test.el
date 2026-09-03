@@ -23,6 +23,23 @@
 ;; The advice makes one unparseable glob skip itself instead of taking its
 ;; registration down.  A skipped glob is the right outcome here: the file in
 ;; question is a generated build artefact.
+;;
+;; Separately, `eglot-max-file-watches' is lowered from Eglot's own default of
+;; 10000.  That default is effectively no cap: one Roslyn solution alone
+;; registers ~140 watches, and `handle-event' keeps adding more for the life
+;; of the connection as matching directories are (re)created -- a `dotnet
+;; build' regenerating `obj/...', an `npm install' unpacking `node_modules'.
+;; Left uncapped this can exhaust the process's OS-level descriptor budget,
+;; surfacing as `file-notify-error "File watching not possible, no file
+;; descriptor left"' wherever something else next needed a descriptor.
+;;
+;; A fixed guess for the cap is the wrong shape: 500 turned out lower than a
+;; real machine's descriptor limit could support, so it started rejecting
+;; watches Eglot could safely have created ("Reached `eglot-max-file-watches'
+;; limit of 500, not watching some directories").  `my/eglot-max-file-watches-for-limit'
+;; derives the cap from this process's actual `ulimit -n' instead (there is
+;; no `getrlimit' binding, but a subprocess inherits the same limit via
+;; fork/exec), minus fixed headroom for everything else needing a descriptor.
 
 ;;; Code:
 
@@ -117,6 +134,63 @@ This is the exact pattern behind the \"invalid at 12\" error on every connect."
     ;; Assert
     (should (funcall matcher "src/deep/Thing.cs"))
     (should-not (funcall matcher "src/Thing.fs"))))
+
+;;; File watch descriptor budget
+
+(ert-deftest eglot-watch-glob/parse-file-descriptor-limit-reads-a-number ()
+  "A plain numeric `ulimit -n' output parses to that number."
+  ;; Arrange
+  (cfg-test-load-defun 'my/parse-file-descriptor-limit)
+  ;; Act / Assert -- trailing newline, as `shell-command-to-string' leaves it.
+  (should (equal (my/parse-file-descriptor-limit "4096\n") 4096)))
+
+(ert-deftest eglot-watch-glob/parse-file-descriptor-limit-treats-unlimited-as-nil ()
+  "\"unlimited\" (no numeric ceiling) parses to nil, not a bogus number."
+  ;; Arrange
+  (cfg-test-load-defun 'my/parse-file-descriptor-limit)
+  ;; Act / Assert
+  (should-not (my/parse-file-descriptor-limit "unlimited\n")))
+
+(ert-deftest eglot-watch-glob/max-file-watches-for-limit-reserves-headroom ()
+  "A known LIMIT becomes that limit minus headroom for everything else.
+Corfu's child frames, every LSP/Flycheck/Magit subprocess pipe, and D-Bus all
+need a descriptor too, so the cap must leave some of the real limit unclaimed
+by Eglot's own watches."
+  ;; Arrange
+  (cfg-test-load-defun 'my/eglot-max-file-watches-for-limit)
+  ;; Act / Assert
+  (should (equal (my/eglot-max-file-watches-for-limit 4096) 3584)))
+
+(ert-deftest eglot-watch-glob/max-file-watches-for-limit-has-a-floor ()
+  "A genuinely low LIMIT still leaves room for a couple of Roslyn solutions.
+Reserving a fixed headroom from a low limit could otherwise cap below what
+one project alone needs (~140 watches, measured above), rejecting watches
+Eglot could safely have created instead of just warning once."
+  ;; Arrange
+  (cfg-test-load-defun 'my/eglot-max-file-watches-for-limit)
+  ;; Act / Assert
+  (should (equal (my/eglot-max-file-watches-for-limit 600) 500))
+  (should (equal (my/eglot-max-file-watches-for-limit 100) 500)))
+
+(ert-deftest eglot-watch-glob/max-file-watches-for-limit-unlimited-is-generous ()
+  "A nil LIMIT (unlimited/unknown) still gets a real, generous cap.
+`eglot-max-file-watches' must never be left nil/unset: that reads as \"no
+limit\" to Eglot's own guard, the exact unbounded default this exists to fix."
+  ;; Arrange
+  (cfg-test-load-defun 'my/eglot-max-file-watches-for-limit)
+  ;; Act / Assert
+  (should (equal (my/eglot-max-file-watches-for-limit nil) 4000)))
+
+(ert-deftest eglot-watch-glob/max-file-watches-guard-is-live ()
+  "The cap is in force once Eglot has actually loaded, derived from a real
+limit rather than left at Eglot's own unbounded default."
+  ;; Arrange
+  (skip-unless (ewg-test--config-loaded-p))
+  (should (require 'eglot nil t))
+  ;; Assert
+  (should (integerp eglot-max-file-watches))
+  (should (< eglot-max-file-watches 10000))
+  (should (>= eglot-max-file-watches 500)))
 
 (provide 'eglot-watch-glob-test)
 ;;; eglot-watch-glob-test.el ends here

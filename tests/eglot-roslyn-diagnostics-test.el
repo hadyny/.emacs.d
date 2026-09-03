@@ -263,6 +263,21 @@ the whole feature missing."
     ;; Assert
     (should-not (string-match-p "eglot-confirm-server-initiated-edits" code))))
 
+(ert-deftest roslyn-diagnostics/confirm-edits-is-a-valid-choice ()
+  "`eglot-confirm-server-edits' is set to a real member of its `:type' choice.
+`t' used to work here (the docstring's catch-all still honours it), but is not
+among the choices the `defcustom' lists, so `setopt' warned on startup; `summary'
+is the literal choice with the same meaning."
+  ;; Arrange
+  (let ((forms (cfg-test-read-forms))
+        found)
+    ;; Act
+    (dolist (setopt (cfg-test-find-all forms 'setopt))
+      (when (memq 'eglot-confirm-server-edits setopt)
+        (setq found (cadr (memq 'eglot-confirm-server-edits setopt)))))
+    ;; Assert
+    (should (equal found (list 'quote 'summary)))))
+
 ;;; Behavioural -- the real package set
 
 (ert-deftest roslyn-diagnostics/eglot-on-load-path-can-pull ()

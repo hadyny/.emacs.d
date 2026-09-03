@@ -63,17 +63,41 @@ The no-detection path in the auto-dark block relies on this."
               ((symbol-value 'custom-enabled-themes) '(doom-solarized-light))
               ((symbol-function 'my/apply-diff-hl-faces) #'ignore)
               ((symbol-function 'my/apply-fringe-face) #'ignore)
-              ((symbol-function 'my/apply-font-faces) #'ignore))
+              ((symbol-function 'my/apply-font-faces) #'ignore)
+              ((symbol-function 'my/apply-gnus-group-news-low-fix) #'ignore))
       ;; Act
       (my/apply-theme-for-appearance 'dark)
       ;; Assert
       (should (equal disabled '(doom-solarized-light)))
       (should (equal loaded '(doom-dracula))))))
 
+(ert-deftest theme-variant/apply-passes-loaded-variant-to-gnus-fix ()
+  "The Gnus fix must be re-registered on the variant just loaded, not some
+other theme symbol -- `custom-theme-set-faces' only survives future frame
+recalculation if it targets the theme actually enabled (see
+`my/apply-gnus-group-news-low-fix')."
+  ;; Arrange
+  (cfg-test-load-defun 'my/theme-for-appearance)
+  (cfg-test-load-defun 'my/apply-theme-for-appearance)
+  (let (gnus-fix-theme)
+    (cl-letf (((symbol-function 'disable-theme) #'ignore)
+              ((symbol-function 'load-theme) #'ignore)
+              ((symbol-value 'custom-enabled-themes) nil)
+              ((symbol-function 'my/apply-diff-hl-faces) #'ignore)
+              ((symbol-function 'my/apply-fringe-face) #'ignore)
+              ((symbol-function 'my/apply-font-faces) #'ignore)
+              ((symbol-function 'my/apply-gnus-group-news-low-fix)
+               (lambda (theme) (setq gnus-fix-theme theme))))
+      ;; Act
+      (my/apply-theme-for-appearance 'light)
+      ;; Assert
+      (should (eq gnus-fix-theme 'doom-solarized-light)))))
+
 (ert-deftest theme-variant/apply-repairs-the-themed-faces ()
-  "Loading a variant re-applies the diff-hl colours and the font attributes.
-`load-theme' re-specs `default' and the diff-hl faces, so both helpers must run
-on every switch -- the same contract the Catppuccin flavour hook had."
+  "Loading a variant re-applies the diff-hl colours, fonts and the Gnus fix.
+`load-theme' re-specs `default', the diff-hl faces and Doom's buggy
+`gnus-group-news-low-empty' inherit, so every helper must run on each switch
+-- the same contract the Catppuccin flavour hook had."
   ;; Arrange
   (cfg-test-load-defun 'my/theme-for-appearance)
   (cfg-test-load-defun 'my/apply-theme-for-appearance)
@@ -86,13 +110,16 @@ on every switch -- the same contract the Catppuccin flavour hook had."
               ((symbol-function 'my/apply-fringe-face)
                (lambda () (push 'fringe calls)))
               ((symbol-function 'my/apply-font-faces)
-               (lambda () (push 'fonts calls))))
+               (lambda () (push 'fonts calls)))
+              ((symbol-function 'my/apply-gnus-group-news-low-fix)
+               (lambda (_theme) (push 'gnus calls))))
       ;; Act
       (my/apply-theme-for-appearance 'dark)
       ;; Assert
       (should (memq 'diff-hl calls))
       (should (memq 'fringe calls))
-      (should (memq 'fonts calls)))))
+      (should (memq 'fonts calls))
+      (should (memq 'gnus calls)))))
 
 (ert-deftest theme-variant/package-is-in-the-closure ()
   "flake.nix ships `doom-themes' and no longer ships `modus-themes' or
