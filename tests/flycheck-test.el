@@ -8,11 +8,14 @@
 ;;
 ;; Two settings carry weight:
 ;;
-;; * indicators stay in the *margin*.  `flycheck-indication-mode' defaults to
-;;   `auto', which draws in the fringe -- diff-hl owns the fringe here -- and the
-;;   three levels keep distinct nerd-font glyphs instead of Flycheck's single
-;;   `»' (`flycheck-redefine-standard-error-levels' takes one string for all
-;;   three levels, so each level needs its own `:margin-spec');
+;; * indicators are drawn by `svg-margin', not Flycheck itself.
+;;   `flycheck-indication-mode' is nil -- the `auto' default draws in the
+;;   fringe, which diff-hl owns here, and `left-margin' used to widen the
+;;   margin and draw a glyph there by hand.  `my/flycheck-margin-items'
+;;   registers as an `svg-margin' provider instead (see the Margins section),
+;;   one dot per error/warning/info coloured from Flycheck's own
+;;   `flycheck-fringe-*' faces, so no glyph/margin-spec juggling is needed
+;;   here any more;
 ;;
 ;; * `flycheck-eglot-exclusive' is left at its default t.  ESLint now arrives
 ;;   through the LSP multiplexer, so chaining to the CLI checker would report
@@ -108,11 +111,21 @@ parenthesised `((VAR VALUE) ...)' shape use-package also accepts."
     ;; v38 ships the bridge; the third-party package clashes on command names.
     (should-not (memq 'flycheck-eglot packages))))
 
-(ert-deftest flycheck/indicators-stay-in-the-margin ()
-  "Indicators are drawn in the left margin, leaving the fringe to diff-hl."
+(ert-deftest flycheck/indicators-are-drawn-by-svg-margin ()
+  "Flycheck's own indication is off; `svg-margin' draws instead.
+`auto' would draw in the fringe (diff-hl owns it here); `left-margin' is the
+old hand-rolled column this configuration no longer needs."
   ;; Arrange / Act / Assert
   (should (fm-test--custom-set-p 'flycheck-indication-mode))
-  (should (eq (fm-test--custom-value 'flycheck-indication-mode) 'left-margin)))
+  (should-not (fm-test--custom-value 'flycheck-indication-mode)))
+
+(ert-deftest flycheck/registers-an-svg-margin-provider ()
+  "`my/flycheck-margin-items' is registered as an `svg-margin' provider."
+  ;; Arrange / Act
+  (let ((code (fm-test--config-code)))
+    ;; Assert
+    (should (string-match-p "svg-margin-register-provider" code))
+    (should (string-match-p "my/flycheck-margin-items" code))))
 
 (ert-deftest flycheck/eglot-bridge-is-exclusive ()
   "The Eglot bridge is on and left exclusive at Flycheck's default.
@@ -166,22 +179,6 @@ Guards the flake's `flycheck' pin -- the version nixpkgs packages predates
   ;; In a buffer that Eglot manages, ESLint comes from the multiplexer.  A chain
   ;; to the CLI checker would therefore report each result twice.
   (should (eq flycheck-eglot-exclusive t)))
-
-(ert-deftest flycheck/error-levels-keep-distinct-glyphs ()
-  "error/warning/info each carry their own margin glyph, not Flycheck's `»'."
-  ;; Arrange
-  (skip-unless (fm-test--config-loaded-p))
-  (should (require 'flycheck nil t))
-  ;; Act
-  (let ((glyphs (mapcar (lambda (level)
-                          (substring-no-properties
-                           (or (flycheck-error-level-margin-spec level) "")))
-                        '(error warning info))))
-    ;; Assert
-    (dolist (glyph glyphs)
-      (should-not (equal glyph ""))
-      (should-not (equal glyph flycheck-default-margin-str)))
-    (should (equal glyphs (cl-remove-duplicates glyphs :test #'equal)))))
 
 (provide 'flycheck-test)
 ;;; flycheck-test.el ends here

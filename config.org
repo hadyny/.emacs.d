@@ -763,6 +763,32 @@ mode line's plain functions) and =:menu= (right-click; an alist of
   (svg-line-activate 'my/tab-bar))
 #+end_src
 
+* Margins (svg-margin)
+
+[[https://github.com/chiply/svg-margin][=svg-margin=]] composites indicators
+from independent "providers" into one SVG image per margin, so several
+packages can share a margin without a manual arms race over who owns the
+fringe/margin -- the exact problem the [[*Diagnostics (Flycheck)][Flycheck]]
+section used to solve by hand (a hard-coded left-margin glyph, because
+[[*Version Control (diff-hl)][diff-hl]] already owns the left fringe). It
+ships no providers of its own -- =global-svg-margin-mode= just turns the
+compositor on for file-visiting buffers; Flycheck's section below registers
+the one provider this configuration has.
+
+=svg-margin-hover-mode= installs the =show-help-function= hook its hover
+highlight needs (a background drawn behind whichever indicator the mouse is
+over). =svg-margin-hover-color= is left at its default, =nil=, which already
+reads the =highlight= face's background -- Doom Themes colours that face, so
+the hover highlight tracks the active variant with no reapply hook of its own,
+the same reasoning as =my/mode-line-rows='s colour functions.
+
+#+begin_src emacs-lisp
+(use-package svg-margin
+  :config
+  (global-svg-margin-mode 1)
+  (svg-margin-hover-mode 1))
+#+end_src
+
 * Completion
 
 ** Vertico
@@ -1141,19 +1167,50 @@ twice -- once from the LSP diagnostics and once from the CLI checker. Flycheck
 still reaches the checker in a buffer Eglot does not manage, because the
 =eglot-check= predicate requires =eglot-managed-p=. See [[*ESLint][ESLint]].
 
-Indicators go in the left margin -- the =auto= default draws them in the fringe,
-which [[*Version Control (diff-hl)][diff-hl]] owns here; Flycheck widens the
-margin by a column on its own.
+Indicators used to go in the left margin by hand -- the =auto= default draws
+them in the fringe, which [[*Version Control (diff-hl)][diff-hl]] owns here,
+and each level's nerd-font glyph was written straight into its own
+=flycheck-margin-spec=, with Flycheck itself widening the margin by a column.
+[[*Margins (svg-margin)][=svg-margin=]] replaces that hand-rolled column now:
+=flycheck-indication-mode= is =nil= (no built-in drawing at all, so Flycheck no
+longer reserves the margin either -- =svg-margin= does that from whichever
+provider is registered) and =my/flycheck-margin-items= registers as its
+provider instead, one dot per current error/warning/info, coloured from
+Flycheck's own =flycheck-fringe-*= faces -- already Doom Themes-coloured, so
+nothing here needs a reapply hook of its own, the same reasoning as
+=my/mode-line-rows='s colour functions. Each dot's hover help is the error's
+message and its click action jumps straight to it -- =svg-margin='s
+=:action=/=:help= keys, same interactive-indicator machinery as the
+[[*Mode-line][tab bar]]'s.
 
-=flycheck-redefine-standard-error-levels= takes one margin string for all three
-levels, so the per-level nerd-font glyphs are written straight into each level's
-margin spec -- the exact property =flycheck-error-level-margin-spec= reads --
-which leaves every other property of the standard levels alone. Flycheck defines
-the levels when it loads, so =:config= is late enough for this to stick. The
-glyphs are single-column: Flycheck provisions a one-column margin, which would
-clip the trailing space the Flymake indicators used to carry.
+Flycheck has no hook that fires only when its result set actually changes --
+a check can complete from an idle timer with no intervening buffer edit, which
+=svg-margin= would not otherwise notice (it re-renders on buffer changes, not
+on Flycheck's own async results) -- so =flycheck-after-syntax-check-hook=
+calls =svg-margin-refresh= to pick the new errors up.
 
 #+begin_src emacs-lisp
+(defun my/flycheck-margin-items (buffer)
+  "Return one `svg-margin' indicator per current Flycheck error in BUFFER."
+  (with-current-buffer buffer
+    (when (bound-and-true-p flycheck-mode)
+      (mapcar
+       (lambda (err)
+         (list :line (flycheck-error-line err)
+               :shape 'dot
+               :face (pcase (flycheck-error-level err)
+                       ('error 'flycheck-fringe-error)
+                       ('warning 'flycheck-fringe-warning)
+                       (_ 'flycheck-fringe-info))
+               :priority (pcase (flycheck-error-level err)
+                           ('error 3) ('warning 2) (_ 1))
+               :help (flycheck-error-message err)
+               :action-help "jump"
+               :action (let ((pos (flycheck-error-pos err)))
+                         (lambda () (interactive) (goto-char pos)))
+               :menu (list (cons "List all errors" #'flycheck-list-errors))))
+       flycheck-current-errors))))
+
 (use-package flycheck
   :defer t
   :hook
@@ -1161,17 +1218,14 @@ clip the trailing space the Flymake indicators used to carry.
    (after-init . global-flycheck-annotate-mode)
    (after-init . global-flycheck-eglot-mode))
   :custom
-  (flycheck-indication-mode 'left-margin)
+  (flycheck-indication-mode nil)
   ;; Default is 0.5s. A syntax check runs on every idle pause this long, so
   ;; raising it cuts back on checks fired mid-thought while still typing.
   (flycheck-idle-change-delay 1.0)
   :config
-  (pcase-dolist (`(,level ,glyph ,face)
-                 '((error   "󰅙" flycheck-fringe-error)
-                   (warning "󰀦" flycheck-fringe-warning)
-                   (info    "󰋼" flycheck-fringe-info)))
-    (setf (get level 'flycheck-margin-spec)
-          (flycheck-make-margin-spec glyph face))))
+  (svg-margin-register-provider 'flycheck #'my/flycheck-margin-items :side 'left)
+  (add-hook 'flycheck-after-syntax-check-hook
+            (lambda () (svg-margin-refresh (current-buffer)))))
 #+end_src
 
 * Version Control (diff-hl)

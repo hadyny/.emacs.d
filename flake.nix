@@ -192,6 +192,23 @@
                   hash = "sha256-WlWvt6sZbk5Fr++Nqa6s71eVxy5Y7hFn8K/bZoD6jp0=";
                 };
               };
+
+              # svg-margin: composites indicators from independent "providers"
+              # into one SVG image per margin (see the Margins section of
+              # config.org) -- the Diagnostics section's own hand-rolled
+              # left-margin glyphs are one such provider now, rather than
+              # Flycheck drawing there itself. Same chiply author/build shape
+              # as svg-line above; also not in nixpkgs/MELPA yet.
+              svg-margin = _efinal.trivialBuild {
+                pname = "svg-margin";
+                version = "0.1.7";
+                src = final.fetchFromGitHub {
+                  owner = "chiply";
+                  repo = "svg-margin";
+                  tag = "v0.1.7";
+                  hash = "sha256-Ej3hJYZgO949HY4fuXSVr5QyjW17D0Lns0eAvdqPPWk=";
+                };
+              };
             }
           );
 
@@ -256,6 +273,7 @@
               smartparens
               spacious-padding
               svg-line
+              svg-margin
               treesit-auto
               vertico
               vertico-prescient
@@ -288,7 +306,7 @@
           # directly: built with `trivialBuild' (like `zk4e'), so it lands on
           # plain `site-lisp' rather than an ELPA-shaped directory and
           # `package-activate-all' never finds it (see that check's comment).
-          inherit (epkgs) svg-line;
+          inherit (epkgs) svg-line svg-margin;
         };
     in
     flake-utils.lib.eachSystem supportedSystems (
@@ -517,13 +535,15 @@
           # entry points autoloadable WITHOUT an explicit require. This is the
           # failure mode when early-init.el disables package.el — every
           # :init/:config call then hits a void function.
-          # `svg-line' (like `zk4e' below) is built with `trivialBuild', which
-          # drops its file straight on `site-lisp' rather than into an
-          # ELPA-shaped `pkg-version' directory -- `package-activate-all' has
-          # no per-package autoloads file to find there, so `svg-line-activate'
-          # is deliberately absent from this list; config.org's real
-          # `use-package svg-line' has no `:defer', so it hard-`require's the
-          # feature itself before calling it, never relying on this path.
+          # `svg-line'/`svg-margin' (like `zk4e' below) are built with
+          # `trivialBuild', which drops their files straight on `site-lisp'
+          # rather than into an ELPA-shaped `pkg-version' directory --
+          # `package-activate-all' has no per-package autoloads file to find
+          # there, so `svg-line-activate'/`svg-margin-register-provider' are
+          # deliberately absent from this list; config.org's real
+          # `use-package svg-line'/`svg-margin' has no `:defer', so it
+          # hard-`require's the feature itself before calling it, never
+          # relying on this path.
           # Runs on emacs-dotemacs-ci (no ghostel), so the ghostel native
           # module is deliberately not built or required here -- that would
           # trigger the network-flaky ghostty/Zig build.
@@ -573,6 +593,8 @@
           # `zk4e' (also `trivialBuild'), config.org's `use-package svg-line'
           # is not `:defer'red -- it calls `svg-line-activate' straight from
           # `:config' -- so `require' actually runs here and needs this.
+          # `svg-margin' is the same shape (`trivialBuild', not `:defer'red)
+          # and needs the same hand-added `load-path' entry.
           terminal-load =
             pkgs.runCommand "dotemacs-terminal-load" { nativeBuildInputs = [ pkgs.emacs-nox ]; }
               ''
@@ -587,6 +609,7 @@
                 emacs --batch -Q \
                   --eval "(progn \
                             (add-to-list 'load-path \"${pkgs.svg-line}/share/emacs/site-lisp\") \
+                            (add-to-list 'load-path \"${pkgs.svg-margin}/share/emacs/site-lisp\") \
                             (setq package-directory-list \
                                   (list \"${pkgs.emacs-dotemacs-ci.deps}/share/emacs/site-lisp/elpa\")) \
                             (package-activate-all) \
