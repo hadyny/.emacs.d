@@ -241,11 +241,11 @@ file glyphs. Rich previews (images, PDF, video) want extra CLI tools on =PATH=
 (e.g. =ffmpegthumbnailer=, =poppler=, =mediainfo=); text/directory previews work
 without them.
 
-=dirvish-side= is the file-tree sidebar (replaces neotree): a project-rooted
-panel on the right, matching neotree's width. =dirvish-side-follow-mode= keeps it
-pointed at the current file, and TAB (=dirvish-subtree-toggle=) expands
-subdirectories inline for tree-like navigation. Bound to =<leader> e= (see the
-keybindings section), which toggles it.
+=dirvish-side= is the file-tree sidebar: a project-rooted panel on the right.
+=dirvish-side-follow-mode= keeps it pointed at the current file, and TAB
+(=dirvish-subtree-toggle=) expands subdirectories inline for tree-like
+navigation. Bound to =<leader> e= (see the keybindings section), which toggles
+it.
 
 #+begin_src emacs-lisp
 (use-package dirvish
@@ -683,17 +683,8 @@ does not change between one file and the next.")
 * Mode-line
 
 [[https://github.com/chiply/svg-line][=svg-line=]] renders the mode line as an SVG image instead of laid-out text.
-It replaces both the previous hand-built =mode-line-format= *and*
-[[https://github.com/tarsius/moody][Moody]] (which only restyled
-=mode-line-buffer-identification=/=vc-mode= as tab/ribbon shapes on top of
-that format) -- the two cannot coexist: =svg-line='s =:target 'mode-line=
-install (=svg-line--install=) replaces the whole of =mode-line-format= with a
-single =(:eval ...)= form, leaving Moody's =moody-replace-*= (a =cl-subst=
-over the old =mode-line-format= structure, looking for
-=mode-line-buffer-identification= and =(vc-mode vc-mode)= as themselves)
-nothing left to substitute into. Moody's macOS-only slant colour-space
-correction (=my/moody-slant-srgb=, tuned via =my/moody-slant-gamma=) is gone
-with it -- there is no slant to colour any more.
+=svg-line='s =:target 'mode-line= install (=svg-line--install=) replaces the
+whole of =mode-line-format= with a single =(:eval ...)= form.
 
 =my/mode-line-rows= is the =:content= function: one row, split into a left
 group (Evil state tag, modified/read-only indicator, buffer name, point
@@ -720,9 +711,9 @@ predicate here.
 
 =doom-themes-padded-modeline= (see [[*Themes][Themes]]) does put a box on
 =mode-line=/=mode-line-active=/=mode-line-inactive=, but =svg-line= never
-reads it -- it renders its own SVG image over the mode-line area, so unlike
-Modus Themes and Moody before it, nothing here needs to strip a box: the
-SVG's own background is never framed in a colour it does not control.
+reads it -- it renders its own SVG image over the mode-line area, so nothing
+here needs to strip a box: the SVG's own background is never framed in a
+colour it does not control.
 
 The tab bar is a second, independent =svg-line= install, =:target 'tab-bar=,
 so it replaces the frame-level =tab-bar-format= the same way the mode-line
@@ -953,9 +944,6 @@ lets fast movement skip the files in between.
 (use-package consult
   :defer t
   :custom
-  ;; Preview after 0.3s of no input, rather than on every keystroke. Opening a
-  ;; file is not free here: see [[*Version Control (diff-hl)][diff-hl]] and
-  ;; [[*ESLint][ESLint]].
   (consult-preview-key '(:debounce 0.3 any))
   :init
   (advice-add #'register-preview :override #'consult-register-window)
@@ -1047,8 +1035,7 @@ and Eglot's server-provided snippets available everywhere.
 
 ** EditorConfig
 
-Built into Emacs 30 (=lisp/editorconfig.el=), so this needs no package -- only
-enabling. It reads =.editorconfig= for indent width, final newline and trailing
+EditorConfig reads =.editorconfig= for indent width, final newline and trailing
 whitespace, which otherwise drift from what a shared repo expects and then fight
 [[*Formatting (Apheleia)][Apheleia]] on save.
 
@@ -1270,8 +1257,6 @@ calls =svg-margin-refresh= to pick the new errors up.
    (after-init . global-flycheck-eglot-mode))
   :custom
   (flycheck-indication-mode nil)
-  ;; Default is 0.5s. A syntax check runs on every idle pause this long, so
-  ;; raising it cuts back on checks fired mid-thought while still typing.
   (flycheck-idle-change-delay 1.0)
   :config
   (svg-margin-register-provider 'flycheck #'my/flycheck-margin-items :side 'left)
@@ -1931,8 +1916,7 @@ The syntax theme is chosen from the frame's =background-mode=, and the package's
 own defaults (~GitHub~ and ~Monokai Extended~) clash with the frame. delta 0.19.2
 ships both Doom Themes variants directly -- =delta --list-syntax-themes= lists
 =Dracula= among the dark themes and =Solarized (light)= among the light ones --
-so, unlike the Catppuccin stand-in this replaced, no nearest-match compromise
-is needed. This is deliberately *not* coupled to
+so no nearest-match compromise is needed. This is deliberately *not* coupled to
 [[*Themes][=my/theme-for-appearance=]]; it is delta's own theme name, picked
 because it names the same theme, not because the two selections need to move
 together.
