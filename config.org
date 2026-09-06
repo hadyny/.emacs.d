@@ -89,7 +89,6 @@ while idle, moving collection out of interactive work.
 (add-to-list 'default-frame-alist '(height                 . 45))
 (add-to-list 'default-frame-alist '(min-width              . 1))
 (add-to-list 'default-frame-alist '(width                  . 100))
-(setopt line-spacing 0.2)
 #+end_src
 
 ** Spacious padding
@@ -256,15 +255,7 @@ it.
   (dirvish-attributes '(nerd-icons file-size))
   (dirvish-side-width 50)
   (dirvish-side-attributes '(nerd-icons file-size))
-  (dirvish-side-display-alist '((side . right) (slot . -1)))
-  :config
-  ;; The subtree nesting guides (`dirvish-subtree-prefix' = " │") are text
-  ;; glyphs, so the global `line-spacing' (0.2) breaks them into disconnected
-  ;; segments. Drop the extra spacing in dirvish/dired buffers so the bars
-  ;; join up; prose/code buffers keep the global line-spacing.
-  (defun my/dirvish-tighten-line-spacing ()
-    (setq-local line-spacing 0))
-  (add-hook 'dired-mode-hook #'my/dirvish-tighten-line-spacing))
+  (dirvish-side-display-alist '((side . right) (slot . -1))))
 #+end_src
 
 ** Eldoc
@@ -809,13 +800,16 @@ mode line's plain functions) and =:menu= (right-click; an alist of
 
 [[https://github.com/chiply/svg-margin][=svg-margin=]] composites indicators
 from independent "providers" into one SVG image per margin, so several
-packages can share a margin without a manual arms race over who owns the
-fringe/margin -- the exact problem the [[*Diagnostics (Flycheck)][Flycheck]]
-section used to solve by hand (a hard-coded left-margin glyph, because
-[[*Version Control (diff-hl)][diff-hl]] already owns the left fringe). It
-ships no providers of its own -- =global-svg-margin-mode= just turns the
-compositor on for file-visiting buffers; Flycheck's section below registers
-the one provider this configuration has.
+packages can share a margin without a manual arms race over who owns it --
+the exact problem the [[*Diagnostics (Flycheck)][Flycheck]] section used to
+solve by hand with a hard-coded left-margin glyph. It ships no providers of
+its own -- =global-svg-margin-mode= just turns the compositor on for
+file-visiting buffers. [[*Diagnostics (Flycheck)][Flycheck]] and
+[[*Version Control (diff-hl)][diff-hl]] register their own providers in
+their own sections; [[*Org-mode][Org-mode]] registers two more (headings and
+block markers); =my/todo-margin-items= below is the one general-purpose
+provider that lives here, because it is not an extension of any single
+package.
 
 =svg-margin-hover-mode= installs the =show-help-function= hook its hover
 highlight needs (a background drawn behind whichever indicator the mouse is
@@ -824,11 +818,51 @@ reads the =highlight= face's background -- Doom Themes colours that face, so
 the hover highlight tracks the active variant with no reapply hook of its own,
 the same reasoning as =my/mode-line-rows='s colour functions.
 
+=svg-margin-column-width= (character cells per indicator column) is raised
+from its default of 1 to 2, so two providers packed onto the same line --
+e.g. diff-hl's bar and Flycheck's dot -- get a visible gap between them
+instead of touching. Every built-in shape draws itself centred/inset within
+whatever width its column gets, so the extra width becomes breathing room
+around the shape rather than a bigger shape.
+
+=my/todo-margin-items= flags =TODO=/=FIXME=/=HACK= comments (the same keyword
+set [[*TODO items (magit-todos)][magit-todos]] scans the whole repo for) with a
+single-letter indicator in the right margin, coloured from an existing
+Doom Themes-styled face -- =warning=/=error=/=shadow= -- rather than a new
+literal colour needing its own reapply hook. It re-scans the buffer on every
+render, like the built-in =trailing-ws=-style checks elsewhere in this
+configuration; that is only ever a plain buffer, not a project tree, so it
+stays cheap.
+
 #+begin_src emacs-lisp
+(defun my/todo-margin-items (buffer)
+  "Return one `svg-margin' indicator per TODO/FIXME/HACK comment in BUFFER."
+  (with-current-buffer buffer
+    (let (out)
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward "\\_<\\(TODO\\|FIXME\\|HACK\\)\\_>" nil t)
+          (let ((pos (match-beginning 0)) (kw (match-string 1)))
+            (push (list :line (line-number-at-pos pos)
+                        :text (substring kw 0 1)
+                        :face (pcase kw ("TODO" 'warning) ("FIXME" 'error) (_ 'shadow))
+                        :help kw
+                        :action-help "go to keyword"
+                        :action (let ((p pos)) (lambda () (interactive) (goto-char p)))
+                        :menu (list (cons "Go to keyword"
+                                          (let ((p pos)) (lambda () (interactive) (goto-char p))))
+                                    (cons "List TODO/FIXME/HACK in buffer"
+                                          (lambda () (interactive)
+                                            (occur "\\_<\\(TODO\\|FIXME\\|HACK\\)\\_>")))))
+                  out))))
+      out)))
+
 (use-package svg-margin
   :config
   (global-svg-margin-mode 1)
-  (svg-margin-hover-mode 1))
+  (svg-margin-hover-mode 1)
+  (setopt svg-margin-column-width 2)
+  (svg-margin-register-provider 'todo #'my/todo-margin-items :side 'right))
 #+end_src
 
 * Completion
@@ -1282,6 +1316,41 @@ timer then re-runs that. It skips a buffer whose =buffer-chars-modified-tick= ha
 not moved, so an untouched buffer is never re-diffed -- the cost lands while you
 type, which is why =diff-hl-flydiff-delay= is raised to 1s.
 
+=my/diff-hl-margin-items= moves the hunk indicators themselves into
+[[*Margins (svg-margin)][=svg-margin=]], the same move the
+[[*Diagnostics (Flycheck)][Flycheck]] section made: one bar per changed/added
+line and one triangle per deletion, coloured from diff-hl's own
+=diff-hl-insert=/=diff-hl-change=/=diff-hl-delete= faces (so
+=my/apply-diff-hl-faces= is still the only reapply hook needed), with a
+click/hover/menu built on =diff-hl-diff-goto-hunk=,
+=diff-hl-revert-hunk= and =diff-hl-next-hunk=/=diff-hl-previous-hunk=. The bar
+uses a custom =:draw= (=my/diff-hl-margin--bar=) rather than =svg-margin='s
+built-in =bar= shape, which insets and rounds its corners and so leaves a
+faint seam between one line's bar and the next on a multi-line hunk; the
+square-cornered version butts flush against its neighbours. It reads the hunk
+overlays diff-hl already maintains (tagged =diff-hl-hunk=/=diff-hl-hunk-type=
+by its own =diff-hl--update-overlays=) rather than recomputing anything.
+
+=diff-hl-highlight-function= is diff-hl's own hook for drawing an overlay's
+indicator, defaulting to =diff-hl-highlight-on-fringe=; =my/diff-hl-highlight=
+replaces it with a no-op so the fringe bitmap and the =svg-margin= indicator do
+not both draw for the same hunk. This only matters on a graphical frame:
+=svg-margin='s =svg= renderer draws nothing on a terminal frame (it needs an
+image-capable frame), so =diff-hl-margin-mode= below still runs there and
+overrides =diff-hl-highlight-function= /locally/ (via its own
+=diff-hl-margin-local-mode=) back to its built-in character margin -- taking
+priority over the global no-op precisely where =svg-margin= cannot substitute
+for it.
+
+diff-hl has no hook that fires only when its hunks actually change (unlike
+Flycheck's =flycheck-after-syntax-check-hook=), so =my/diff-hl-margin-refresh=
+instead advises the private =diff-hl--update-overlays= -- called after both a
+synchronous update (on save) and an asynchronous flydiff refresh -- to call
+=svg-margin-refresh= once the new overlays are in place. Advising a private,
+double-dash function is the most upgrade-fragile part of this section, the
+same trade-off the [[*Roslyn pull diagnostics][Roslyn pull diagnostics]]
+section makes for the same reason: there is no public hook to use instead.
+
 #+begin_src emacs-lisp
 (defun my/diff-hl-setup ()
   "Turn the diff-hl global modes on once, then take this off `find-file-hook'.
@@ -1294,11 +1363,73 @@ is enough."
   (remove-hook 'find-file-hook #'my/diff-hl-setup)
   (global-diff-hl-mode)
   (diff-hl-flydiff-mode)
-  ;; GUI uses the graphical fringe bitmaps (need a left fringe -- see Spacious
-  ;; padding). Only the terminal, which has no fringe, falls back to the text
-  ;; margin indicators.
+  ;; `svg-margin''s `svg' renderer draws nothing on a terminal frame, so the
+  ;; built-in text margin is still the only indicator a terminal frame gets.
   (unless (display-graphic-p)
     (diff-hl-margin-mode)))
+
+(defun my/diff-hl-highlight (_ovl _type _shape)
+  "No-op `diff-hl-highlight-function': suppress diff-hl's own fringe bitmap.
+`my/diff-hl-margin-items' draws the same hunk through `svg-margin' instead, so
+drawing both would double up. `diff-hl-margin-mode' (enabled for a terminal
+frame in `my/diff-hl-setup') overrides this function buffer-locally back to
+`diff-hl-highlight-on-margin', which still applies there.")
+
+(defun my/diff-hl-margin--action (pos cmd)
+  "Return a command that moves to POS then runs CMD on that hunk."
+  (lambda () (interactive) (goto-char pos) (call-interactively cmd)))
+
+(defun my/diff-hl-margin--menu (pos)
+  "Return a context-menu alist for the diff-hl hunk at POS."
+  (list (cons "Show hunk diff" (my/diff-hl-margin--action pos #'diff-hl-diff-goto-hunk))
+        (cons "Revert hunk"    (my/diff-hl-margin--action pos #'diff-hl-revert-hunk))
+        (cons "Next hunk"      #'diff-hl-next-hunk)
+        (cons "Previous hunk"  #'diff-hl-previous-hunk)))
+
+(defun my/diff-hl-margin--bar (svg x y w h color)
+  "Draw a flush, square-cornered bar filling the (X Y W H) cell of SVG.
+`svg-margin's built-in `bar' shape insets and rounds its corners (`:rx 1'),
+which leaves a visible notch between one line's bar and the next -- most
+noticeable on a multi-line hunk, where it should read as one continuous bar.
+This is the same rectangle without the inset/rounding, so adjacent lines
+butt up against each other with no gap."
+  (svg-rectangle svg (+ x (round (* w 0.12))) y (max 2 (round (* w 0.34))) h
+                 :fill (svg-margin--color color)))
+
+(defun my/diff-hl-margin-items (buffer)
+  "Return one `svg-margin' indicator per current diff-hl hunk line in BUFFER."
+  (with-current-buffer buffer
+    (when (bound-and-true-p diff-hl-mode)
+      (let (out)
+        (dolist (ov (overlays-in (point-min) (point-max)))
+          (when (overlay-get ov 'diff-hl-hunk)
+            (let* ((type (overlay-get ov 'diff-hl-hunk-type))
+                   (beg (overlay-start ov))
+                   (start-line (line-number-at-pos beg))
+                   (end-line (max start-line (1- (line-number-at-pos (overlay-end ov)))))
+                   (face (intern (format "diff-hl-%s" type))))
+              (if (eq type 'delete)
+                  (push (list :line start-line :shape 'triangle :face face
+                              :help "diff-hl: deleted lines"
+                              :action-help "show hunk diff"
+                              :action (my/diff-hl-margin--action beg #'diff-hl-diff-goto-hunk)
+                              :menu (my/diff-hl-margin--menu beg))
+                        out)
+                (cl-loop for line from start-line to end-line do
+                         (push (list :line line :draw #'my/diff-hl-margin--bar :face face
+                                     :help (format "diff-hl: %s hunk" type)
+                                     :action-help "show hunk diff"
+                                     :action (my/diff-hl-margin--action beg #'diff-hl-diff-goto-hunk)
+                                     :menu (my/diff-hl-margin--menu beg))
+                               out))))))
+        out))))
+
+(defun my/diff-hl-margin-refresh (&rest _)
+  "Refresh this buffer's `svg-margin' after diff-hl recomputes its hunks.
+Advises `diff-hl--update-overlays', diff-hl's private overlay-rebuild
+function -- there is no public \"hunks changed\" hook to hang this on
+instead."
+  (when (bound-and-true-p svg-margin-mode) (svg-margin-refresh)))
 
 (use-package diff-hl
   :defer t
@@ -1310,6 +1441,7 @@ is enough."
   (add-hook 'find-file-hook #'my/diff-hl-setup)
   :custom
   (diff-hl-side 'left)
+  (diff-hl-highlight-function #'my/diff-hl-highlight)
   ;; 1s, not the 0.3s default: each flydiff run extracts the reference blob with
   ;; `git cat-file' and runs the external diff against the live buffer, so at the
   ;; default it repeats that while you type. `:custom' rather than `:config' --
@@ -1326,7 +1458,9 @@ is enough."
   ;; doom-themes block). Re-applied here because diff-hl's own deffaces run
   ;; when it loads, after the initial variant has been applied at startup.
   (when (fboundp 'my/apply-diff-hl-faces)
-    (my/apply-diff-hl-faces)))
+    (my/apply-diff-hl-faces))
+  (svg-margin-register-provider 'diff-hl #'my/diff-hl-margin-items :side 'left :priority 9)
+  (advice-add 'diff-hl--update-overlays :after #'my/diff-hl-margin-refresh))
 #+end_src
 
 * Org-mode
@@ -1495,6 +1629,94 @@ is enough."
             ("▶" . "▼")     ; L3
             ("▹" . "▿")     ; L4
             ("▸" . "▾"))))  ; L5
+#+end_src
+
+** Org margin (svg-margin)
+
+Two more [[*Margins (svg-margin)][=svg-margin=]] providers, both plain regex
+scans of the current buffer rather than an =org-element= parse -- cheap, and
+all either one needs: a heading's stars are always at the start of a line,
+and a block's delimiter is always =#+begin_KIND= at the start of a line.
+
+=my/org-headings-margin-items= puts each heading's level (1-8, the stars
+capped the same way =org-level-N= already cycles) in the left margin,
+coloured from that same =org-level-N= face so it tracks whichever Doom Themes
+variant is active with no reapply hook of its own -- the same reasoning as
+[[*Diagnostics (Flycheck)][Flycheck]]'s faces. =my/org-blocks-margin-items=
+marks =#+begin_src=/=quote=/=example=/=export=/=verse= lines the same way,
+one letter per kind; a =src= block's action opens =org-edit-special= instead
+of just moving point, and its menu adds executing the block.
+
+#+begin_src emacs-lisp
+(defun my/org-headings-margin-items (buffer)
+  "Return one `svg-margin' indicator per Org heading in BUFFER."
+  (with-current-buffer buffer
+    (when (derived-mode-p 'org-mode)
+      (let (out)
+        (save-excursion
+          (goto-char (point-min))
+          (while (re-search-forward "^\\(\\*+\\) " nil t)
+            (let* ((level (length (match-string 1)))
+                   (face (intern (format "org-level-%d" (1+ (mod (1- level) 8)))))
+                   (pos (line-beginning-position)))
+              (push (list :line (line-number-at-pos pos)
+                          :text (number-to-string (1+ (mod (1- level) 9)))
+                          :face face
+                          :help (format "heading level %d" level)
+                          :action-help "go to heading"
+                          :action (lambda () (interactive) (goto-char pos))
+                          :menu (list (cons "Go to heading"
+                                            (lambda () (interactive) (goto-char pos)))
+                                      (cons "Toggle fold"
+                                            (lambda () (interactive) (goto-char pos) (org-cycle)))
+                                      (cons "Narrow to subtree"
+                                            (lambda () (interactive)
+                                              (goto-char pos) (org-narrow-to-subtree)))))
+                    out))))
+        out))))
+
+(defun my/org-blocks-margin-items (buffer)
+  "Return one `svg-margin' indicator per Org block start in BUFFER."
+  (with-current-buffer buffer
+    (when (derived-mode-p 'org-mode)
+      (let ((case-fold-search t)
+            ;; (KIND . LETTER)
+            (kinds '(("src" . "#") ("quote" . ">") ("example" . "%")
+                     ("export" . "^") ("verse" . "~")))
+            out)
+        (save-excursion
+          (dolist (kind kinds)
+            (let ((srcp (string= (car kind) "src")))
+              (goto-char (point-min))
+              (while (re-search-forward (format "^[ \t]*#\\+begin_%s\\b" (car kind)) nil t)
+                (let ((pos (line-beginning-position)))
+                  (push (list :line (line-number-at-pos pos)
+                              :text (cdr kind)
+                              :face 'font-lock-comment-face
+                              :help (format "org %s block" (car kind))
+                              :action-help (if srcp "edit block" "go to block")
+                              :action (if srcp
+                                          (lambda () (interactive)
+                                            (goto-char pos) (org-edit-special))
+                                        (lambda () (interactive) (goto-char pos)))
+                              :menu (append
+                                     (list (cons "Go to block"
+                                                 (lambda () (interactive) (goto-char pos))))
+                                     (when srcp
+                                       (list (cons "Edit block"
+                                                   (lambda () (interactive)
+                                                     (goto-char pos) (org-edit-special)))
+                                             (cons "Execute block"
+                                                   (lambda () (interactive)
+                                                     (goto-char pos) (org-babel-execute-src-block)))))
+                                     (list (cons "Toggle fold"
+                                                 (lambda () (interactive) (goto-char pos) (org-cycle))))))
+                        out))))))
+        out))))
+
+(with-eval-after-load 'org
+  (svg-margin-register-provider 'org-headings #'my/org-headings-margin-items :side 'left :priority 4)
+  (svg-margin-register-provider 'org-blocks #'my/org-blocks-margin-items :side 'left :priority 4))
 #+end_src
 
 * LSP
