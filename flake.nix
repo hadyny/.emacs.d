@@ -173,42 +173,6 @@
                 postPatch = "rm -f zk4e-citar.el";
                 packageRequires = [ _efinal.tomlparse ];
               };
-
-              # svg-line: renders the mode-line as an SVG image (see the
-              # Mode-line section of config.org) instead of laid-out text,
-              # replacing Moody's tab/ribbon restyling outright -- Moody and
-              # svg-line both rewrite `mode-line-format', and svg-line's
-              # `:target 'mode-line' install replaces the whole thing with a
-              # single `(:eval ...)' form, leaving Moody's `moody-replace-*'
-              # nothing to `cl-subst' into. Not in nixpkgs/MELPA yet, so
-              # build from source like zk4e above.
-              svg-line = _efinal.trivialBuild {
-                pname = "svg-line";
-                version = "0.1.6";
-                src = final.fetchFromGitHub {
-                  owner = "chiply";
-                  repo = "svg-line";
-                  tag = "v0.1.6";
-                  hash = "sha256-WlWvt6sZbk5Fr++Nqa6s71eVxy5Y7hFn8K/bZoD6jp0=";
-                };
-              };
-
-              # svg-margin: composites indicators from independent "providers"
-              # into one SVG image per margin (see the Margins section of
-              # config.org) -- the Diagnostics section's own hand-rolled
-              # left-margin glyphs are one such provider now, rather than
-              # Flycheck drawing there itself. Same chiply author/build shape
-              # as svg-line above; also not in nixpkgs/MELPA yet.
-              svg-margin = _efinal.trivialBuild {
-                pname = "svg-margin";
-                version = "0.1.7";
-                src = final.fetchFromGitHub {
-                  owner = "chiply";
-                  repo = "svg-margin";
-                  tag = "v0.1.7";
-                  hash = "sha256-Ej3hJYZgO949HY4fuXSVr5QyjW17D0Lns0eAvdqPPWk=";
-                };
-              };
             }
           );
 
@@ -229,6 +193,7 @@
               apheleia
               auto-dark
               cape
+              centaur-tabs
               consult
               consult-flycheck
               corfu
@@ -236,6 +201,7 @@
               diff-hl
               dirvish
               docker
+              doom-modeline
               doom-themes
               # eglot from GNU ELPA, not the copy bundled with Emacs 30.2
               # (1.17.30). Roslyn reports diagnostics by pull only, and pull
@@ -272,8 +238,6 @@
               prescient
               smartparens
               spacious-padding
-              svg-line
-              svg-margin
               treesit-auto
               vertico
               vertico-prescient
@@ -301,12 +265,6 @@
           # never triggers the network-flaky ghostty/Zig build. Used by the
           # integration-tests and packages-loadable checks below.
           emacs-dotemacs-ci = epkgs.withPackages (dotemacsPackageList false);
-
-          # Exposed so `terminal-load' below can put it on `load-path'
-          # directly: built with `trivialBuild' (like `zk4e'), so it lands on
-          # plain `site-lisp' rather than an ELPA-shaped directory and
-          # `package-activate-all' never finds it (see that check's comment).
-          inherit (epkgs) svg-line svg-margin;
         };
     in
     flake-utils.lib.eachSystem supportedSystems (
@@ -535,15 +493,13 @@
           # entry points autoloadable WITHOUT an explicit require. This is the
           # failure mode when early-init.el disables package.el — every
           # :init/:config call then hits a void function.
-          # `svg-line'/`svg-margin' (like `zk4e' below) are built with
-          # `trivialBuild', which drops their files straight on `site-lisp'
-          # rather than into an ELPA-shaped `pkg-version' directory --
-          # `package-activate-all' has no per-package autoloads file to find
-          # there, so `svg-line-activate'/`svg-margin-register-provider' are
-          # deliberately absent from this list; config.org's real
-          # `use-package svg-line'/`svg-margin' has no `:defer', so it
-          # hard-`require's the feature itself before calling it, never
-          # relying on this path.
+          # `zk4e' is built with `trivialBuild', which drops its files
+          # straight on `site-lisp' rather than into an ELPA-shaped
+          # `pkg-version' directory -- `package-activate-all' has no
+          # per-package autoloads file to find there, so no `zk4e' entry
+          # point is deliberately absent from this list; config.org's real
+          # `use-package zk4e' is `:defer'red, so it never needs one to be
+          # autoloadable this way.
           # Runs on emacs-dotemacs-ci (no ghostel), so the ghostel native
           # module is deliberately not built or required here -- that would
           # trigger the network-flaky ghostty/Zig build.
@@ -554,6 +510,7 @@
                         (dolist (fn '(gcmh-mode vertico-mode marginalia-mode exec-path-from-shell-initialize \
                                       corfu-mode corfu-history-mode evil-mode \
                                       doom-themes-visual-bell-config which-key-mode \
+                                      doom-modeline-mode centaur-tabs-mode \
                                       apheleia-global-mode agent-shell \
                                       magit-todos-mode magit-todos-list \
                                       mixed-pitch-mode dirvish-override-dired-mode \
@@ -585,16 +542,6 @@
           # this adds no package builds. `use-package-expand-minimally' drops
           # use-package's condition-case wrappers so an error inside a `:config'
           # body is fatal here instead of merely logged.
-          #
-          # `svg-line' is `trivialBuild', so it lands on plain `site-lisp'
-          # rather than the ELPA-shaped directory `package-directory-list'
-          # points at -- added to `load-path' by hand for the same reason (see
-          # the `svg-line' comment on the `packages' output above). Unlike
-          # `zk4e' (also `trivialBuild'), config.org's `use-package svg-line'
-          # is not `:defer'red -- it calls `svg-line-activate' straight from
-          # `:config' -- so `require' actually runs here and needs this.
-          # `svg-margin' is the same shape (`trivialBuild', not `:defer'red)
-          # and needs the same hand-added `load-path' entry.
           terminal-load =
             pkgs.runCommand "dotemacs-terminal-load" { nativeBuildInputs = [ pkgs.emacs-nox ]; }
               ''
@@ -608,8 +555,6 @@
                   --eval '(org-babel-tangle-file "config.org" "config.el")'
                 emacs --batch -Q \
                   --eval "(progn \
-                            (add-to-list 'load-path \"${pkgs.svg-line}/share/emacs/site-lisp\") \
-                            (add-to-list 'load-path \"${pkgs.svg-margin}/share/emacs/site-lisp\") \
                             (setq package-directory-list \
                                   (list \"${pkgs.emacs-dotemacs-ci.deps}/share/emacs/site-lisp/elpa\")) \
                             (package-activate-all) \

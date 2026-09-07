@@ -174,8 +174,8 @@ variant leaves a face unspecified."
   "`use-package doom-themes' opts into bold, italic, and a padded mode-line.
 Bold/italic gate each variant's own per-face styling (see
 `my/apply-font-faces', which deliberately leaves bold/italic alone and relies
-on these instead); the padded mode-line is invisible to `svg-line' (see the
-Mode-line section) but still worth enabling for any Emacs-drawn mode-line."
+on these instead); the padded mode-line avoids a cramped look against the
+theme's own box."
   ;; Arrange / Act
   (let (form)
     (dolist (f (cfg-test-read-forms))
