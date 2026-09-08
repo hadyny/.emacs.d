@@ -139,40 +139,54 @@ source.
 ** Core Emacs defaults
 
 #+begin_src emacs-lisp
+  (setopt initial-major-mode 'fundamental-mode)
+  (setopt display-time-default-load-average nil)
+
+  (setopt auto-revert-avoid-polling t)
+  (setopt auto-revert-interval 5)
+  (setopt auto-revert-check-vc-info t)
+  (global-auto-revert-mode)
+
+  ;; Don't ping url-looking things when running find-file
+  (setopt ffap-machine-p-known 'reject)
+
+  (setq-default bidi-paragraph-direction 'left-to-right)
+  (setq bidi-inhibit-bpa t)
+
+  (setopt global-hl-line-sticky-flag 'window) ; Every window gets own hl-line instance
+  (global-hl-line-mode)
+
   (use-package emacs
-    :ensure nil
-    :custom
-    (auto-save-default nil)
-    (create-lockfiles nil)
-    (display-line-numbers-type 'relative)
-    (make-backup-files nil)
-    (pixel-scroll-precision-use-momentum t)
-    (ring-bell-function 'ignore)
-    (tab-width 4)
-    (treesit-font-lock-level 4)
-    (truncate-lines t)
-    (use-dialog-box nil)
-    (use-short-answers t)
-    (inhibit-startup-screen t)
-    (tsx-ts-mode-indent-offset 4)
-    (typescript-ts-mode-indent-offset 4)
-    (indent-tabs-mode nil)
-    (line-spacing 0.2)
-    :hook
-    (prog-mode . display-line-numbers-mode)
-    :config
-    (set-display-table-slot standard-display-table 'vertical-border (make-glyph-code ?│))
-    ;; Window-system-only builtins: void on a terminal-only build (the devenv
-    ;; shell's `emacs-nox'), where an unguarded call would abort the rest of this
-    ;; `:config' body and lose the modes below it.
-    (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
-    (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
-    (context-menu-mode 1)
-    (recentf-mode 1)
-    (savehist-mode 1)
-    (global-prettify-symbols-mode 1)
-    (global-font-lock-mode 1)
-    (pixel-scroll-precision-mode 1))
+        :ensure nil
+        :custom
+        (auto-save-default nil)
+        (create-lockfiles nil)
+        (display-line-numbers-type 'relative)
+        (make-backup-files nil)
+        (pixel-scroll-precision-use-momentum t)
+        (ring-bell-function 'ignore)
+        (tab-width 4)
+        (treesit-font-lock-level 4)
+        (truncate-lines t)
+        (use-dialog-box nil)
+        (use-short-answers t)
+        (inhibit-startup-screen t)
+        (tsx-ts-mode-indent-offset 4)
+        (typescript-ts-mode-indent-offset 4)
+        (indent-tabs-mode nil)
+        (line-spacing 0.2)
+        :hook
+        (prog-mode . display-line-numbers-mode)
+        :config
+        (set-display-table-slot standard-display-table 'vertical-border (make-glyph-code ?│))
+        (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
+        (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
+        (context-menu-mode 1)
+        (recentf-mode 1)
+        (savehist-mode 1)
+        (global-prettify-symbols-mode 1)
+        (global-font-lock-mode 1)
+        (pixel-scroll-precision-mode 1))
 #+end_src
 
 ** Whitespace cleanup on save
@@ -183,7 +197,22 @@ source.
   :defer t
   :hook (before-save . whitespace-cleanup))
 #+end_src
-
+** Search
+#+begin_src emacs-lisp
+  (use-package isearch
+  :ensure nil                           ; already installed
+  :bind
+  (:map isearch-mode-map
+        ("C-." . isearch-forward-thing-at-point)) ; Search for thing under cursor
+  :custom
+  (lazy-count-prefix-format "(%s/%s) ")
+  (isearch-lazy-count t)                 ; show match count
+  (isearch-allow-motion t)
+  (isearch-allow-scroll t)               ; lets you scroll without breaking search
+  (isearch-repeat-on-direction-change t) ; C-r immediately goes to previous match
+  (isearch-wrap-pause 'no-ding)          ; Automatically wrap search to top
+  )
+#+end_src
 ** Dired
 
 #+begin_src emacs-lisp
@@ -749,39 +778,40 @@ does not change between one file and the next.")
 ** Corfu
 
 #+begin_src emacs-lisp
-(use-package corfu
-  :hook ((org-mode prog-mode) . corfu-mode)
-  :custom
-  (corfu-auto t)
-  (corfu-cycle t)
-  (corfu-auto-prefix 2)
-  (corfu-auto-delay 0.0)
-  (corfu-max-width 50)
-  (corfu-min-width 50)
-  (corfu-quit-no-match t)
-  (corfu-popupinfo-delay 0.5)
-  (corfu-preselect 'first)
-  (corfu-preview-current 'insert)
-  (text-mode-ispell-word-completion nil)
-  :config
-  (global-corfu-mode)
-  (corfu-history-mode)
-  (corfu-popupinfo-mode)
-  :bind
-  (:map corfu-map
-        ("TAB" . corfu-insert)
-        ([tab] . corfu-insert)))
+  (use-package corfu
+    :hook ((org-mode prog-mode) . corfu-mode)
+    :custom
+    (corfu-auto t)
+    (corfu-cycle t)
+    (corfu-auto-prefix 2)
+    (corfu-auto-delay 0.0)
+    (corfu-max-width 50)
+    (corfu-min-width 50)
+    (corfu-quit-no-match t)
+    (corfu-popupinfo-delay '(0.25 . 0.1))
+    (corfu-popupinfo-hide nil)
+    (corfu-preselect 'first)
+    (corfu-preview-current 'insert)
+    (text-mode-ispell-word-completion nil)
+    :config
+    (global-corfu-mode)
+    (corfu-history-mode)
+    (corfu-popupinfo-mode)
+    :bind
+    (:map corfu-map
+          ("TAB" . corfu-insert)
+          ([tab] . corfu-insert)))
 
-(use-package nerd-icons-corfu
-  :after corfu
-  :config
-  ;; `nerd-icons-corfu-formatter' already pads the icon with a half-width
-  ;; space on each side; wrap it to add a couple of full spaces after, so the
-  ;; candidate text doesn't sit flush against the icon.
-  (defun my/nerd-icons-corfu-formatter (metadata)
-    (when-let ((fmt (nerd-icons-corfu-formatter metadata)))
-      (lambda (cand) (concat (funcall fmt cand) "  "))))
-  (add-to-list 'corfu-margin-formatters #'my/nerd-icons-corfu-formatter))
+  (use-package nerd-icons-corfu
+    :after corfu
+    :config
+    ;; `nerd-icons-corfu-formatter' already pads the icon with a half-width
+    ;; space on each side; wrap it to add a couple of full spaces after, so the
+    ;; candidate text doesn't sit flush against the icon.
+    (defun my/nerd-icons-corfu-formatter (metadata)
+      (when-let ((fmt (nerd-icons-corfu-formatter metadata)))
+        (lambda (cand) (concat (funcall fmt cand) "  "))))
+    (add-to-list 'corfu-margin-formatters #'my/nerd-icons-corfu-formatter))
 #+end_src
 
 ** Cape
@@ -831,14 +861,31 @@ list open every file it passes over. A debounce keeps the preview automatic but
 lets fast movement skip the files in between.
 
 #+begin_src emacs-lisp
-(use-package consult
-  :defer t
-  :custom
-  (consult-preview-key '(:debounce 0.3 any))
-  :init
-  (advice-add #'register-preview :override #'consult-register-window)
-  (setopt xref-show-xrefs-function #'consult-xref
-          xref-show-definitions-function #'consult-xref))
+  (use-package consult
+    :defer t
+    :bind (
+         ;; Drop-in replacements
+         ("C-x b" . consult-buffer)     ; orig. switch-to-buffer
+         ("M-y"   . consult-yank-pop)   ; orig. yank-pop
+         ;; Searching
+         ("M-s r" . consult-ripgrep)
+         ("M-s l" . consult-line)       ; Alternative: rebind C-s to use
+         ("M-s s" . consult-line)       ; consult-line instead of isearch, bind
+         ("M-s L" . consult-line-multi) ; isearch to M-s s
+         ("M-s o" . consult-outline)
+         ;; Isearch integration
+         :map isearch-mode-map
+         ("M-e" . consult-isearch-history)   ; orig. isearch-edit-string
+         ("M-s e" . consult-isearch-history) ; orig. isearch-edit-string
+         ("M-s l" . consult-line)            ; needed by consult-line to detect isearch
+         ("M-s L" . consult-line-multi)      ; needed by consult-line to detect isearch
+         )
+    :custom
+    (consult-preview-key '(:debounce 0.3 any))
+    :init
+    (advice-add #'register-preview :override #'consult-register-window)
+    (setopt xref-show-xrefs-function #'consult-xref
+            xref-show-definitions-function #'consult-xref))
 #+end_src
 
 ** Marginalia
@@ -866,14 +913,17 @@ together via =nerd-icons-completion-marginalia-setup=.
 * Actions (Embark)
 
 #+begin_src emacs-lisp
-(use-package embark
-  :defer t
-  :config
-  (setq prefix-help-command #'embark-prefix-help-command))
+  (use-package embark
+    :defer t
+    :config
+    (which-key-mode -1)
+    (setopt embark-auto-prefix-help-delay 1.0)
+    (embark-auto-prefix-help-mode)
+    (setq prefix-help-command #'embark-prefix-help-command))
 
-(use-package embark-consult
-  :hook
-  (embark-collect-mode . consult-preview-at-point-mode))
+  (use-package embark-consult
+    :hook
+    (embark-collect-mode . consult-preview-at-point-mode))
 #+end_src
 
 * Help
@@ -1373,55 +1423,57 @@ diagnostic conversion in 1.20. It arrives through the Nix package set like every
 other package, so there is no =:ensure nil= here.
 
 #+begin_src emacs-lisp
-(use-package eglot
-  :commands (eglot
-             eglot-ensure
-             eglot-rename
-             eglot-format-buffer)
-  ;; eglot is started manually with `M-x eglot' (not auto-started on the TS/TSX
-  ;; hooks). `my/add-node-modules-path' has put the project-local servers on
-  ;; `exec-path' and PATH by the time you connect, and `rass' resolves each
-  ;; server itself from the PATH it inherits.
-  :config
-  (setopt eglot-code-action-indications '(mode-line))
-  ;; `eglot-confirm-server-initiated-edits' has been an obsolete alias for this
-  ;; since Eglot 1.16. `t' used to work here (its docstring's "or any other
-  ;; non-nil value" catch-all still honours it at the call site), but the
-  ;; `defcustom' `:type' choice does not list a bare `t' among its options, so
-  ;; `setopt' -- which validates against that type -- warned on startup.
-  ;; `summary' is the literal choice with the same meaning ("summarise the
-  ;; edit and prompt"), so this is a no-op behaviour change, warning gone.
-  (setopt eglot-confirm-server-edits 'summary)
-  (add-to-list 'eglot-server-programs
-               '((csharp-ts-mode csharp-mode) . ("Microsoft.CodeAnalysis.LanguageServer" "--logLevel" "Debug" "--extensionLogDirectory" "~/.dotnet/logs" "--stdio")))
-  ;; TS/TSX: three servers behind the `rass' multiplexer. Eglot connects one
-  ;; server for each major mode and project, so Tailwind and ESLint cannot be
-  ;; separate connections. The bundled `tslint' preset runs
-  ;; typescript-language-server + vscode-eslint-language-server and does the
-  ;; `workspace/configuration' handholding ESLint needs; tailwindcss-language-server
-  ;; needs none and is appended after `--'.
-  ;;
-  ;; Every mode declares its `:language-id'. Absent one, Eglot strips
-  ;; "\\(?:-ts\\)?-mode$" from the mode name and sends "tsx" / "js", which are
-  ;; not LSP language IDs -- ESLint's `validate: probe' and Tailwind's class
-  ;; completion both go quiet. The entry is also written out in full rather than
-  ;; left to `eglot-alternatives': Eglot offers `("rass" "ts")' for these modes
-  ;; and probes only for the `rass' binary, but rassumfrassum ships no `ts'
-  ;; preset, so that command dies on startup.
-  (add-to-list 'eglot-server-programs
-               '(((tsx-ts-mode :language-id "typescriptreact")
-                  (typescript-ts-mode :language-id "typescript")
-                  (js-ts-mode :language-id "javascript"))
-                 . ("rass" "tslint" "--" "tailwindcss-language-server" "--stdio")))
-  ;; Markdown: use `zk lsp' inside a zk notebook (a parent dir has `.zk'),
-  ;; otherwise fall back to marksman for general markdown. eglot calls the CDR
-  ;; function to resolve the program when connecting.
-  (add-to-list 'eglot-server-programs
-               (cons '(markdown-mode gfm-mode markdown-ts-mode)
-                     (lambda (&rest _)
-                       (if (locate-dominating-file default-directory ".zk")
-                           '("zk" "lsp")
-                         '("marksman"))))))
+  (use-package eglot
+    :commands (eglot
+               eglot-ensure
+               eglot-rename
+               eglot-format-buffer)
+    ;; eglot is started manually with `M-x eglot' (not auto-started on the TS/TSX
+    ;; hooks). `my/add-node-modules-path' has put the project-local servers on
+    ;; `exec-path' and PATH by the time you connect, and `rass' resolves each
+    ;; server itself from the PATH it inherits.
+    :config
+    (setopt eglot-code-action-indicator "h")
+    (fset #'jsonrpc--log-event #'ignore)
+    (setopt eglot-code-action-indications '(mode-line))
+    ;; `eglot-confirm-server-initiated-edits' has been an obsolete alias for this
+    ;; since Eglot 1.16. `t' used to work here (its docstring's "or any other
+    ;; non-nil value" catch-all still honours it at the call site), but the
+    ;; `defcustom' `:type' choice does not list a bare `t' among its options, so
+    ;; `setopt' -- which validates against that type -- warned on startup.
+    ;; `summary' is the literal choice with the same meaning ("summarise the
+    ;; edit and prompt"), so this is a no-op behaviour change, warning gone.
+    (setopt eglot-confirm-server-edits 'summary)
+    (add-to-list 'eglot-server-programs
+                 '((csharp-ts-mode csharp-mode) . ("Microsoft.CodeAnalysis.LanguageServer" "--logLevel" "Debug" "--extensionLogDirectory" "~/.dotnet/logs" "--stdio")))
+    ;; TS/TSX: three servers behind the `rass' multiplexer. Eglot connects one
+    ;; server for each major mode and project, so Tailwind and ESLint cannot be
+    ;; separate connections. The bundled `tslint' preset runs
+    ;; typescript-language-server + vscode-eslint-language-server and does the
+    ;; `workspace/configuration' handholding ESLint needs; tailwindcss-language-server
+    ;; needs none and is appended after `--'.
+    ;;
+    ;; Every mode declares its `:language-id'. Absent one, Eglot strips
+    ;; "\\(?:-ts\\)?-mode$" from the mode name and sends "tsx" / "js", which are
+    ;; not LSP language IDs -- ESLint's `validate: probe' and Tailwind's class
+    ;; completion both go quiet. The entry is also written out in full rather than
+    ;; left to `eglot-alternatives': Eglot offers `("rass" "ts")' for these modes
+    ;; and probes only for the `rass' binary, but rassumfrassum ships no `ts'
+    ;; preset, so that command dies on startup.
+    (add-to-list 'eglot-server-programs
+                 '(((tsx-ts-mode :language-id "typescriptreact")
+                    (typescript-ts-mode :language-id "typescript")
+                    (js-ts-mode :language-id "javascript"))
+                   . ("rass" "tslint" "--" "tailwindcss-language-server" "--stdio")))
+    ;; Markdown: use `zk lsp' inside a zk notebook (a parent dir has `.zk'),
+    ;; otherwise fall back to marksman for general markdown. eglot calls the CDR
+    ;; function to resolve the program when connecting.
+    (add-to-list 'eglot-server-programs
+                 (cons '(markdown-mode gfm-mode markdown-ts-mode)
+                       (lambda (&rest _)
+                         (if (locate-dominating-file default-directory ".zk")
+                             '("zk" "lsp")
+                           '("marksman"))))))
 #+end_src
 
 The Roslyn server (=Microsoft.CodeAnalysis.LanguageServer=) does not auto-load a
