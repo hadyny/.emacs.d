@@ -236,6 +236,7 @@
               org-modern
               org-super-agenda
               prescient
+              sharper
               smartparens
               spacious-padding
               treesit-auto

@@ -340,7 +340,6 @@ cycle came back for every later Corfu popup. Reapplied on every switch like
   (doom-themes-padded-modeline t)
   :config
   (doom-themes-visual-bell-config)
-  (doom-themes-treemacs-config)
   (doom-themes-org-config)
   (defun my/theme-for-appearance (appearance)
     "Return the Doom Themes variant symbol for system APPEARANCE.
@@ -1752,6 +1751,20 @@ buffer as a single undo step, from whichever side supplied it.
 
 (dolist (hook '(tsx-ts-mode-hook typescript-ts-mode-hook js-ts-mode-hook))
   (add-hook hook #'my/eslint-limit-check-triggers))
+#+end_src
+
+** Dotnet CLI (sharper)
+
+Roslyn (above) only covers editor diagnostics; day-to-day =dotnet= CLI actions
+(build/test/run/publish, NuGet package search, adding/removing project/solution
+references) still meant a shell out to a terminal. =sharper= is a
+Transient-based menu over that CLI, so those stay inside Emacs instead.
+=C-c n= mirrors upstream's own suggested binding ("dot *n*ET").
+
+#+begin_src emacs-lisp
+(use-package sharper
+  :bind
+  ("C-c n" . sharper-main-transient))
 #+end_src
 
 * Formatting (Apheleia)
