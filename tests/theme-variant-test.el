@@ -12,7 +12,9 @@
 ;;
 ;; `my/theme-for-appearance' is the pure appearance -> theme-symbol map the
 ;; whole switch is built on; `my/apply-theme-for-appearance' is the effectful
-;; part that loads it and repairs the faces `load-theme' re-specs.
+;; part that loads it and repairs the faces `load-theme' re-specs, including
+;; flattening the mode-line back to `default''s background with a top rule
+;; (`my/apply-modeline-face') in place of Doom's own padded box.
 
 ;;; Code:
 
@@ -64,6 +66,7 @@ The no-detection path in the auto-dark block relies on this."
               ((symbol-function 'my/apply-diff-hl-faces) #'ignore)
               ((symbol-function 'my/apply-fringe-face) #'ignore)
               ((symbol-function 'my/apply-font-faces) #'ignore)
+              ((symbol-function 'my/apply-modeline-face) #'ignore)
               ((symbol-function 'my/apply-gnus-group-news-low-fix) #'ignore))
       ;; Act
       (my/apply-theme-for-appearance 'dark)
@@ -86,6 +89,7 @@ recalculation if it targets the theme actually enabled (see
               ((symbol-function 'my/apply-diff-hl-faces) #'ignore)
               ((symbol-function 'my/apply-fringe-face) #'ignore)
               ((symbol-function 'my/apply-font-faces) #'ignore)
+              ((symbol-function 'my/apply-modeline-face) #'ignore)
               ((symbol-function 'my/apply-gnus-group-news-low-fix)
                (lambda (theme) (setq gnus-fix-theme theme))))
       ;; Act
@@ -94,10 +98,10 @@ recalculation if it targets the theme actually enabled (see
       (should (eq gnus-fix-theme 'doom-solarized-light)))))
 
 (ert-deftest theme-variant/apply-repairs-the-themed-faces ()
-  "Loading a variant re-applies the diff-hl colours, fonts and the Gnus fix.
-`load-theme' re-specs `default', the diff-hl faces and Doom's buggy
-`gnus-group-news-low-empty' inherit, so every helper must run on each switch
--- the same contract the Catppuccin flavour hook had."
+  "Loading a variant re-applies the diff-hl colours, fonts, mode-line and the
+Gnus fix. `load-theme' re-specs `default', the diff-hl faces, the mode-line
+box and Doom's buggy `gnus-group-news-low-empty' inherit, so every helper
+must run on each switch -- the same contract the Catppuccin flavour hook had."
   ;; Arrange
   (cfg-test-load-defun 'my/theme-for-appearance)
   (cfg-test-load-defun 'my/apply-theme-for-appearance)
@@ -111,6 +115,8 @@ recalculation if it targets the theme actually enabled (see
                (lambda () (push 'fringe calls)))
               ((symbol-function 'my/apply-font-faces)
                (lambda () (push 'fonts calls)))
+              ((symbol-function 'my/apply-modeline-face)
+               (lambda () (push 'modeline calls)))
               ((symbol-function 'my/apply-gnus-group-news-low-fix)
                (lambda (_theme) (push 'gnus calls))))
       ;; Act
@@ -119,7 +125,30 @@ recalculation if it targets the theme actually enabled (see
       (should (memq 'diff-hl calls))
       (should (memq 'fringe calls))
       (should (memq 'fonts calls))
+      (should (memq 'modeline calls))
       (should (memq 'gnus calls)))))
+
+(ert-deftest theme-variant/modeline-face-matches-default-background ()
+  "The mode-line faces get `default''s background, no box, and a violet overline."
+  ;; Arrange
+  (cfg-test-load-defun 'my/apply-modeline-face)
+  (let (calls)
+    (cl-letf (((symbol-function 'face-attribute)
+               (lambda (face attr &rest _)
+                 (cond ((and (eq face 'default) (eq attr :background)) "#123456")
+                       (t nil))))
+              ((symbol-function 'doom-color)
+               (lambda (key) (when (eq key 'violet) "#bd93f9")))
+              ((symbol-function 'set-face-attribute)
+               (lambda (face _frame &rest plist) (push (cons face plist) calls))))
+      ;; Act
+      (my/apply-modeline-face)
+      ;; Assert
+      (dolist (face '(mode-line mode-line-active mode-line-inactive))
+        (let ((plist (cdr (assq face calls))))
+          (should (equal (plist-get plist :background) "#123456"))
+          (should (null (plist-get plist :box)))
+          (should (equal (plist-get plist :overline) "#bd93f9")))))))
 
 (ert-deftest theme-variant/package-is-in-the-closure ()
   "flake.nix ships `doom-themes' and no longer ships `modus-themes' or
@@ -174,8 +203,8 @@ variant leaves a face unspecified."
   "`use-package doom-themes' opts into bold, italic, and a padded mode-line.
 Bold/italic gate each variant's own per-face styling (see
 `my/apply-font-faces', which deliberately leaves bold/italic alone and relies
-on these instead); the padded mode-line avoids a cramped look against the
-theme's own box."
+on these instead); the padded mode-line is what `my/apply-modeline-face' then
+flattens back down to a plain background with a top rule."
   ;; Arrange / Act
   (let (form)
     (dolist (f (cfg-test-read-forms))

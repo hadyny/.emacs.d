@@ -104,10 +104,9 @@ keeps the previous value; header line, tab and divider widths are left at
 spacious-padding's own defaults.
 
 =:mode-line-width= is 0 -- spacious-padding adds no box of its own to the mode
-line at all. Doom Themes' own =doom-themes-padded-modeline= (see
-[[*Themes][Themes]]) already gives the mode line its padding box; a
-spacious-padding-added box here would double up on that, one from each
-source.
+line at all. [[*Mode-line (doom-modeline)][doom-modeline]] draws its own segmented mode line and does
+not consult a padding box from the theme or from spacious-padding, so adding
+one here would have no visible effect besides an unused reserved width.
 
 #+begin_src emacs-lisp
 (use-package spacious-padding
@@ -330,13 +329,6 @@ showing through with the wrong colours. =load-theme='s =NO-CONFIRM= argument
 is =t=, so nothing needs to go in =custom-safe-themes= for either variant to
 load without a prompt.
 
-Doom Themes' own =doom-themes-padded-modeline= gives =mode-line-active=/
-=mode-line-inactive= an invisible padding box (its colour matches the
-mode-line background, so it reads as breathing room rather than a border) --
-the same reason [[*Spacious padding][Spacious padding]]'s own
-=:mode-line-width= is 0 here, so as not to add a second, redundant box from a
-different source.
-
 =doom-themes-enable-bold=/=doom-themes-enable-italic= only *permit* a Doom
 Themes variant's own emphasis -- turning either off forces every face's
 slant/weight to =unspecified=, but turning them on (the default here) does
@@ -360,6 +352,12 @@ table -- a plain =set-face-attribute= fix looked like it worked once but the
 cycle came back for every later Corfu popup. Reapplied on every switch like
 =my/apply-diff-hl-faces=; drop it once nixpkgs has upstream's fix
 (=gnus-group-news-low-empty= inheriting =gnus-group-mail-1-empty= instead).
+
+Doom Themes gives the mode line its own raised, contrasting box (via
+=doom-themes-padded-modeline=), which =my/apply-modeline-face= flattens to
+=default='s background with just a single-pixel top rule in the variant's own
+=violet= (=:overline=, since a face =:box= cannot draw one side only) on every
+switch, alongside the diff-hl/fringe/gnus/font fixes above.
 
 #+begin_src emacs-lisp
 (use-package doom-themes
@@ -466,6 +464,27 @@ entirely under Dracula."
       (set-face-attribute face nil :slant 'italic))
     (dolist (face '(font-lock-keyword-face font-lock-constant-face))
       (set-face-attribute face nil :weight 'bold)))
+  (defun my/apply-modeline-face ()
+    "Flatten the mode-line to `default''s background with only a top rule.
+Doom Themes gives the mode-line its own raised, contrasting box (padded via
+`doom-themes-padded-modeline'); this makes it blend into the buffer instead,
+keeping just a single-pixel top border (via `:overline', since `:box' cannot
+draw one side only) as a separator from the window above. Doom-modeline draws
+its segments on top of `mode-line-active'/`mode-line-inactive', so
+re-specifying those two (plus `mode-line', the parent face they inherit
+from) covers both focused and unfocused frames.
+The border is `violet' from the active Doom Themes variant's own palette
+(both Dracula and Solarized Light define it -- Dracula's own accent colour,
+also used for `highlight') rather than a mode-line face's foreground: Dracula
+deliberately leaves its own mode-line foreground `unspecified' (each
+doom-modeline segment supplies its own colour instead of one uniform
+foreground), so reading it here would silently store the literal symbol
+`unspecified' as the overline colour, producing no visible line at all."
+    (let ((bg (face-attribute 'default :background nil t))
+          (border (doom-color 'violet)))
+      (dolist (face '(mode-line mode-line-active mode-line-inactive))
+        (set-face-attribute face nil
+                             :background bg :box nil :overline border))))
   (defun my/apply-theme-for-appearance (appearance)
     "Load the Doom Themes variant for system APPEARANCE (`light'/`dark').
 Disables whatever theme is currently enabled first, so there is no lingering
@@ -477,6 +496,7 @@ variant leaving faces it does not specify with the wrong colours -- plain
       (my/apply-diff-hl-faces)
       (my/apply-fringe-face)
       (my/apply-font-faces)
+      (my/apply-modeline-face)
       (my/apply-gnus-group-news-low-fix theme))))
 
 ;; Drive the variant switch off the system appearance, cross-platform. auto-dark
