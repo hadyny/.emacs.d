@@ -173,6 +173,22 @@
                 postPatch = "rm -f zk4e-citar.el";
                 packageRequires = [ _efinal.tomlparse ];
               };
+
+              # org-timegrid: SVG week/day calendar for Org mode (config.org
+              # uses it for org-timegrid-week and the Agenda day-strip). Not
+              # in nixpkgs, so build from source. No pinned tag upstream, so
+              # this tracks a specific commit; Package-Requires is just
+              # emacs 29.1 + org 9.6, both already satisfied here.
+              org-timegrid = _efinal.trivialBuild {
+                pname = "org-timegrid";
+                version = "0-unstable-2026-08-24";
+                src = final.fetchFromGitHub {
+                  owner = "Gleek";
+                  repo = "org-timegrid";
+                  rev = "5249d6ff68011424cf2b235e41a888ec2e466c6a";
+                  hash = "sha256-PUnvqW6gSGWSDDuC7IEvmYOaTragRVcs9bK22JgVNyk=";
+                };
+              };
             }
           );
 
@@ -235,6 +251,7 @@
               orderless
               org-modern
               org-super-agenda
+              org-timegrid
               prescient
               sharper
               smartparens
@@ -494,13 +511,13 @@
           # entry points autoloadable WITHOUT an explicit require. This is the
           # failure mode when early-init.el disables package.el — every
           # :init/:config call then hits a void function.
-          # `zk4e' is built with `trivialBuild', which drops its files
-          # straight on `site-lisp' rather than into an ELPA-shaped
-          # `pkg-version' directory -- `package-activate-all' has no
-          # per-package autoloads file to find there, so no `zk4e' entry
-          # point is deliberately absent from this list; config.org's real
-          # `use-package zk4e' is `:defer'red, so it never needs one to be
-          # autoloadable this way.
+          # `zk4e' and `org-timegrid' are built with `trivialBuild', which
+          # drops their files straight on `site-lisp' rather than into an
+          # ELPA-shaped `pkg-version' directory -- `package-activate-all' has
+          # no per-package autoloads file to find there, so entry points for
+          # either are deliberately absent from this list; config.org's real
+          # `use-package' forms for both are `:defer'red (via `:commands'),
+          # so they never need one to be autoloadable this way.
           # Runs on emacs-dotemacs-ci (no ghostel), so the ghostel native
           # module is deliberately not built or required here -- that would
           # trigger the network-flaky ghostty/Zig build.

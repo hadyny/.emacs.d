@@ -129,16 +129,22 @@ must run on each switch -- the same contract the Catppuccin flavour hook had."
       (should (memq 'gnus calls)))))
 
 (ert-deftest theme-variant/modeline-face-matches-default-background ()
-  "The mode-line faces get `default''s background, no box, and a violet overline."
+  "The mode-line faces get `default''s background, no box, and a violet overline.
+The `bar' faces blend into that background instead of losing the segment
+outright, and the cached bar images are refreshed so the colour actually
+changes visibly."
   ;; Arrange
   (cfg-test-load-defun 'my/apply-modeline-face)
-  (let (calls)
+  (let (calls refreshed)
     (cl-letf (((symbol-function 'face-attribute)
                (lambda (face attr &rest _)
                  (cond ((and (eq face 'default) (eq attr :background)) "#123456")
                        (t nil))))
               ((symbol-function 'doom-color)
                (lambda (key) (when (eq key 'violet) "#bd93f9")))
+              ((symbol-function 'facep) (lambda (_face) t))
+              ((symbol-function 'doom-modeline-refresh-bars)
+               (lambda () (setq refreshed t)))
               ((symbol-function 'set-face-attribute)
                (lambda (face _frame &rest plist) (push (cons face plist) calls))))
       ;; Act
@@ -148,7 +154,11 @@ must run on each switch -- the same contract the Catppuccin flavour hook had."
         (let ((plist (cdr (assq face calls))))
           (should (equal (plist-get plist :background) "#123456"))
           (should (null (plist-get plist :box)))
-          (should (equal (plist-get plist :overline) "#bd93f9")))))))
+          (should (equal (plist-get plist :overline) "#bd93f9"))))
+      (dolist (face '(doom-modeline-bar doom-modeline-bar-inactive))
+        (let ((plist (cdr (assq face calls))))
+          (should (equal (plist-get plist :background) "#123456"))))
+      (should refreshed))))
 
 (ert-deftest theme-variant/package-is-in-the-closure ()
   "flake.nix ships `doom-themes' and no longer ships `modus-themes' or

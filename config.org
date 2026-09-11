@@ -1,3 +1,4 @@
+# -*- lexical-binding: t; -*-
 #+title: Emacs Configuration
 #+author: Hadyn Youens
 #+property: header-args:emacs-lisp :lexical t
@@ -174,6 +175,7 @@ one here would have no visible effect besides an unused reserved width.
         (typescript-ts-mode-indent-offset 4)
         (indent-tabs-mode nil)
         (line-spacing 0.2)
+        (calendar-week-start-day 1)
         :hook
         (prog-mode . display-line-numbers-mode)
         :config
@@ -357,7 +359,12 @@ Doom Themes gives the mode line its own raised, contrasting box (via
 =doom-themes-padded-modeline=), which =my/apply-modeline-face= flattens to
 =default='s background with just a single-pixel top rule in the variant's own
 =violet= (=:overline=, since a face =:box= cannot draw one side only) on every
-switch, alongside the diff-hl/fringe/gnus/font fixes above.
+switch, alongside the diff-hl/fringe/gnus/font fixes above. It also blends
+doom-modeline's left-edge =bar= segment into the same background: that segment
+is what forces the mode-line to =doom-modeline-height= in the first place (an
+invisible-image pixel count, not a real character), so removing the segment
+outright -- the first attempt -- silently let the mode-line collapse back to
+font height instead.
 
 #+begin_src emacs-lisp
 (use-package doom-themes
@@ -407,6 +414,35 @@ the CI checks still build tests against."
     (when (facep 'margin)
       (set-face-attribute 'margin nil
                           :background (doom-color 'bg))))
+  (defun my/apply-centaur-tabs-faces ()
+    "Re-apply the selected tab's `centaur-tabs-set-bar' underline colour.
+`centaur-tabs-buffer-init' (hooked to `centaur-tabs-init-hook') only sets
+`centaur-tabs-selected''s `:underline' *once*, when `centaur-tabs-mode'
+first enables -- it is never re-run on a later theme switch. Doom Themes'
+own spec for `centaur-tabs-selected' (`&inherit tab-bar-tab :box nil') does
+not mention `:underline' at all, but `load-theme' still wipes it: enabling a
+theme resets every attribute of every face it touches to `unspecified'
+before applying its own spec, discarding any `set-face-attribute' call made
+before that point. Without this, the underline is only ever visible for
+whichever theme happened to be active when `centaur-tabs-mode' first
+enabled, and disappears the moment `my/apply-theme-for-appearance' loads a
+theme afterwards (including auto-dark's day/night switches).
+No-op until centaur-tabs has loaded and `centaur-tabs-set-bar' is `under'
+or `over' -- guarded the same way `my/apply-diff-hl-faces' guards diff-hl,
+since centaur-tabs is `:hook'ed rather than loaded eagerly."
+    (when (and (featurep 'centaur-tabs) (facep 'centaur-tabs-selected))
+      (let ((bar-color (face-background 'centaur-tabs-active-bar-face nil 'default)))
+        (pcase centaur-tabs-set-bar
+          ('under
+           (set-face-attribute 'centaur-tabs-selected nil
+                               :underline bar-color :overline nil)
+           (set-face-attribute 'centaur-tabs-selected-modified nil
+                               :underline bar-color :overline nil))
+          ('over
+           (set-face-attribute 'centaur-tabs-selected nil
+                               :overline bar-color :underline nil)
+           (set-face-attribute 'centaur-tabs-selected-modified nil
+                               :overline bar-color :underline nil))))))
   (defun my/apply-gnus-group-news-low-fix (theme)
     "Repoint THEME's own registered spec for one buggy Doom Themes Gnus face.
 THEME is the Doom Themes variant symbol just loaded (see
@@ -479,12 +515,25 @@ also used for `highlight') rather than a mode-line face's foreground: Dracula
 deliberately leaves its own mode-line foreground `unspecified' (each
 doom-modeline segment supplies its own colour instead of one uniform
 foreground), so reading it here would silently store the literal symbol
-`unspecified' as the overline colour, producing no visible line at all."
+`unspecified' as the overline colour, producing no visible line at all.
+`doom-modeline-bar'/`doom-modeline-bar-inactive' (the coloured left-edge
+segment) get the same background instead of being dropped from the modeline:
+that segment's image is what forces the mode-line to `doom-modeline-height'
+in the first place, so removing it outright left nothing regulating the
+height and the mode-line silently collapsed back to font height.
+`doom-modeline-refresh-bars' clears the cached bar images so the colour
+change actually redraws, since they are otherwise memoized until the next
+window-configuration change."
     (let ((bg (face-attribute 'default :background nil t))
           (border (doom-color 'violet)))
       (dolist (face '(mode-line mode-line-active mode-line-inactive))
         (set-face-attribute face nil
-                             :background bg :box nil :overline border))))
+                             :background bg :box nil :overline border))
+      (dolist (face '(doom-modeline-bar doom-modeline-bar-inactive))
+        (when (facep face)
+          (set-face-attribute face nil :background bg)))
+      (when (fboundp 'doom-modeline-refresh-bars)
+        (doom-modeline-refresh-bars))))
   (defun my/apply-theme-for-appearance (appearance)
     "Load the Doom Themes variant for system APPEARANCE (`light'/`dark').
 Disables whatever theme is currently enabled first, so there is no lingering
@@ -497,6 +546,7 @@ variant leaving faces it does not specify with the wrong colours -- plain
       (my/apply-fringe-face)
       (my/apply-font-faces)
       (my/apply-modeline-face)
+      (my/apply-centaur-tabs-faces)
       (my/apply-gnus-group-news-low-fix theme))))
 
 ;; Drive the variant switch off the system appearance, cross-platform. auto-dark
@@ -659,7 +709,8 @@ workspaces, not these buffer tabs.
     (eldoc-box-buffer-hook . centaur-tabs-local-mode)
     :custom
     (centaur-tabs-style "bar")
-    (centaur-tabs-set-bar 'left)
+    (centaur-tabs-set-bar 'under)
+    (x-underline-at-descent-line t)
     (centaur-tabs-height 28)
     (centaur-tabs-set-icons t)
     (centaur-tabs-set-modified-marker t)
@@ -829,7 +880,7 @@ does not change between one file and the next.")
     ;; space on each side; wrap it to add a couple of full spaces after, so the
     ;; candidate text doesn't sit flush against the icon.
     (defun my/nerd-icons-corfu-formatter (metadata)
-      (when-let ((fmt (nerd-icons-corfu-formatter metadata)))
+      (when-let* ((fmt (nerd-icons-corfu-formatter metadata)))
         (lambda (cand) (concat (funcall fmt cand) "  "))))
     (add-to-list 'corfu-margin-formatters #'my/nerd-icons-corfu-formatter))
 #+end_src
@@ -1429,6 +1480,51 @@ is enough."
             ("▶" . "▼")     ; L3
             ("▹" . "▿")     ; L4
             ("▸" . "▾"))))  ; L5
+#+end_src
+
+** org-timegrid
+
+[[https://github.com/Gleek/org-timegrid][=org-timegrid=]] draws an SVG
+week/day calendar from timed active timestamps in =org-agenda-files= (packaged
+from source via the flake overlay, like =zk4e=). =org-timegrid-week= opens the
+editable week view; new entries created there are captured into
+=calendar.org= alongside the other notes files. =org-timegrid-agenda-mode=
+adds a read-only day-strip to the top of Org Agenda, whose =RET= opens the
+same editable week view. Tag colours reuse the =work=/=config=/=personal=
+split already used for =org-tag-faces=.
+
+#+begin_src emacs-lisp
+(use-package org-timegrid
+  :defer t
+  :commands (org-timegrid-week)
+  :init
+  ;; The symbol `agenda' means: read events from `org-agenda-files'.
+  (setq org-timegrid-org-files 'agenda
+        org-timegrid-default-zoom 0.7
+        org-timegrid-org-capture-file "~/notes/org/calendar.org"
+        org-timegrid-org-capture-template
+        '(:target file
+          :template "* %{title}\n%{time-range}\n%?")
+        org-timegrid-org-auto-save t
+        org-timegrid-org-show-repeaters t
+        org-timegrid-org-tag-color-alist
+        '(("work"     . indigo)
+          ("config"   . blue)
+          ("personal" . green)))
+  :config
+  (require 'org-timegrid-org))
+
+(use-package org-timegrid-agenda
+  :ensure nil
+  :demand t
+  :after org-agenda
+  :init
+  (setq org-timegrid-agenda-insert-after nil
+        org-timegrid-agenda-separator t
+        org-timegrid-agenda-minutes-before 180
+        org-timegrid-agenda-minutes-after 180)
+  :config
+  (org-timegrid-agenda-mode 1))
 #+end_src
 
 * LSP
@@ -2167,6 +2263,7 @@ directly.
   ;; Org-mode
   (evil-define-key 'normal 'global (kbd "<leader> o a") 'org-agenda)
   (evil-define-key 'normal 'global (kbd "<leader> o c") 'org-capture)
+  (evil-define-key 'normal 'global (kbd "<leader> o w") 'org-timegrid-week)
 
   ;; Terminal
   (evil-define-key 'normal 'global (kbd "<leader> o t") 'ghostel)
