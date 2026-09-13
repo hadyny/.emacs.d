@@ -64,11 +64,11 @@
         "rust-overlay": "rust-overlay"
       },
       "locked": {
-        "lastModified": 1788956372,
-        "narHash": "sha256-ACop98BNBAWic+KLXd5PBSwzxzMUfEWmefVXDBDFyHQ=",
+        "lastModified": 1789332998,
+        "narHash": "sha256-YX8sJ7qxSpLWwOs3ZAeAoIFxixjtf/kx1Hs7DmKF39c=",
         "owner": "cachix",
         "repo": "devenv",
-        "rev": "2a399e9ea5e981f225d75b25c8fa8d76f730131d",
+        "rev": "ac06d58653d409c978e658eb943c4a979472274a",
         "type": "github"
       },
       "original": {
@@ -278,11 +278,11 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1789006805,
-        "narHash": "sha256-xB8mKMOx1IA9vTDNLmJZ6n4wCMq/cuWBBOzGCRnqxrU=",
+        "lastModified": 1789149629,
+        "narHash": "sha256-H6GwaZzZf+4npqv0tph94w9tZddSjFjmQrVsW0z78uk=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "8ce4ef6cb6f871616146b9fe26d2a5ae594e94fe",
+        "rev": "eaad089433ca2bb662274377d33df3d0e51ef28b",
         "type": "github"
       },
       "original": {
