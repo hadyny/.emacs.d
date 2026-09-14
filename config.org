@@ -1589,6 +1589,14 @@ other package, so there is no =:ensure nil= here.
     (setopt eglot-confirm-server-edits 'summary)
     (add-to-list 'eglot-server-programs
                  '((csharp-ts-mode csharp-mode) . ("Microsoft.CodeAnalysis.LanguageServer" "--logLevel" "Debug" "--extensionLogDirectory" "~/.dotnet/logs" "--stdio")))
+    ;; C# is excluded from `apheleia-mode-alist' (see Formatting (Apheleia))
+    ;; because its default formatter, csharpier, ignores most `.editorconfig'
+    ;; C# rules. Roslyn's own LSP formatter honours them, so format C# buffers
+    ;; through Eglot on save instead.
+    (defun my/eglot-format-csharp-on-save ()
+      (when (memq major-mode '(csharp-mode csharp-ts-mode))
+        (add-hook 'before-save-hook #'eglot-format-buffer nil t)))
+    (add-hook 'eglot-managed-mode-hook #'my/eglot-format-csharp-on-save)
     ;; TS/TSX: three servers behind the `rass' multiplexer. Eglot connects one
     ;; server for each major mode and project, so Tailwind and ESLint cannot be
     ;; separate connections. The bundled `tslint' preset runs
@@ -1964,10 +1972,27 @@ Transient-based menu over that CLI, so those stay inside Emacs instead.
 
 * Formatting (Apheleia)
 
+Apheleia's default C# formatter is =csharpier=, which is opinionated like
+Prettier and ignores almost all =.editorconfig= C# rules (=csharp_*=/=dotnet_*=).
+Roslyn (wired up in [[*Eglot][Eglot]]) formats via LSP and honours =.editorconfig=
+natively, so =csharp-mode=/=csharp-ts-mode= are dropped from
+=apheleia-mode-alist= here; Eglot's =before-save-hook= (in the Eglot section)
+formats those buffers instead.
+
 #+begin_src emacs-lisp
 (use-package apheleia
   :defer t
-  :hook (after-init . apheleia-global-mode))
+  :hook (after-init . apheleia-global-mode)
+  :config
+  (setf (alist-get 'csharp-mode apheleia-mode-alist nil 'remove) nil)
+  (setf (alist-get 'csharp-ts-mode apheleia-mode-alist nil 'remove) nil))
+
+(defun my/format-buffer ()
+  "Format the buffer, routing C# through Eglot/Roslyn instead of Apheleia."
+  (interactive)
+  (if (memq major-mode '(csharp-mode csharp-ts-mode))
+      (eglot-format-buffer)
+    (apheleia-format-buffer)))
 #+end_src
 
 * Git (Magit)
@@ -2320,7 +2345,7 @@ directly.
     (kbd "<leader> c a") 'eglot-code-actions
     (kbd "<leader> r n") 'eglot-rename
     (kbd "gI") 'eglot-find-implementation
-    (kbd "<leader> c f") 'apheleia-format-buffer)
+    (kbd "<leader> c f") 'my/format-buffer)
 
   (evil-define-key 'normal 'global (kbd "K") 'eldoc-box-help-at-point)
 
