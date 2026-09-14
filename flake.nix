@@ -214,6 +214,7 @@
               consult-flycheck
               corfu
               corfu-prescient
+              dashboard
               diff-hl
               dirvish
               docker

@@ -190,6 +190,33 @@ one here would have no visible effect besides an unused reserved width.
         (pixel-scroll-precision-mode 1))
 #+end_src
 
+** Dashboard
+
+[[https://github.com/emacs-dashboard/dashboard][=dashboard=]] replaces the startup screen with recent files, projects,
+bookmarks and the org-agenda's current week. It reads =recentf= (enabled
+above), =project.el= history and [[*Core][=org-agenda-files=]], so all three must be
+initialised before =dashboard-setup-startup-hook= runs.
+
+#+begin_src emacs-lisp
+(use-package dashboard
+  :custom
+  (dashboard-startup-banner 'logo-braille)
+  (dashboard-center-content t)
+  (dashboard-vertically-center-content t)
+  (dashboard-icon-type 'nerd-icons)
+  (dashboard-set-heading-icons t)
+  (dashboard-set-file-icons t)
+  (dashboard-set-navigator t)
+  (dashboard-projects-backend 'project-el)
+  (dashboard-items '((recents  . 5)
+                      (projects . 5)
+                      (bookmarks . 5)
+                      (agenda . 5)))
+  (dashboard-week-agenda t)
+  :config
+  (dashboard-setup-startup-hook))
+#+end_src
+
 ** Whitespace cleanup on save
 
 #+begin_src emacs-lisp
@@ -300,7 +327,7 @@ it.
   (global-eldoc-mode))
 
 (use-package eldoc-box
-  :hook (eglot-managed-mode . eldoc-box-hover-mode))
+  :commands (eldoc-box-help-at-point))
 #+end_src
 
 ** which-key
