@@ -1231,10 +1231,24 @@ only the binary is needed. It is the same =nixfmt 1.4.0= that =nix fmt=
 Flycheck 38 in place of built-in Flymake. Eglot's diagnostics arrive through
 v38's own =global-flycheck-eglot-mode= (which supersedes the third-party
 =flycheck-eglot= package and clashes with it, so that package stays out of the
-closure), inline messages come from =global-flycheck-annotate-mode= at Flycheck's
-own styles -- full messages below the line at point, compact end-of-line on every
-other line -- and machine-applicable fixes are a =C-c ! f= away, including
-[[*ESLint][ESLint]]'s.
+closure), inline messages come from =global-flycheck-annotate-mode= at
+compact end-of-line on every line, including the one at point, and
+machine-applicable fixes are a =C-c ! f= away, including [[*ESLint][ESLint]]'s.
+
+Both tiers use =eol= rather than the default =below= for the current line: a
+full message rendered under the line at point shifts every line beneath it
+down each time point moves onto or off an error, which is more motion than a
+compact suffix. The full message is still one key away -- =<leader> c e=
+(=my/flycheck-show-error-at-point=) below -- for whenever the end-of-line
+text is truncated.
+
+=flycheck-annotate-suppress-echo= (on by default) drops Eldoc's own echo-area
+message for the errors at point, since the inline annotation already shows
+them; that suppression is unconditional inside =flycheck-eldoc-function=
+itself, so it also swallows =flycheck-display-error-at-point= and Eldoc-box's
+=K= binding, not just the idle-triggered echo. =my/flycheck-show-error-at-point=
+therefore reads the errors at point directly with =flycheck-overlay-errors-at=
+and =message=s them, bypassing Eldoc (and the suppression) entirely.
 
 =flycheck-eglot-exclusive= stays at its default =t=. ESLint used to need the
 chain: it ran as =javascript-eslint= alongside Eglot. It is now a server behind
@@ -1267,6 +1281,7 @@ clip the trailing space the Flymake indicators used to carry.
   ;; Default is 0.5s. A syntax check runs on every idle pause this long, so
   ;; raising it cuts back on checks fired mid-thought while still typing.
   (flycheck-idle-change-delay 1.0)
+  (flycheck-annotate-current-line-style 'eol)
   :config
   (pcase-dolist (`(,level ,glyph ,face)
                  '((error   "󰅙" flycheck-fringe-error)
@@ -1274,6 +1289,16 @@ clip the trailing space the Flymake indicators used to carry.
                    (info    "󰋼" flycheck-fringe-info)))
     (setf (get level 'flycheck-margin-spec)
           (flycheck-make-margin-spec glyph face))))
+
+(defun my/flycheck-show-error-at-point ()
+  "Show the full Flycheck message(s) at point in the minibuffer.
+Bypasses Eldoc so it works even though `flycheck-annotate-suppress-echo'
+keeps the inline end-of-line view from also echoing through it."
+  (interactive)
+  (if-let* ((errors (flycheck-overlay-errors-at (point))))
+      (message "%s"
+               (mapconcat #'flycheck-error-format-message-and-id errors "\n\n"))
+    (message "No Flycheck errors at point")))
 #+end_src
 
 * Version Control (diff-hl)
@@ -2348,6 +2373,9 @@ directly.
     (kbd "<leader> c f") 'my/format-buffer)
 
   (evil-define-key 'normal 'global (kbd "K") 'eldoc-box-help-at-point)
+
+  ;; Flycheck
+  (evil-define-key 'normal 'global (kbd "<leader> c e") 'my/flycheck-show-error-at-point)
 
   ;; Build / test. `compile' prompts for the command and remembers it per
   ;; directory; `recompile' repeats it without prompting, which is the one you
