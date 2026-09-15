@@ -1995,6 +1995,47 @@ Transient-based menu over that CLI, so those stay inside Emacs instead.
   ("C-c n" . sharper-main-transient))
 #+end_src
 
+* Debugging (Dape)
+
+[[https://github.com/svaante/dape][=dape=]] is a Debug Adapter Protocol client, Eglot's counterpart for stepping
+through running code instead of just analysing it statically. It ships a
+=dape-configs= alist of ready-made adapters keyed by major mode; C# and
+TypeScript below are the two this configuration wires up debuggers for.
+
+C# needs no configuration here: the stock =netcoredbg= entry in =dape-configs=
+already targets =csharp-mode=/=csharp-ts-mode= and just runs =netcoredbg= (on
+=PATH= via Nix, alongside every other external tool) with =--interpreter=vscode=.
+It defaults =:program= to the first =bin/Debug/*/*.dll= under the project root,
+which is where a plain =dotnet build= (see [[*Dotnet CLI (sharper)][sharper]]) leaves it.
+
+TypeScript's stock =js-debug-node=/=js-debug-ts-node=/=js-debug-tsx= entries
+instead expect =vscode-js-debug= unzipped by hand under =dape-adapter-dir=
+(=~/.emacs.d/debug-adapters/=) -- there is no Nix package tree to read that
+from at eval time, only a runtime download. Nix already builds
+=vscode-js-debug= as a =js-debug= binary on =PATH= (added to =emacsToolsFor= in
+=flake.nix=, wrapping the same =dapDebugServer.js= those entries launch through
+=node= directly), so the three are patched in =:config= to run that instead of
+expecting the download. =ts-node=/=tsx= are still confirmed on =PATH= before
+launch, the same check the stock entries make for their =:runtimeExecutable=.
+
+#+begin_src emacs-lisp
+(use-package dape
+  :defer t
+  :commands (dape)
+  :config
+  (dolist (name '(js-debug-node js-debug-ts-node js-debug-tsx))
+    (when-let* ((config (alist-get name dape-configs)))
+      (setf (alist-get name dape-configs)
+            (thread-first config
+                           (plist-put 'ensure
+                                      (lambda (config)
+                                        (dape-ensure-command config)
+                                        (when-let* ((runtime (plist-get config :runtimeExecutable)))
+                                          (dape--ensure-executable runtime))))
+                           (plist-put 'command "js-debug")
+                           (plist-put 'command-args '(:autoport)))))))
+#+end_src
+
 * Formatting (Apheleia)
 
 Apheleia's default C# formatter is =csharpier=, which is opinionated like
@@ -2383,6 +2424,15 @@ directly.
   ;; `next-error' walks them into the source.
   (evil-define-key 'normal 'global (kbd "<leader> c c") 'compile)
   (evil-define-key 'normal 'global (kbd "<leader> c r") 'recompile)
+
+  ;; Dape
+  (evil-define-key 'normal 'global (kbd "<leader> d d") 'dape)
+  (evil-define-key 'normal 'global (kbd "<leader> d b") 'dape-breakpoint-toggle)
+  (evil-define-key 'normal 'global (kbd "<leader> d c") 'dape-continue)
+  (evil-define-key 'normal 'global (kbd "<leader> d n") 'dape-next)
+  (evil-define-key 'normal 'global (kbd "<leader> d i") 'dape-step-in)
+  (evil-define-key 'normal 'global (kbd "<leader> d o") 'dape-step-out)
+  (evil-define-key 'normal 'global (kbd "<leader> d q") 'dape-quit)
 
   ;; Comment current line / region
   (evil-define-key 'normal 'global (kbd "gcc")

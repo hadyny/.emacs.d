@@ -34,6 +34,7 @@
           delta
           github-copilot-cli
           marksman
+          netcoredbg
           nixd
           nixfmt
           rassumfrassum
@@ -42,6 +43,7 @@
           tailwindcss-language-server
           typescript
           typescript-language-server
+          vscode-js-debug
           vscode-langservers-extracted
         ];
 
@@ -214,6 +216,7 @@
               consult-flycheck
               corfu
               corfu-prescient
+              dape
               dashboard
               diff-hl
               dirvish
