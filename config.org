@@ -193,9 +193,19 @@ one here would have no visible effect besides an unused reserved width.
 ** Dashboard
 
 [[https://github.com/emacs-dashboard/dashboard][=dashboard=]] replaces the startup screen with recent files, projects,
-bookmarks and the org-agenda's current week. It reads =recentf= (enabled
-above), =project.el= history and [[*Core][=org-agenda-files=]], so all three must be
+bookmarks and an org-agenda excerpt. It reads =recentf= (enabled above),
+=project.el= history and [[*Core][=org-agenda-files=]], so all three must be
 initialised before =dashboard-setup-startup-hook= runs.
+
+The agenda widget's own default filter (=dashboard-filter-agenda-by-time=)
+only ever shows entries with a scheduled/deadline date in the coming week,
+which is a different slice than the /state/-based one wanted here: everything
+=STARTED= or =WAITING= (this config's stand-in for "blocked" -- see
+[[*Core][the =org-todo-keywords= comment]]) and anything marked =[#A]=,
+scheduled or not. =dashboard-match-agenda-entry= (an =org-map-entries= match
+string) selects that set, and =dashboard-filter-agenda-by-todo= replaces the
+time filter with the one dashboard ships for todo-state-based selection --
+any entry with a todo keyword that is not done.
 
 #+begin_src emacs-lisp
 (use-package dashboard
@@ -212,7 +222,8 @@ initialised before =dashboard-setup-startup-hook= runs.
                       (projects . 5)
                       (bookmarks . 5)
                       (agenda . 5)))
-  (dashboard-week-agenda t)
+  (dashboard-match-agenda-entry "TODO=\"STARTED\"|TODO=\"WAITING\"|PRIORITY=\"A\"")
+  (dashboard-filter-agenda-entry 'dashboard-filter-agenda-by-todo)
   :config
   (dashboard-setup-startup-hook))
 #+end_src
