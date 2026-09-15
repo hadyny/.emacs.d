@@ -1312,6 +1312,65 @@ keeps the inline end-of-line view from also echoing through it."
     (message "No Flycheck errors at point")))
 #+end_src
 
+* Compilation
+
+=compile= and =recompile= (bound in the Evil section) run an arbitrary shell
+command and pipe its output raw into the =*compilation*= buffer. Anything
+that command prints -- SGR colour codes, spinner/progress escapes like
+=\e[?25l=/=\e[2F= -- lands as literal control-sequence text instead of being
+interpreted, because =compilation-mode= does not process ANSI escapes on its
+own; that is the garbage that shows up for any colourised or animated CLI
+tool (test runners, =npm=, =cargo=, etc.).
+
+=ansi-color-compilation-filter= is the stock fix: it runs in
+=compilation-filter-hook= and turns SGR colour codes into faces via
+=ansi-color-apply-on-region=, in place after every chunk of process output is
+inserted. It does not, however, understand cursor-movement/erase sequences
+(=\e[2F=, =\e[K=, =?25l/h=) -- those come from progress spinners assuming an
+interactive terminal, which =*compilation*= is not, and there is no general
+fix for them beyond the tool itself detecting a non-tty output and turning
+its own animation off (many honour =CI=1= or =--no-color=/=--quiet= for this).
+
+The =dotnet= CLI's own culprit is MSBuild's /terminal logger/ (the live,
+animated build/test progress display), on by default since .NET 8 and the
+exact source of the =\e[?25l=/=\e[2F= sequences pasted verbatim into a
+=*compilation*= buffer that runs =dotnet build=/=test= (including from
+[[*Dotnet CLI (sharper)][sharper]], which shells out to the same CLI).
+=MSBUILDTERMINALLOGGER=off= is the documented escape hatch, added here to
+=compilation-environment= (appended to the subprocess's environment for every
+=compile=/=recompile=, without touching Emacs's own) rather than passed as a
+per-invocation flag, so it takes effect regardless of which =dotnet=
+subcommand is run or what invokes it.
+
+=yarn=, =npm= and =vitest= are Node tools, so they check =process.stdout.isTTY=
+before drawing a spinner or progress bar in the first place; =compile= already
+starts its subprocess on a pipe rather than a pty, so that check alone
+already keeps them quiet, unlike =dotnet='s terminal logger, which does not
+key its default off that check the same way. Where they differ is =CI=,
+the other convention this whole ecosystem (=yarn=, =npm=, =vitest=, and most
+other JS/Node CLIs besides) checks: it is what switches =vitest= from watch
+mode to a single run, silences =npm='s update-notifier/funding banners, and
+is a second, belt-and-braces guard against any of the three drawing a
+progress bar even if an =isTTY= check elsewhere says otherwise. Setting it
+also flips a side effect worth countering: =chalk=/=supports-color=, which
+underlies colour output across this same ecosystem, treats a bare =CI= as a
+reason to fall back to no colour unless a specific known CI vendor's own
+variable is also present. =FORCE_COLOR=1= overrides that fallback directly,
+so =ansi-color-compilation-filter= still has SGR codes to render.
+
+#+begin_src emacs-lisp
+(use-package compile
+  :ensure nil
+  :defer t
+  :hook (compilation-filter . ansi-color-compilation-filter)
+  :custom
+  (compilation-environment '("MSBUILDTERMINALLOGGER=off"
+                             "CI=true"
+                             "FORCE_COLOR=1")))
+#+end_src
+  (compilation-environment '("MSBUILDTERMINALLOGGER=off")))
+#+end_src
+
 * Version Control (diff-hl)
 
 =global-diff-hl-mode= is a /globalized/ minor mode: each enable walks
