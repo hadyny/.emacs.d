@@ -7,17 +7,14 @@
 ;;
 ;; With one family for code, no face needs its own: an unspecified family falls
 ;; through to `default' at render time.  Two things do not survive/exist after
-;; the `load-theme' of a Doom Themes variant and must be (re-)applied from the
+;; the `load-theme' of a Catppuccin flavour and must be (re-)applied from the
 ;; appearance hook, the same reason `my/apply-diff-hl-faces' exists:
 ;;
 ;;   * `default' is themed (fg/bg), so a reload strips its family/height/weight;
-;;   * Doom Dracula and Doom Solarized Light disagree on which font-lock faces
-;;     get emphasis at all -- Solarized Light slants comments/types/builtins
-;;     and bolds keywords/constants, Dracula styles none of them.
-;;     `doom-themes-enable-bold'/`doom-themes-enable-italic' only *permit* a
-;;     variant's own emphasis, they do not add any where a variant specifies
-;;     none, so Solarized Light's choices are forced onto both here -- code
-;;     emphasis would otherwise vanish entirely under Dracula.
+;;   * Catppuccin gives the font-lock faces colour only -- no slant or weight
+;;     (comments are italic only behind `catppuccin-italic-comments') -- so
+;;     italic comments/types/builtins and bold keywords/constants are forced
+;;     here, or code emphasis would vanish entirely.
 ;;
 ;; Ligatures: Maple Mono's `calt' can draw its arrows without composition, but
 ;; in practice that did not render here, so `ligature.el' composes the pair
@@ -44,11 +41,10 @@ be re-applied from the appearance hook, not just once at top level."
   (should (eq (face-attribute 'default :height) 140))
   (should (eq (face-attribute 'default :weight) 'medium)))
 
-(ert-deftest font-faces/forces-solarized-lights-emphasis-on-both-variants ()
+(ert-deftest font-faces/forces-code-emphasis-on-both-flavours ()
   "Comment/type/builtin faces are italic; keyword/constant are bold.
-This must not depend on which variant is currently loaded -- Dracula
-specifies none of this itself, so the helper has to force it rather than
-merely permit it via `doom-themes-enable-bold'/`doom-themes-enable-italic'."
+This must not depend on which flavour is currently loaded -- Catppuccin
+specifies none of this itself, so the helper has to force it."
   ;; Arrange
   (cfg-test-load-defun 'my/apply-font-faces)
   (dolist (face '(font-lock-comment-face font-lock-type-face

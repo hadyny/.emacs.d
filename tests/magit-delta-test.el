@@ -13,12 +13,11 @@
 ;; from the frame's `background-mode'.  Its own defaults are "GitHub" and
 ;; "Monokai Extended", which clash with anything.
 ;;
-;; delta 0.19.2 ships both Doom Themes variants directly -- `delta
-;; --list-syntax-themes' lists "Dracula" among the dark themes and "Solarized
-;; (light)" among the light ones -- so, unlike the Catppuccin stand-in this
-;; replaced, no nearest-match compromise is needed.  The tests below pin that
-;; choice, including the light/dark orientation -- getting it backwards gives
-;; a light Emacs frame a dark diff.
+;; delta ships both Catppuccin flavours directly -- `delta --list-syntax-themes'
+;; lists "Catppuccin Mocha" among the dark themes and "Catppuccin Latte" among
+;; the light ones -- so no nearest-match compromise is needed.  The tests below
+;; pin that choice, including the light/dark orientation -- getting it
+;; backwards gives a light Emacs frame a dark diff.
 ;;
 ;; Structural only: these parse the tangled config.el and flake.nix, so they run
 ;; anywhere.
@@ -70,21 +69,21 @@
     (should (string-match-p "magit-mode" printed))
     (should (string-match-p "magit-delta-mode" printed))))
 
-(ert-deftest magit-delta/syntax-themes-are-the-doom-themes-pair ()
-  "The delta themes name the same variants as the active Doom Themes pair.
-Both are built into delta 0.19.2, so unlike the Catppuccin stand-in this
-replaced, there is a direct match rather than a nearest-colour guess.  The
-Emacs-side variant map lives in `my/theme-for-appearance' and is deliberately
-*not* coupled to these strings."
+(ert-deftest magit-delta/syntax-themes-are-the-catppuccin-pair ()
+  "The delta themes name the same flavours as the Emacs Catppuccin pair.
+Both are built into delta, so there is a direct match rather than a
+nearest-colour guess.  The Emacs-side flavour map lives in
+`my/theme-for-appearance' and is deliberately *not* coupled to these strings."
   ;; Arrange / Act
   (let ((light (md-test--custom-value 'magit-delta-default-light-theme))
         (dark (md-test--custom-value 'magit-delta-default-dark-theme)))
     ;; Assert
-    (should (equal light "Solarized (light)"))
-    (should (equal dark "Dracula"))
+    (should (equal light "Catppuccin Latte"))
+    (should (equal dark "Catppuccin Mocha"))
     ;; Guard the tempting "fix": these must stay delta's own theme names, not
-    ;; the Emacs-side symbols `doom-solarized-light'/`doom-dracula'.
-    (should-not (string-match-p "doom-" (concat light " " dark)))))
+    ;; the Emacs-side flavour symbols `latte'/`mocha'.
+    (should-not (member light '("latte" "Latte")))
+    (should-not (member dark '("mocha" "Mocha")))))
 
 (provide 'magit-delta-test)
 ;;; magit-delta-test.el ends here

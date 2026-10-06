@@ -4,7 +4,7 @@
 ;; the selected tab's `:underline'/`:overline' *once*, when `centaur-tabs-mode'
 ;; first enables. `load-theme' wipes it on every later switch: enabling a
 ;; theme resets every attribute of every face it touches to `unspecified'
-;; before applying its own spec, and Doom Themes' own spec for
+;; before applying its own spec, and Catppuccin's own spec for
 ;; `centaur-tabs-selected' never mentions `:underline'/`:overline' at all.
 ;; `my/apply-centaur-tabs-faces' re-applies the colour on every variant
 ;; switch (see `my/apply-theme-for-appearance'), the same way

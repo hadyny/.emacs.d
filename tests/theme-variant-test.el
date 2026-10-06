@@ -1,20 +1,19 @@
-;;; theme-variant-test.el --- Tests for the Doom Themes variant switch -*- lexical-binding: t; -*-
+;;; theme-variant-test.el --- Tests for the Catppuccin flavour switch -*- lexical-binding: t; -*-
 
-;; The configuration follows the system appearance with Doom Themes:
-;; `doom-dracula' (the dark variant) and `doom-solarized-light' (the light
-;; one).
+;; The configuration follows the system appearance with Catppuccin: Mocha (the
+;; dark flavour) and Latte (the light one).
 ;;
-;; Doom Themes ships each variant as its own theme, so the switch is a plain
-;; `load-theme' call, preceded by `disable-theme' on every currently enabled
-;; theme: `load-theme' stacks rather than replaces, and a lingering variant
-;; would leave faces neither theme specifies showing through with the wrong
-;; colours.
+;; Catppuccin ships one theme, `catppuccin', and reads `catppuccin-flavor' when
+;; the theme file loads.  So the switch sets the flavour first, then runs
+;; `load-theme', preceded by `disable-theme' on every currently enabled theme:
+;; `load-theme' stacks rather than replaces, and a lingering theme would leave
+;; faces Catppuccin does not specify showing through with the wrong colours.
 ;;
-;; `my/theme-for-appearance' is the pure appearance -> theme-symbol map the
-;; whole switch is built on; `my/apply-theme-for-appearance' is the effectful
-;; part that loads it and repairs the faces `load-theme' re-specs, including
+;; `my/theme-for-appearance' is the pure appearance -> flavour map the whole
+;; switch is built on; `my/apply-theme-for-appearance' is the effectful part
+;; that loads it and repairs the faces `load-theme' re-specs, including
 ;; flattening the mode-line back to `default''s background with a top rule
-;; (`my/apply-modeline-face') in place of Doom's own padded box.
+;; (`my/apply-modeline-face').
 
 ;;; Code:
 
@@ -24,112 +23,118 @@
                                                (file-name-directory
                                                 (or load-file-name buffer-file-name))))
 
-(ert-deftest theme-variant/light-is-solarized-light ()
-  "A light appearance selects the Doom Solarized Light variant."
+(defvar catppuccin-flavor)
+
+(defmacro theme-variant-test--with-stubbed-helpers (bindings &rest body)
+  "Run BODY with every face-repair helper stubbed to `ignore'.
+BINDINGS are extra `cl-letf' bindings that take precedence over the stubs."
+  (declare (indent 1))
+  `(cl-letf* (((symbol-function 'my/apply-diff-hl-faces) #'ignore)
+              ((symbol-function 'my/apply-fringe-face) #'ignore)
+              ((symbol-function 'my/apply-font-faces) #'ignore)
+              ((symbol-function 'my/apply-modeline-face) #'ignore)
+              ((symbol-function 'my/apply-centaur-tabs-faces) #'ignore)
+              ,@bindings)
+     ,@body))
+
+(ert-deftest theme-variant/light-is-latte ()
+  "A light appearance selects the Latte flavour."
   ;; Arrange
   (cfg-test-load-defun 'my/theme-for-appearance)
   ;; Act
-  (let ((variant (my/theme-for-appearance 'light)))
+  (let ((flavor (my/theme-for-appearance 'light)))
     ;; Assert
-    (should (eq variant 'doom-solarized-light))))
+    (should (eq flavor 'latte))))
 
-(ert-deftest theme-variant/dark-is-dracula ()
-  "A dark appearance selects the Doom Dracula variant."
+(ert-deftest theme-variant/dark-is-mocha ()
+  "A dark appearance selects the Mocha flavour."
   ;; Arrange
   (cfg-test-load-defun 'my/theme-for-appearance)
   ;; Act
-  (let ((variant (my/theme-for-appearance 'dark)))
+  (let ((flavor (my/theme-for-appearance 'dark)))
     ;; Assert
-    (should (eq variant 'doom-dracula))))
+    (should (eq flavor 'mocha))))
 
-(ert-deftest theme-variant/unknown-defaults-to-dracula ()
-  "Anything other than `light' falls back to the dark Dracula variant.
+(ert-deftest theme-variant/unknown-defaults-to-mocha ()
+  "Anything other than `light' falls back to the dark Mocha flavour.
 The no-detection path in the auto-dark block relies on this."
   ;; Arrange
   (cfg-test-load-defun 'my/theme-for-appearance)
   ;; Act
-  (let ((variant (my/theme-for-appearance nil)))
+  (let ((flavor (my/theme-for-appearance nil)))
     ;; Assert
-    (should (eq variant 'doom-dracula))))
+    (should (eq flavor 'mocha))))
 
-(ert-deftest theme-variant/apply-loads-the-right-variant ()
-  "The switch disables every enabled theme, then loads the right variant."
+(ert-deftest theme-variant/apply-disables-enabled-themes-and-loads-catppuccin ()
+  "The switch disables every enabled theme, then loads `catppuccin'."
   ;; Arrange
   (cfg-test-load-defun 'my/theme-for-appearance)
   (cfg-test-load-defun 'my/apply-theme-for-appearance)
-  (let (disabled loaded)
-    (cl-letf (((symbol-function 'disable-theme)
-               (lambda (theme) (push theme disabled)))
-              ((symbol-function 'load-theme)
-               (lambda (theme &rest _) (push theme loaded)))
-              ((symbol-value 'custom-enabled-themes) '(doom-solarized-light))
-              ((symbol-function 'my/apply-diff-hl-faces) #'ignore)
-              ((symbol-function 'my/apply-fringe-face) #'ignore)
-              ((symbol-function 'my/apply-font-faces) #'ignore)
-              ((symbol-function 'my/apply-modeline-face) #'ignore)
-              ((symbol-function 'my/apply-gnus-group-news-low-fix) #'ignore))
+  (let ((catppuccin-flavor 'latte)
+        disabled loaded)
+    (theme-variant-test--with-stubbed-helpers
+        (((symbol-function 'disable-theme)
+          (lambda (theme) (push theme disabled)))
+         ((symbol-function 'load-theme)
+          (lambda (theme &rest _) (push theme loaded)))
+         ((symbol-value 'custom-enabled-themes) '(catppuccin)))
       ;; Act
       (my/apply-theme-for-appearance 'dark)
       ;; Assert
-      (should (equal disabled '(doom-solarized-light)))
-      (should (equal loaded '(doom-dracula))))))
+      (should (equal disabled '(catppuccin)))
+      (should (equal loaded '(catppuccin))))))
 
-(ert-deftest theme-variant/apply-passes-loaded-variant-to-gnus-fix ()
-  "The Gnus fix must be re-registered on the variant just loaded, not some
-other theme symbol -- `custom-theme-set-faces' only survives future frame
-recalculation if it targets the theme actually enabled (see
-`my/apply-gnus-group-news-low-fix')."
+(ert-deftest theme-variant/apply-sets-flavor-before-loading ()
+  "`catppuccin-flavor' is already the new flavour when `load-theme' runs.
+The theme file reads the flavour as it loads, so setting it afterwards would
+leave the previous flavour's colours on screen until the next switch."
   ;; Arrange
   (cfg-test-load-defun 'my/theme-for-appearance)
   (cfg-test-load-defun 'my/apply-theme-for-appearance)
-  (let (gnus-fix-theme)
-    (cl-letf (((symbol-function 'disable-theme) #'ignore)
-              ((symbol-function 'load-theme) #'ignore)
-              ((symbol-value 'custom-enabled-themes) nil)
-              ((symbol-function 'my/apply-diff-hl-faces) #'ignore)
-              ((symbol-function 'my/apply-fringe-face) #'ignore)
-              ((symbol-function 'my/apply-font-faces) #'ignore)
-              ((symbol-function 'my/apply-modeline-face) #'ignore)
-              ((symbol-function 'my/apply-gnus-group-news-low-fix)
-               (lambda (theme) (setq gnus-fix-theme theme))))
+  (let ((catppuccin-flavor 'mocha)
+        flavor-at-load)
+    (theme-variant-test--with-stubbed-helpers
+        (((symbol-function 'disable-theme) #'ignore)
+         ((symbol-function 'load-theme)
+          (lambda (&rest _) (setq flavor-at-load catppuccin-flavor)))
+         ((symbol-value 'custom-enabled-themes) nil))
       ;; Act
       (my/apply-theme-for-appearance 'light)
       ;; Assert
-      (should (eq gnus-fix-theme 'doom-solarized-light)))))
+      (should (eq flavor-at-load 'latte)))))
 
 (ert-deftest theme-variant/apply-repairs-the-themed-faces ()
-  "Loading a variant re-applies the diff-hl colours, fonts, mode-line and the
-Gnus fix. `load-theme' re-specs `default', the diff-hl faces, the mode-line
-box and Doom's buggy `gnus-group-news-low-empty' inherit, so every helper
-must run on each switch -- the same contract the Catppuccin flavour hook had."
+  "Loading a flavour re-applies the diff-hl, fringe, font, mode-line and
+centaur-tabs faces.  `load-theme' re-specs `default', the diff-hl faces, the
+fringe, the mode-line and the selected tab, so every helper must run on each
+switch."
   ;; Arrange
   (cfg-test-load-defun 'my/theme-for-appearance)
   (cfg-test-load-defun 'my/apply-theme-for-appearance)
-  (let (calls)
-    (cl-letf (((symbol-function 'disable-theme) #'ignore)
-              ((symbol-function 'load-theme) #'ignore)
-              ((symbol-value 'custom-enabled-themes) nil)
-              ((symbol-function 'my/apply-diff-hl-faces)
-               (lambda () (push 'diff-hl calls)))
-              ((symbol-function 'my/apply-fringe-face)
-               (lambda () (push 'fringe calls)))
-              ((symbol-function 'my/apply-font-faces)
-               (lambda () (push 'fonts calls)))
-              ((symbol-function 'my/apply-modeline-face)
-               (lambda () (push 'modeline calls)))
-              ((symbol-function 'my/apply-gnus-group-news-low-fix)
-               (lambda (_theme) (push 'gnus calls))))
+  (let ((catppuccin-flavor 'latte)
+        calls)
+    (theme-variant-test--with-stubbed-helpers
+        (((symbol-function 'disable-theme) #'ignore)
+         ((symbol-function 'load-theme) #'ignore)
+         ((symbol-value 'custom-enabled-themes) nil)
+         ((symbol-function 'my/apply-diff-hl-faces)
+          (lambda () (push 'diff-hl calls)))
+         ((symbol-function 'my/apply-fringe-face)
+          (lambda () (push 'fringe calls)))
+         ((symbol-function 'my/apply-font-faces)
+          (lambda () (push 'fonts calls)))
+         ((symbol-function 'my/apply-modeline-face)
+          (lambda () (push 'modeline calls)))
+         ((symbol-function 'my/apply-centaur-tabs-faces)
+          (lambda () (push 'centaur-tabs calls))))
       ;; Act
       (my/apply-theme-for-appearance 'dark)
       ;; Assert
-      (should (memq 'diff-hl calls))
-      (should (memq 'fringe calls))
-      (should (memq 'fonts calls))
-      (should (memq 'modeline calls))
-      (should (memq 'gnus calls)))))
+      (dolist (helper '(diff-hl fringe fonts modeline centaur-tabs))
+        (should (memq helper calls))))))
 
 (ert-deftest theme-variant/modeline-face-matches-default-background ()
-  "The mode-line faces get `default''s background, no box, and a violet overline.
+  "The mode-line faces get `default''s background, no box, and a mauve overline.
 The `bar' faces blend into that background instead of losing the segment
 outright, and the cached bar images are refreshed so the colour actually
 changes visibly."
@@ -140,8 +145,10 @@ changes visibly."
                (lambda (face attr &rest _)
                  (cond ((and (eq face 'default) (eq attr :background)) "#123456")
                        (t nil))))
-              ((symbol-function 'doom-color)
-               (lambda (key) (when (eq key 'violet) "#bd93f9")))
+              ((symbol-function 'catppuccin-color)
+               (lambda (key &optional _flavor)
+                 (should (symbolp key))
+                 (when (eq key 'mauve) "#cba6f7")))
               ((symbol-function 'facep) (lambda (_face) t))
               ((symbol-function 'doom-modeline-refresh-bars)
                (lambda () (setq refreshed t)))
@@ -154,82 +161,69 @@ changes visibly."
         (let ((plist (cdr (assq face calls))))
           (should (equal (plist-get plist :background) "#123456"))
           (should (null (plist-get plist :box)))
-          (should (equal (plist-get plist :overline) "#bd93f9"))))
+          (should (equal (plist-get plist :overline) "#cba6f7"))))
       (dolist (face '(doom-modeline-bar doom-modeline-bar-inactive))
         (let ((plist (cdr (assq face calls))))
           (should (equal (plist-get plist :background) "#123456"))))
       (should refreshed))))
 
 (ert-deftest theme-variant/package-is-in-the-closure ()
-  "flake.nix ships `doom-themes' and no longer ships `modus-themes' or
-`tokyo-night'.  Both variants come from the one package (doomemacs/themes),
-which also provides the `doom-color' palette lookup the diff-hl colours use."
+  "flake.nix ships `catppuccin-theme' and no other theme package.
+Both flavours come from the one package, which also provides the
+`catppuccin-color' palette lookup the face helpers use."
   ;; Arrange / Act
   (let ((packages (cfg-test-nix-list "dotemacsPackageList")))
     ;; Assert
-    (should (member "doom-themes" packages))
-    (should-not (member "modus-themes" packages))
-    (should-not (member "tokyo-night" packages))
-    (should-not (member "catppuccin-theme" packages))))
+    (should (member "catppuccin-theme" packages))
+    (dolist (stale '("doom-themes" "modus-themes" "tokyo-night"))
+      (should-not (member stale packages)))))
 
-(ert-deftest theme-variant/no-tokyo-night-or-modus-symbols-remain ()
-  "No `tokyo-night-' or `modus-themes-' symbol survives in the tangled config.
-The Tokyo Night/Modus Themes *strings* in the Themes prose comparing them to
-Doom Themes are just commentary and do not reach config.el; this checks the
-code, which would otherwise call now-void functions the moment the package
-leaves the closure."
+(ert-deftest theme-variant/no-stale-theme-symbols-remain ()
+  "No symbol from a previous theme package survives in the tangled config.
+Prose that mentions them does not reach config.el; this checks the code,
+which would otherwise call now-void functions the moment the package leaves
+the closure."
   ;; Arrange / Act
   (let ((code (prin1-to-string (cfg-test-read-forms)))
         offenders)
-    (dolist (symbol '("tokyo-night-get-color" "tokyo-night-flat-mode-line"
+    (dolist (symbol '("doom-color" "doom-themes-" "doom-dracula"
+                      "doom-solarized-light" "my/apply-gnus-group-news-low-fix"
+                      "tokyo-night-get-color" "tokyo-night-flat-mode-line"
                       "my/tokyo-night-variant-for" "my/apply-tokyo-night-variant"
                       "modus-themes-load-theme" "modus-themes-get-color-value"
                       "my/modus-variant-for" "my/apply-modus-variant"))
-      (when (string-match-p symbol code) (push symbol offenders)))
+      (when (string-match-p (regexp-quote symbol) code) (push symbol offenders)))
     ;; Assert
     (should (null offenders))))
 
 (ert-deftest theme-variant/no-other-theme-is-loaded ()
-  "Every `load-theme' call literally names a Doom Dracula/Solarized Light
-variant, or a variable (the appearance switch itself).
-`doom-themes' stays for its visual-bell/treemacs/org configs and now for the
-variant themes themselves, but nothing may load a theme of its own: a second
-theme loaded via plain `load-theme' would show through wherever the active
-variant leaves a face unspecified."
+  "Every literal `load-theme' call names `catppuccin'.
+A second theme loaded via plain `load-theme' would show through wherever
+Catppuccin leaves a face unspecified."
   ;; Arrange / Act
-  (let ((variants '(doom-dracula doom-solarized-light))
-        offenders)
+  (let (offenders)
     (dolist (form (cfg-test-read-forms))
       (dolist (call (cfg-test-find-all form 'load-theme))
         (let ((arg (nth 1 call)))
           ;; Only literal `(load-theme 'foo ...)' calls can be judged here.
           (when (and (eq (car-safe arg) 'quote)
-                     (not (memq (cadr arg) variants)))
+                     (not (eq (cadr arg) 'catppuccin)))
             (push (cadr arg) offenders)))))
     ;; Assert
     (should (null offenders))))
 
-(ert-deftest theme-variant/doom-themes-custom-options-are-set ()
-  "`use-package doom-themes' opts into bold, italic, and a padded mode-line.
-Bold/italic gate each variant's own per-face styling (see
-`my/apply-font-faces', which deliberately leaves bold/italic alone and relies
-on these instead); the padded mode-line is what `my/apply-modeline-face' then
-flattens back down to a plain background with a top rule."
+(ert-deftest theme-variant/auto-dark-loads-after-catppuccin ()
+  "`use-package auto-dark' waits for `catppuccin-theme'.
+Its `:config' calls `my/apply-theme-for-appearance', which is defined in the
+`catppuccin-theme' block and calls `catppuccin-color'."
   ;; Arrange / Act
   (let (form)
     (dolist (f (cfg-test-read-forms))
       (dolist (up (cfg-test-find-all f 'use-package))
-        (when (eq (nth 1 up) 'doom-themes) (setq form up))))
-    (let* ((tail (cdr (memq :custom form)))
-           (custom-forms nil))
-      (while (and tail (not (keywordp (car tail))))
-        (push (car tail) custom-forms)
-        (setq tail (cdr tail)))
-      ;; Assert
-      (should form)
-      (should (member '(doom-themes-enable-bold t) custom-forms))
-      (should (member '(doom-themes-enable-italic t) custom-forms))
-      (should (member '(doom-themes-padded-modeline t) custom-forms)))))
+        (when (eq (nth 1 up) 'auto-dark) (setq form up))))
+    ;; Assert
+    (should form)
+    (should (eq (cadr (memq :after form)) 'catppuccin-theme))))
 
 (provide 'theme-variant-test)
 ;;; theme-variant-test.el ends here

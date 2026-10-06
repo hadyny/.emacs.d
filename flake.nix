@@ -211,6 +211,7 @@
               apheleia
               auto-dark
               cape
+              catppuccin-theme
               centaur-tabs
               consult
               consult-flycheck
@@ -222,7 +223,6 @@
               dirvish
               docker
               doom-modeline
-              doom-themes
               # eglot from GNU ELPA, not the copy bundled with Emacs 30.2
               # (1.17.30). Roslyn reports diagnostics by pull only, and pull
               # support landed in 1.20; `eglot-code-action-indications' (set in
@@ -455,7 +455,7 @@
           # lightweight emacs-nox. Each tests/*-test.el extracts a single defun
           # from the tangled config.el and exercises it in isolation (see
           # tests/config-test-helper.el), so the whole configuration need not
-          # load. Covers the auto-dark detection guard, the Doom Themes variant
+          # load. Covers the auto-dark detection guard, the Catppuccin flavour
           # map, the node_modules/.bin resolver, the Roslyn workspace-open plan,
           # and duplicate-keybinding detection. Tests that need the real package
           # set (command existence, evil undo system) self-skip here and run in
@@ -531,7 +531,7 @@
                         (package-activate-all) \
                         (dolist (fn '(gcmh-mode vertico-mode marginalia-mode exec-path-from-shell-initialize \
                                       corfu-mode corfu-history-mode evil-mode \
-                                      doom-themes-visual-bell-config which-key-mode \
+                                      which-key-mode \
                                       doom-modeline-mode centaur-tabs-mode \
                                       apheleia-global-mode agent-shell \
                                       magit-todos-mode magit-todos-list \
