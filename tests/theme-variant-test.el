@@ -34,6 +34,7 @@ BINDINGS are extra `cl-letf' bindings that take precedence over the stubs."
               ((symbol-function 'my/apply-font-faces) #'ignore)
               ((symbol-function 'my/apply-modeline-face) #'ignore)
               ((symbol-function 'my/apply-centaur-tabs-faces) #'ignore)
+              ((symbol-function 'my/apply-tab-bar-faces) #'ignore)
               ,@bindings)
      ,@body))
 
@@ -104,10 +105,10 @@ leave the previous flavour's colours on screen until the next switch."
       (should (eq flavor-at-load 'latte)))))
 
 (ert-deftest theme-variant/apply-repairs-the-themed-faces ()
-  "Loading a flavour re-applies the diff-hl, fringe, font, mode-line and
-centaur-tabs faces.  `load-theme' re-specs `default', the diff-hl faces, the
-fringe, the mode-line and the selected tab, so every helper must run on each
-switch."
+  "Loading a flavour re-applies the diff-hl, fringe, font, mode-line,
+centaur-tabs and tab-bar faces.  `load-theme' re-specs `default', the diff-hl
+faces, the fringe, the mode-line and both selected tabs, so every helper must
+run on each switch."
   ;; Arrange
   (cfg-test-load-defun 'my/theme-for-appearance)
   (cfg-test-load-defun 'my/apply-theme-for-appearance)
@@ -126,11 +127,13 @@ switch."
          ((symbol-function 'my/apply-modeline-face)
           (lambda () (push 'modeline calls)))
          ((symbol-function 'my/apply-centaur-tabs-faces)
-          (lambda () (push 'centaur-tabs calls))))
+          (lambda () (push 'centaur-tabs calls)))
+         ((symbol-function 'my/apply-tab-bar-faces)
+          (lambda () (push 'tab-bar calls))))
       ;; Act
       (my/apply-theme-for-appearance 'dark)
       ;; Assert
-      (dolist (helper '(diff-hl fringe fonts modeline centaur-tabs))
+      (dolist (helper '(diff-hl fringe fonts modeline centaur-tabs tab-bar))
         (should (memq helper calls))))))
 
 (ert-deftest theme-variant/modeline-face-matches-default-background ()

@@ -187,7 +187,8 @@ one here would have no visible effect besides an unused reserved width.
         (savehist-mode 1)
         (global-prettify-symbols-mode 1)
         (global-font-lock-mode 1)
-        (pixel-scroll-precision-mode 1))
+        (pixel-scroll-precision-mode 1)
+        (tab-bar-mode 1))
 #+end_src
 
 ** Dashboard
@@ -384,6 +385,13 @@ pixel count, not a real character), so removing the segment outright -- the
 first attempt -- silently let the mode-line collapse back to font height
 instead.
 
+=my/apply-tab-bar-faces= styles =tab-bar-mode='s tabs to match the
+centaur-tabs row: a flat =default= background, the selected tab marked by a
+=mauve= underline, and inactive tabs in =subtext1= (=subtext0= falls below
+4.5:1 contrast on Latte). Hover is =tab-bar-tab-highlight=, which Catppuccin
+leaves at Emacs' grey raised button, so it gets a =surface0= fill with the
+same padding instead.
+
 #+begin_src emacs-lisp
 (use-package catppuccin-theme
   :config
@@ -455,6 +463,44 @@ since centaur-tabs is `:hook'ed rather than loaded eagerly."
                                :overline bar-color :underline nil)
            (set-face-attribute 'centaur-tabs-selected-modified nil
                                :overline bar-color :underline nil))))))
+  (defun my/apply-tab-bar-faces ()
+    "Style `tab-bar-mode' tabs to match the centaur-tabs row below them.
+Flattens the bar to `default''s background and marks the selected tab with
+a `mauve' underline, the same accent `my/apply-modeline-face' uses.
+Catppuccin gives `tab-bar-tab' a `ctp-current' fill instead, and
+`load-theme' resets the face on every switch, so this re-runs from
+`my/apply-theme-for-appearance' like `my/apply-centaur-tabs-faces'.
+Inactive tabs use `subtext1': `subtext0' is only 4.37:1 against Latte's
+`base', below the WCAG 2.2 AA 4.5:1 minimum for text.
+Hover is `tab-bar-tab-highlight', the `mouse-face' that
+`tab-bar-tab-name-format-mouse-face' adds. Its built-in spec is a grey85
+raised button, so it gets a `surface0' fill with the same padding instead,
+which keeps the tab the same size under the pointer. It leaves `:underline'
+unspecified, so the selected tab keeps its `mauve' underline on hover.
+tab-bar.el is preloaded, so its faces always exist and need no guard."
+    (let* ((bg (face-attribute 'default :background nil t))
+           (hover-bg (catppuccin-color 'surface0))
+           (padding (list :line-width '(8 . 4) :color bg)))
+      (set-face-attribute 'tab-bar nil
+                          :background bg
+                          :foreground (catppuccin-color 'subtext1)
+                          :box nil)
+      (set-face-attribute 'tab-bar-tab nil
+                          :background bg
+                          :foreground (catppuccin-color 'text)
+                          :weight 'bold
+                          :underline (catppuccin-color 'mauve)
+                          :box padding)
+      (set-face-attribute 'tab-bar-tab-inactive nil
+                          :background bg
+                          :foreground (catppuccin-color 'subtext1)
+                          :weight 'normal
+                          :underline nil
+                          :box padding)
+      (set-face-attribute 'tab-bar-tab-highlight nil
+                          :background hover-bg
+                          :foreground (catppuccin-color 'text)
+                          :box (list :line-width '(8 . 4) :color hover-bg))))
   (defun my/apply-font-faces ()
     "Re-apply the font/emphasis attributes `load-theme' strips or omits.
 Everything is Maple Mono NF now, so no face needs its own family: an
@@ -517,7 +563,8 @@ wrong colours -- plain `load-theme' stacks rather than replaces."
     (my/apply-fringe-face)
     (my/apply-font-faces)
     (my/apply-modeline-face)
-    (my/apply-centaur-tabs-faces)))
+    (my/apply-centaur-tabs-faces)
+    (my/apply-tab-bar-faces)))
 
 ;; Drive the flavour switch off the system appearance, cross-platform. auto-dark
 ;; detects light/dark (D-Bus on Linux, ns-system-appearance/AppleScript on
