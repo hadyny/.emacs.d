@@ -206,13 +206,35 @@ needed and no `apheleia-formatters' entry belongs here.  It is the same nixfmt
 that `nix fmt' (nixfmt-tree) runs, so format-on-save and the pre-commit hook
 cannot disagree."
   ;; Arrange / Act
-  (let ((tools (cfg-test-nix-list "emacsToolsFor"))
-        (code (prin1-to-string (cfg-test-read-forms))))
+  (let* ((tools (cfg-test-nix-list "emacsToolsFor"))
+         (forms (cfg-test-read-forms))
+         (code (prin1-to-string forms))
+         (mode-alist-forms
+          (seq-filter (lambda (f)
+                        (string-match-p "apheleia-mode-alist" (prin1-to-string f)))
+                      forms)))
     ;; Assert
     (should (member "nixfmt" tools))
     ;; Apheleia knows nix already; a local override would be dead weight.
     (should-not (string-match-p "apheleia-formatters" code))
-    (should-not (string-match-p "apheleia-mode-alist" code))))
+    ;; `apheleia-mode-alist' is edited for C#, but never for nix.
+    (dolist (f mode-alist-forms)
+      (should-not (string-match-p "\\_<nix" (prin1-to-string f))))))
+
+(ert-deftest dev-tooling/csharp-is-formatted-by-roslyn-not-apheleia ()
+  "C# modes are removed from `apheleia-mode-alist'.
+Apheleia's default C# formatter, csharpier, ignores most `.editorconfig' rules,
+so Eglot (Roslyn) formats C# buffers instead."
+  ;; Arrange
+  (let ((removed nil))
+    ;; Act
+    (dolist (f (cfg-test-read-forms))
+      (dolist (ag (cfg-test-find-all f 'alist-get))
+        (when (eq (nth 2 ag) 'apheleia-mode-alist)
+          (push (cadr (nth 1 ag)) removed))))
+    ;; Assert
+    (should (memq 'csharp-mode removed))
+    (should (memq 'csharp-ts-mode removed))))
 
 (provide 'dev-tooling-test)
 ;;; dev-tooling-test.el ends here

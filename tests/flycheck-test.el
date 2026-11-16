@@ -124,13 +124,15 @@ ESLint arrives through the multiplexer, so chaining would double-report it."
     ;; Absent is the point -- the default is already t.
     (should-not (fm-test--custom-set-p 'flycheck-eglot-exclusive))))
 
-(ert-deftest flycheck/annotate-mode-on-at-flycheck-defaults ()
-  "Inline diagnostics are enabled and left at Flycheck's own styles."
+(ert-deftest flycheck/annotate-mode-on-with-eol-current-line ()
+  "Inline diagnostics are enabled, with `eol' on the current line too.
+The default `below' style shifts every following line each time point moves
+onto or off an error.  Other lines stay at Flycheck's own (`eol') default."
   ;; Arrange / Act
   (let ((code (fm-test--config-code)))
     ;; Assert
     (should (string-match-p "global-flycheck-annotate-mode" code))
-    (should-not (fm-test--custom-set-p 'flycheck-annotate-current-line-style))
+    (should (eq (fm-test--custom-value 'flycheck-annotate-current-line-style) 'eol))
     (should-not (fm-test--custom-set-p 'flycheck-annotate-other-lines-style))))
 
 ;;; Behavioural -- the real package set, fully loaded config
